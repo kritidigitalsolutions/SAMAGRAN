@@ -1,0 +1,190 @@
+/* PAGE - NOT CENTERED */
+.add-item-page {
+  width: 100%;
+  padding: 30px 40px;
+}
+
+/* TITLE */
+.add-item-title {
+  font-size: 24px;
+  font-weight: 700;
+  color: #f9f0de;
+  margin-bottom: 30px;
+}
+
+/* FORM - FLOATING LEFT */
+.add-item-form {
+  width: 100%;
+  max-width: 1100px;   /* wide like admin panel */
+  display: grid;
+  grid-template-columns: 1fr 1fr;  /* 2 columns */
+  gap: 20px 30px;
+}
+
+/* GROUP */
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* FULL WIDTH ELEMENTS */
+.full-width {
+  grid-column: span 2;
+}
+
+/* LABEL */
+.form-group label {
+  font-size: 13px;
+  color: #dbcdb8;
+  font-weight: 500;
+}
+
+/* INPUT STYLE */
+.form-group input,
+.form-group select {
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.04);
+  color: #fff;
+  outline: none;
+  transition: all 0.25s ease;
+}
+
+/* FOCUS EFFECT */
+.form-group input:focus {
+  border-color: #d4af37;
+  background: rgba(255,255,255,0.06);
+  box-shadow: 0 0 0 2px rgba(212, 175, 55, 0.15);
+}
+
+/* CHECKBOX */
+.checkbox label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* IMAGE PREVIEW */
+.preview-container {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.preview-image {
+  width: 70px;
+  height: 70px;
+  object-fit: cover;
+  border-radius: 10px;
+}
+
+/* BUTTON */
+.add-btn {
+  margin-top: 10px;
+  padding: 14px;
+  border-radius: 18px;
+  border: none;
+  font-weight: 600;
+  background: linear-gradient(135deg, #8B1E3F, #D4AF37);
+  color: white;
+  cursor: pointer;
+  transition: 0.3s;
+  width: 100%;
+}
+
+.add-btn:hover {
+  transform: translateY(-2px);
+}
+.preview-box {
+  position: relative;
+}
+
+.preview-image {
+  width: 70px;
+  height: 70px;
+  object-fit: cover;
+  border-radius: 10px;
+}
+
+/* ❌ REMOVE BUTTON */
+.remove-btn {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  background: #8B1E3F;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.remove-btn:hover {
+  background: #D4AF37;
+}
+
+.form-group input {
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.03);
+  color: #fff;
+}
+
+.form-group input:focus {
+  border-color: #D4AF37;
+  box-shadow: 0 0 0 2px rgba(212,175,55,0.15);
+}
+
+
+/* //light mode */
+
+/* ================= LIGHT MODE ================= */
+:root:not(.dark) .add-item-page {
+  background: #f6efe6;
+}
+
+:root:not(.dark) .add-item-title {
+  color: #2f1618;
+}
+
+/* INPUTS */
+:root:not(.dark) .form-group input,
+:root:not(.dark) .form-group select {
+  background: #ffffff;
+  border: 1px solid #e2d3bd;
+  color: #2f1618;
+}
+
+/* LABEL */
+:root:not(.dark) .form-group label {
+  color: #7a5c48;
+}
+
+/* FOCUS */
+:root:not(.dark) .form-group input:focus,
+:root:not(.dark) .form-group select:focus {
+  border-color: #d4af37;
+  box-shadow: 0 0 0 2px rgba(212, 175, 55, 0.2);
+}
+
+/* CHECKBOX */
+:root:not(.dark) .checkbox label {
+  color: #5c3a2e;
+}
+
+/* FILE INPUT */
+:root:not(.dark) input[type="file"] {
+  background: #fff;
+  border: 1px dashed #d4af37;
+}
+
+/* PREVIEW */
+:root:not(.dark) .preview-image {
+  border: 1px solid #e2d3bd;
+}
+
+/* BUTTON stays same (gradient works for both) */

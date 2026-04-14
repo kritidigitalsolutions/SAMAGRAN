@@ -1,0 +1,16 @@
+.admin-layout {
+  @apply flex h-screen overflow-hidden bg-[radial-gradient(circle_at_top,_rgba(212,175,55,0.14),_transparent_22%),radial-gradient(circle_at_right,_rgba(139,30,63,0.10),_transparent_24%),linear-gradient(180deg,#f9f3ea_0%,#f4ebdc_100%)] dark:bg-[radial-gradient(circle_at_top,_rgba(212,175,55,0.10),_transparent_20%),radial-gradient(circle_at_right,_rgba(139,30,63,0.10),_transparent_22%),linear-gradient(180deg,#14060a_0%,#0a0405_100%)];
+}
+
+.admin-layout__shell {
+  @apply flex flex-1 flex-col overflow-hidden;
+}
+
+.admin-layout__content {
+  @apply flex-1 overflow-y-auto p-4 md:p-6;
+}
+
+.admin-layout__content {
+  background: transparent !important;
+  backdrop-filter: none !important;
+}

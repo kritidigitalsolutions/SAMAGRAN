@@ -1,0 +1,15 @@
+node_modules
+<<<<<<< HEAD
+.env
+build
+dist
+=======
+backend/node_modules
+frontend/node_modules
+.env
+backend/.env
+frontend/.env
+dist
+build
+*.log
+>>>>>>> 5752114ae7068d23b97957c1912b2d699c73618b
