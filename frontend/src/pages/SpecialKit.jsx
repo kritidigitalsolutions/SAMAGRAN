@@ -321,7 +321,7 @@ export default function SpecialKit() {
               _id: itemId,
               title: item.product?.title || item.name || "Kit item",
               pricing: item.product?.pricing || { price: item.price || 0 },
-              media: item.product?.media || { Images: [item.image].filter(Boolean) },
+              media: item.product?.media || { image: [item.image].filter(Boolean) },
               category: item.product?.category || { name: "Kit item" },
             };
           }
@@ -342,7 +342,7 @@ export default function SpecialKit() {
               _id: itemId,
               title: item.product?.title || item.name || "Kit item",
               pricing: item.product?.pricing || { price: item.price || 0 },
-              media: item.product?.media || { Images: [item.image].filter(Boolean) },
+              media: item.product?.media || { image: [item.image].filter(Boolean) },
               category: item.product?.category || { name: "Kit item" },
             });
           }

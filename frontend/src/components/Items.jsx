@@ -53,7 +53,7 @@
           {products.map((p) => (
             <div key={p._id} className="item-card">
               {/* IMAGE SLIDER */}
-              <ImageSlider images={p.images || p.media?.Images || []} />
+              <ImageSlider images={p.images || p.media?.image || p.media?.Images || []} />
 
               {/* CONTENT */}
               <div className="item-body">

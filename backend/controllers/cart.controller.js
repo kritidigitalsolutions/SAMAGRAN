@@ -1,5 +1,5 @@
 import Cart from "../models/cart.model.js";
-import Item from "../models/item.model.js";
+import Item from "../models/product.model.js";
 import FestivalKit from "../models/festivalKit.model.js";
 
 // ADD / INCREMENT

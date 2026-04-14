@@ -25,7 +25,7 @@ export const getAllUserKitsForAdmin = async (req, res) => {
         productId: item.product?._id || item.product,
         name: item.product?.title || "Kit item",
         price: item.priceAtTime ?? item.product?.pricing?.price ?? 0,
-        image: item.product?.media?.Images?.[0] || null,
+        image: item.product?.media?.image?.[0] || item.product?.media?.Images?.[0] || null,
         quantity: item.quantity || 1,
       })),
       totalPrice: kit.totalPrice || 0,

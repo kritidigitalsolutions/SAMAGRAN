@@ -2,24 +2,20 @@ import express from "express";
 import protect from "../../middleware/auth.middleware.js";
 
 import {
-  orderFromKit,
-  customOrder,
+  createUserKit,
   getMyKits,
   checkoutUserKit,
 } from "../../controllers/userKit.controller.js";
 
 const router = express.Router();
 
-// Save customized festival kit
-router.post("/order-from-kit/:kitSlug", protect, orderFromKit);
+// Create custom user kit (saved as draft)
+router.post("/", protect, createUserKit);
 
-// Save custom kit
-router.post("/custom-order", protect, customOrder);
-
-// Get my saved kits
+// Get my kits (default: draft)
 router.get("/my-kits", protect, getMyKits);
 
-// Checkout saved kit -> create real order
-router.post("/checkout/:userKitId", protect, checkoutUserKit);
+// Checkout draft kit
+router.post("/:userKitId/checkout", protect, checkoutUserKit);
 
 export default router;

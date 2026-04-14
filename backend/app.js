@@ -1,25 +1,23 @@
 import express from "express";
 import cors from "cors";
-import mongoose from "mongoose";
-import dotenv from "dotenv";
 import bcrypt from "bcryptjs";
 import Admin from "./models/admin.model.js";
-
-dotenv.config();
 
 const app = express();
 
 // Middleware
-app.use(cors({
-  origin: [
-    "http://localhost:3000",
-    "http://localhost:3001",
-    process.env.FRONTEND_URL,
-  ].filter(Boolean),
-  credentials: true,
-  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
-}));
+app.use(
+  cors({
+    origin: [
+      "http://localhost:3000",
+      "http://localhost:3001",
+      process.env.FRONTEND_URL,
+    ].filter(Boolean),
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  }),
+);
 app.use(express.json());
 app.use("/uploads", express.static("uploads"));
 
@@ -28,37 +26,37 @@ app.get("/", (req, res) => {
   res.send("API is running...");
 });
 
-import authRoutes from "./routes/user/auth.routes.js";
-app.use("/api/auth", authRoutes);
+// Admin ROUTES
+import festivalKitRoutes from "./routes/admin/festivalKit.routes.js";
+//for user festival kits
+import adminUserKitRoutes from "./routes/admin/userKit.routes.js";
+import adminAuthRoutes from "./routes/admin/auth.routes.js";
+import adminRoutes from "./routes/admin/admin.routes.js";
 
 import userRoutes from "./routes/user/user.routes.js";
-app.use("/api/user", userRoutes);
+import authRoutes from "./routes/user/auth.routes.js";
 
-import festivalKitRoutes from "./routes/admin/festivalKit.routes.js";
 
-app.use("/api/kits", festivalKitRoutes);
-
-//for user festival kits
+// User Routs
 import userFestivalKitRoutes from "./routes/user/festivalKit.routes.js";
-app.use('/api/user/kits',userFestivalKitRoutes)
-
 import userKitRoutes from "./routes/user/userKit.routes.js";
+import userProductRoutes from "./routes/user/product.routes.js";
+import cartRoutes from "./routes/user/cart.routes.js";
+import orderRoutes from "./routes/user/order.routes.js";
+import productRoutes from "./routes/admin/product.routes.js";
 
-app.use("/api/user-kits", userKitRoutes);
+app.use("/api/user/items", userProductRoutes);
 
-import userItemRoutes from "./routes/user/item.routes.js";
-
-app.use("/api/user/items", userItemRoutes);
-
-// ✅ SINGLE DB CONNECTION
-mongoose.connect(process.env.MONGO_URI)
-  .then(async () => {
-    console.log("MongoDB connected");
-
-    // ✅ ADMIN CREATION (INLINE)
+// Ensure default admin exists after DB connection is established in server.js
+const ensureAdmin = async () => {
+  try {
     const email = process.env.ADMIN_EMAIL;
     const password = process.env.ADMIN_PASSWORD;
     const name = process.env.ADMIN_NAME || "Temple Ops";
+
+    if (!email || !password) {
+      return;
+    }
 
     const existing = await Admin.findOne({ email });
 
@@ -75,31 +73,46 @@ mongoose.connect(process.env.MONGO_URI)
     } else {
       console.log("Admin already exists");
     }
+  } catch (err) {
+    console.log(err.message);
+  }
+};
 
-  })
-  .catch((err) => console.log(err));
+ensureAdmin();
 
-import adminAuthRoutes from "./routes/admin/auth.routes.js";
-import adminRoutes from "./routes/admin/admin.routes.js";
 
-app.use("/api/admin/auth", adminAuthRoutes);
+// ############ Admin API ##########################
+
 app.use("/api/admin", adminRoutes);
+app.use("/api/admin/auth", adminAuthRoutes);
 
-
-import itemRoutes from "./routes/admin/item.routes.js";
-
-app.use("/api/items", itemRoutes);
-
-import adminUserKitRoutes from "./routes/admin/userKit.routes.js";
-
+app.use("/api/admin/kits", festivalKitRoutes);
 app.use("/api/admin/user-kits", adminUserKitRoutes);
+
+
+
+// ############ User Routes ##########################
+
+app.use("/api/auth", authRoutes);
+
+app.use("/api/user", userRoutes);
+
+// user festive kit for user
+app.use("/api/user/kits", userFestivalKitRoutes);
+
+//cart
+app.use("/api/cart", cartRoutes);
+
+// items
+app.use("/api/items", productRoutes);
+
+//place order for users
+app.use("/api/order", orderRoutes);
+
+// user get all kit for user
+app.use("/api/user-kits", userKitRoutes);
+
 
 export default app;
 
-//cart
-import cartRoutes from "./routes/user/cart.routes.js";
-app.use("/api/cart", cartRoutes);
 
-//place order for users 
-import orderRoutes from "./routes/user/order.routes.js";
-app.use("/api/order", orderRoutes);

@@ -1,5 +1,5 @@
 import FestivalKit from "../../models/festivalKit.model.js";
-import Item from "../../models/item.model.js";
+import Item from "../../models/product.model.js";
 
 const parseKitItems = (items) => (typeof items === "string" ? JSON.parse(items) : items);
 
@@ -130,7 +130,7 @@ export const getSingleKit = async (req, res) => {
       id: i.product._id,
       name: i.product.title,
       price: i.product.pricing.price,
-      image: i.product.media?.Images?.[0] || null,
+      image: i.product.media?.image?.[0] || i.product.media?.Images?.[0] || null,
       quantity: i.quantity
     }));
 

@@ -46,9 +46,21 @@ const userKitSchema = new mongoose.Schema(
 
     status: {
       type: String,
-      enum: ["saved", "checkedout"],
-      default: "saved",
-    }
+      enum: ["draft", "ordered"],
+      default: "draft",
+    },
+
+    paymentStatus: {
+      type: String,
+      enum: ["pending", "paid", "failed"],
+      default: "pending",
+    },
+
+    order: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Order",
+      default: null,
+    },
   },
   { timestamps: true }
 );

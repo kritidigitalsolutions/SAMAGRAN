@@ -1,6 +1,5 @@
 import UserKit from "../models/userKit.model.js";
-import FestivalKit from "../models/festivalKit.model.js";
-import Item from "../models/item.model.js";
+import Item from "../models/product.model.js";
 import Order from "../models/order.model.js";
 
 // ------------------------------------
@@ -11,19 +10,19 @@ const buildItemsAndTotal = async (items) => {
   let totalPrice = 0;
 
   for (const row of items) {
-    const { slug, quantity } = row;
+    const { productId, quantity } = row;
 
-    if (!slug) {
-      throw new Error("Product slug is required");
+    if (!productId) {
+      throw new Error("productId is required");
     }
 
     const product = await Item.findOne({
-      slug,
+      _id: productId,
       status: "active",
     });
 
     if (!product) {
-      throw new Error(`Product not found: ${slug}`);
+      throw new Error(`Product not found: ${productId}`);
     }
 
     const qty = Number(quantity || 1);
@@ -51,71 +50,12 @@ const buildItemsAndTotal = async (items) => {
 };
 
 // ------------------------------------
-// POST /api/user-kits/order-from-kit/:kitSlug
-// Save customized festival kit
+// POST /api/user-kits
+// Create user custom kit as draft
 // ------------------------------------
-export const orderFromKit = async (req, res) => {
+export const createUserKit = async (req, res) => {
   try {
-    const { kitSlug } = req.params;
-    const { items = [] } = req.body;
-
-    const baseKit = await FestivalKit.findOne({
-      slug: kitSlug,
-    });
-
-    if (!baseKit) {
-      return res.status(404).json({
-        success: false,
-        message: "Festival kit not found",
-      });
-    }
-
-    if (!items.length) {
-      return res.status(400).json({
-        success: false,
-        message: "Items are required",
-      });
-    }
-
-    const { finalItems, totalPrice } =
-      await buildItemsAndTotal(items);
-
-    const userKit = await UserKit.create({
-      user: req.user._id,
-      name: baseKit.name,
-      baseKit: baseKit._id,
-      items: finalItems,
-      totalPrice,
-      status: "saved",
-    });
-
-    res.status(201).json({
-      success: true,
-      message: "Festival kit saved successfully",
-      data: userKit,
-    });
-  } catch (err) {
-    res.status(500).json({
-      success: false,
-      message: err.message,
-    });
-  }
-};
-
-// ------------------------------------
-// POST /api/user-kits/custom-order
-// Save custom named kit
-// ------------------------------------
-export const customOrder = async (req, res) => {
-  try {
-    const { name, items = [] } = req.body;
-
-    if (!name) {
-      return res.status(400).json({
-        success: false,
-        message: "Kit name is required",
-      });
-    }
+    const { name = "Custom Kit", items = [], baseKit = null } = req.body;
 
     if (!items.length) {
       return res.status(400).json({
@@ -130,14 +70,16 @@ export const customOrder = async (req, res) => {
     const userKit = await UserKit.create({
       user: req.user._id,
       name,
+      baseKit,
       items: finalItems,
       totalPrice,
-      status: "saved",
+      status: "draft",
+      paymentStatus: "pending",
     });
 
     res.status(201).json({
       success: true,
-      message: "Custom kit saved successfully",
+      message: "User kit created as draft",
       data: userKit,
     });
   } catch (err) {
@@ -149,17 +91,25 @@ export const customOrder = async (req, res) => {
 };
 
 // ------------------------------------
-// GET /api/user-kits/my-orders
-// Get saved kits
+// GET /api/user-kits/my-kits
+// Get my kits, default draft
 // ------------------------------------
 export const getMyKits = async (req, res) => {
   try {
-    const kits = await UserKit.find({
+    const { status = "draft" } = req.query;
+
+    const filter = {
       user: req.user._id,
-      status: "saved",
-    })
+    };
+
+    if (status !== "all") {
+      filter.status = status;
+    }
+
+    const kits = await UserKit.find(filter)
       .populate("items.product", "title slug pricing media")
-      .populate("baseKit", "name slug image");
+      .populate("baseKit", "name slug image")
+      .sort({ updatedAt: -1 });
 
     res.json({
       success: true,
@@ -175,13 +125,17 @@ export const getMyKits = async (req, res) => {
 };
 
 // ------------------------------------
-// POST /api/user-kits/checkout/:userKitId
-// Create real order from saved user kit
+// POST /api/user-kits/:userKitId/checkout
+// Checkout draft kit. If payment is not paid, keep as draft.
 // ------------------------------------
 export const checkoutUserKit = async (req, res) => {
   try {
     const { userKitId } = req.params;
-    const { paymentMethod = "COD", address } = req.body;
+    const {
+      paymentMethod = "COD",
+      paymentStatus = "pending",
+      address,
+    } = req.body;
 
     const userKit = await UserKit.findOne({
       _id: userKitId,
@@ -192,6 +146,25 @@ export const checkoutUserKit = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "User kit not found",
+      });
+    }
+
+    if (userKit.status === "ordered") {
+      return res.status(400).json({
+        success: false,
+        message: "This kit is already checked out",
+      });
+    }
+
+    if (paymentStatus !== "paid") {
+      userKit.status = "draft";
+      userKit.paymentStatus = paymentStatus;
+      await userKit.save();
+
+      return res.json({
+        success: true,
+        message: "Payment not completed. Kit remains in draft.",
+        data: userKit,
       });
     }
 
@@ -217,12 +190,21 @@ export const checkoutUserKit = async (req, res) => {
       totalAmount: userKit.totalPrice,
       paymentMethod,
       address: finalAddress,
+      paymentStatus: "Paid",
     });
+
+    userKit.status = "ordered";
+    userKit.paymentStatus = "paid";
+    userKit.order = order._id;
+    await userKit.save();
 
     res.status(201).json({
       success: true,
       message: "Order placed successfully from user kit",
-      data: order,
+      data: {
+        order,
+        userKit,
+      },
     });
   } catch (err) {
     res.status(500).json({

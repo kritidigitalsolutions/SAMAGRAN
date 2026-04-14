@@ -55,7 +55,7 @@ export const getSingleKitUser = async (req, res) => {
       name: i.product.title,
       slug: i.product.slug,
       price: i.product.pricing.price,
-      image: i.product.media?.Images?.[0] || null,
+      image: i.product.media?.image?.[0] || i.product.media?.Images?.[0] || null,
       quantity: i.quantity
     }));
 

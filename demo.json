@@ -1,0 +1,169 @@
+{
+    "info": {
+        "name": "SAMAGRAN - User Kit APIs",
+        "_postman_id": "4f3ec8d8-0a7d-4f3e-91a2-8f4455e8b101",
+        "description": "User custom kit draft and checkout flow",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "item": [
+        {
+            "name": "1. Create User Kit (Draft)",
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Authorization",
+                        "value": "Bearer {{token}}"
+                    }
+                ],
+                "url": {
+                    "raw": "{{baseUrl}}/api/user-kits",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "api",
+                        "user-kits"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n "name": "Tuesday Pooja Kit",\n "items": [\n { "productId": "661111111111111111111111", "quantity": 2 },\n { "productId": "662222222222222222222222", "quantity": 1 }\n ]\n}"
+                }
+            },
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "exec": [
+                            "pm.test('Status 201', function () { pm.response.to.have.status(201); });",
+                            "var json = pm.response.json();",
+                            "if (json && json.data && json.data._id) { pm.environment.set('userKitId', json.data._id); }"
+                        ],
+                        "type": "text/javascript"
+                    }
+                }
+            ]
+        },
+        {
+            "name": "2. Get My Draft Kits",
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Authorization",
+                        "value": "Bearer {{token}}"
+                    }
+                ],
+                "url": {
+                    "raw": "{{baseUrl}}/api/user-kits/my-kits",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "api",
+                        "user-kits",
+                        "my-kits"
+                    ]
+                }
+            }
+        },
+        {
+            "name": "3. Get All My Kits",
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Authorization",
+                        "value": "Bearer {{token}}"
+                    }
+                ],
+                "url": {
+                    "raw": "{{baseUrl}}/api/user-kits/my-kits?status=all",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "api",
+                        "user-kits",
+                        "my-kits"
+                    ],
+                    "query": [
+                        {
+                            "key": "status",
+                            "value": "all"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "4. Checkout Unpaid (Stays Draft)",
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Authorization",
+                        "value": "Bearer {{token}}"
+                    }
+                ],
+                "url": {
+                    "raw": "{{baseUrl}}/api/user-kits/{{userKitId}}/checkout",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "api",
+                        "user-kits",
+                        "{{userKitId}}",
+                        "checkout"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n "paymentMethod": "ONLINE",\n "paymentStatus": "pending",\n "address": {\n "name": "Ravi Sharma",\n "phone": "9876543210",\n "fullAddress": "Sector 21, Near Mandir",\n "city": "Noida",\n "state": "UP",\n "pincode": "201301"\n }\n}"
+                }
+            }
+        },
+        {
+            "name": "5. Checkout Paid (Creates Order)",
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Authorization",
+                        "value": "Bearer {{token}}"
+                    }
+                ],
+                "url": {
+                    "raw": "{{baseUrl}}/api/user-kits/{{userKitId}}/checkout",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "api",
+                        "user-kits",
+                        "{{userKitId}}",
+                        "checkout"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n "paymentMethod": "ONLINE",\n "paymentStatus": "paid",\n "address": {\n "name": "Ravi Sharma",\n "phone": "9876543210",\n "fullAddress": "Sector 21, Near Mandir",\n "city": "Noida",\n "state": "UP",\n "pincode": "201301"\n }\n}"
+                }
+            }
+        }
+    ]
+}
