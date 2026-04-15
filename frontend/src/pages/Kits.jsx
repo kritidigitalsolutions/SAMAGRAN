@@ -1,4 +1,3 @@
-import "./Kits.css";
 
 export default function Kits() {
   return (

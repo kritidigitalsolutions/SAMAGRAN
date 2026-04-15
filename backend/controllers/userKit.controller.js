@@ -1,6 +1,7 @@
 import UserKit from "../models/userKit.model.js";
 import Item from "../models/product.model.js";
 import Order from "../models/order.model.js";
+import DefaultKit from "../models/defaultKit.model.js";
 
 // ------------------------------------
 // Helper: Build items + calculate total
@@ -205,6 +206,215 @@ export const checkoutUserKit = async (req, res) => {
         order,
         userKit,
       },
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+};
+
+// ------------------------------------
+// POST /api/user-kits/from-default/:defaultKitId
+// Create draft from admin default kit, optionally override quantities
+// ------------------------------------
+export const createUserKitFromDefaultKit = async (req, res) => {
+  try {
+    const { defaultKitId } = req.params;
+    const { name, customItems = [], addItems = [] } = req.body;
+
+    const defaultKit = await DefaultKit.findOne({
+      _id: defaultKitId,
+      status: "active",
+    }).populate("items.product", "_id title pricing stock status");
+
+    if (!defaultKit) {
+      return res.status(404).json({
+        success: false,
+        message: "Default kit not found",
+      });
+    }
+
+    const overrideMap = new Map();
+
+    if (Array.isArray(customItems)) {
+      customItems.forEach((entry) => {
+        if (entry?.productId) {
+          overrideMap.set(String(entry.productId), Number(entry.quantity || 1));
+        }
+      });
+    }
+
+    const finalItems = [];
+    let totalPrice = 0;
+
+    for (const kitItem of defaultKit.items) {
+      const product = kitItem.product;
+
+      if (!product || product.status !== "active") {
+        continue;
+      }
+
+      const overrideQty = overrideMap.get(String(product._id));
+      const quantity = Math.max(Number(overrideQty || kitItem.quantity || 1), 1);
+
+      if (Number(product.stock?.quantity || 0) < quantity) {
+        return res.status(400).json({
+          success: false,
+          message: `${product.title} out of stock for selected quantity`,
+        });
+      }
+
+      const priceAtTime = Number(product.pricing?.price || 0);
+
+      finalItems.push({
+        product: product._id,
+        quantity,
+        priceAtTime,
+      });
+
+      totalPrice += priceAtTime * quantity;
+    }
+
+    if (Array.isArray(addItems)) {
+      for (const entry of addItems) {
+        const productId = entry?.productId;
+        const quantity = Math.max(Number(entry?.quantity || 1), 1);
+
+        if (!productId) {
+          continue;
+        }
+
+        const existingIndex = finalItems.findIndex(
+          (item) => String(item.product) === String(productId)
+        );
+
+        const product = await Item.findOne({
+          _id: productId,
+          status: "active",
+        });
+
+        if (!product) {
+          return res.status(400).json({
+            success: false,
+            message: `Product not found: ${productId}`,
+          });
+        }
+
+        if (Number(product.stock?.quantity || 0) < quantity) {
+          return res.status(400).json({
+            success: false,
+            message: `${product.title} out of stock for selected quantity`,
+          });
+        }
+
+        const priceAtTime = Number(product.pricing?.price || 0);
+
+        if (existingIndex >= 0) {
+          totalPrice -= finalItems[existingIndex].priceAtTime * finalItems[existingIndex].quantity;
+
+          finalItems[existingIndex] = {
+            product: product._id,
+            quantity,
+            priceAtTime,
+          };
+        } else {
+          finalItems.push({
+            product: product._id,
+            quantity,
+            priceAtTime,
+          });
+        }
+
+        totalPrice += priceAtTime * quantity;
+      }
+    }
+
+    if (!finalItems.length) {
+      return res.status(400).json({
+        success: false,
+        message: "No valid products found in selected default kit",
+      });
+    }
+
+    const userKit = await UserKit.create({
+      user: req.user._id,
+      name: name?.trim() || `${defaultKit.name} (Custom)`,
+      baseKit: defaultKit._id,
+      items: finalItems,
+      totalPrice,
+      status: "draft",
+      paymentStatus: "pending",
+    });
+
+    res.status(201).json({
+      success: true,
+      message: "Draft created from default kit",
+      data: userKit,
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+};
+
+// ------------------------------------
+// PUT /api/user-kits/:userKitId/items
+// Update draft kit items so user can add/remove products
+// ------------------------------------
+export const updateUserKitItems = async (req, res) => {
+  try {
+    const { userKitId } = req.params;
+    const { items = [] } = req.body;
+
+    if (!Array.isArray(items) || !items.length) {
+      return res.status(400).json({
+        success: false,
+        message: "At least one item is required",
+      });
+    }
+
+    const userKit = await UserKit.findOne({
+      _id: userKitId,
+      user: req.user._id,
+    });
+
+    if (!userKit) {
+      return res.status(404).json({
+        success: false,
+        message: "User kit not found",
+      });
+    }
+
+    if (userKit.status !== "draft") {
+      return res.status(400).json({
+        success: false,
+        message: "Only draft kits can be edited",
+      });
+    }
+
+    const normalizedItems = items.map((entry) => ({
+      productId: entry.productId || entry.product,
+      quantity: Number(entry.quantity || 1),
+    }));
+
+    const { finalItems, totalPrice } = await buildItemsAndTotal(normalizedItems);
+
+    userKit.items = finalItems;
+    userKit.totalPrice = totalPrice;
+    await userKit.save();
+
+    const updatedKit = await UserKit.findById(userKit._id)
+      .populate("items.product", "title slug pricing media")
+      .populate("baseKit", "name slug image");
+
+    res.json({
+      success: true,
+      message: "User kit updated",
+      data: updatedKit,
     });
   } catch (err) {
     res.status(500).json({

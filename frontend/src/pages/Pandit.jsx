@@ -1,4 +1,3 @@
-import "./Pandit.css";
 
 export default function Pandit() {
   return (

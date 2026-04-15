@@ -8,11 +8,21 @@ const app = express();
 // Middleware
 app.use(
   cors({
-    origin: [
-      "http://localhost:3000",
-      "http://localhost:3001",
-      process.env.FRONTEND_URL,
-    ].filter(Boolean),
+    origin: (origin, callback) => {
+      if (!origin) {
+        return callback(null, true);
+      }
+
+      const allowedOrigins = [process.env.FRONTEND_URL].filter(Boolean);
+      const isLocalhostOrigin = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin);
+      const isLanOrigin = /^https?:\/\/192\.168\.\d+\.\d+(?::\d+)?$/i.test(origin);
+
+      if (allowedOrigins.includes(origin) || isLocalhostOrigin || isLanOrigin) {
+        return callback(null, true);
+      }
+
+      return callback(new Error("Not allowed by CORS"));
+    },
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
@@ -28,6 +38,7 @@ app.get("/", (req, res) => {
 
 // Admin ROUTES
 import festivalKitRoutes from "./routes/admin/festivalKit.routes.js";
+import adminDefaultKitRoutes from "./routes/admin/defaultKit.routes.js";
 //for user festival kits
 import adminUserKitRoutes from "./routes/admin/userKit.routes.js";
 import adminAuthRoutes from "./routes/admin/auth.routes.js";
@@ -39,6 +50,7 @@ import authRoutes from "./routes/user/auth.routes.js";
 
 // User Routs
 import userFestivalKitRoutes from "./routes/user/festivalKit.routes.js";
+import userDefaultKitRoutes from "./routes/user/defaultKit.routes.js";
 import userKitRoutes from "./routes/user/userKit.routes.js";
 import userProductRoutes from "./routes/user/product.routes.js";
 import cartRoutes from "./routes/user/cart.routes.js";
@@ -87,7 +99,10 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/admin/auth", adminAuthRoutes);
 
 app.use("/api/admin/kits", festivalKitRoutes);
+app.use("/api/admin/default-kits", adminDefaultKitRoutes);
 app.use("/api/admin/user-kits", adminUserKitRoutes);
+// Backward-compatible alias for existing frontend calls.
+app.use("/api/kits", festivalKitRoutes);
 
 
 
@@ -99,6 +114,7 @@ app.use("/api/user", userRoutes);
 
 // user festive kit for user
 app.use("/api/user/kits", userFestivalKitRoutes);
+app.use("/api/default-kits", userDefaultKitRoutes);
 
 //cart
 app.use("/api/cart", cartRoutes);

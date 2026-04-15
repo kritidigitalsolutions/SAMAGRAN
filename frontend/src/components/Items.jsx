@@ -1,6 +1,5 @@
   import { useEffect, useState } from "react";
   import API from "../api/axios";
-  import "./Items.css";
 
   function ImageSlider({ images = [] }) {
     const [idx, setIdx] = useState(0);

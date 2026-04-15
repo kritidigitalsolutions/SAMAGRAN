@@ -10,6 +10,7 @@ import Users from "./pages/Users";
 import Orders from "./pages/Orders";
 import Items from "./pages/Items";
 import SpecialKit from "./pages/SpecialKit";
+import DefaultKit from "./pages/DefaultKit";
 import UserKit from "./pages/UserKit";
 
 
@@ -34,6 +35,7 @@ function App() {
         <Route path="orders" element={<Orders />} />
         <Route path="items" element={<Items />} />
         <Route path="special-kit" element={<SpecialKit />} />
+        <Route path="default-kit" element={<DefaultKit />} />
         <Route path="user-kits" element={<UserKit />} />
       </Route>
     </Routes>

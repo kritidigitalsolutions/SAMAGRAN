@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import Card from "../components/Card";
-import "./Dashboard.css";
 import {
   Area,
   AreaChart,
@@ -129,7 +128,7 @@ export default function Dashboard() {
   const currentSpotlight = spotlightStats[activeSpotlight];
 
   return (
-    <div className="dashboard-page">
+    <div className="space-y-4">
       <section className="shimmer-border relative overflow-hidden rounded-[32px] border border-[#dcc9ae]/60 bg-[linear-gradient(135deg,rgba(107,24,41,0.96),rgba(59,13,20,0.96)_42%,rgba(18,8,10,0.98))] p-6 text-white shadow-[0_24px_80px_rgba(59,13,20,0.26)] dark:border-white/10 dark:bg-[linear-gradient(135deg,rgba(59,13,20,0.98),rgba(23,8,11,0.98)_48%,rgba(7,4,5,1))] md:p-7">
         <div className="float-slow absolute -left-12 top-10 h-36 w-36 rounded-full bg-[#D4AF37]/18 blur-3xl" />
         <div className="float-delayed absolute right-0 top-0 h-44 w-44 rounded-full bg-[#8B1E3F]/22 blur-3xl" />

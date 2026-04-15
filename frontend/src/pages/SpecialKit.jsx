@@ -65,6 +65,7 @@ export default function SpecialKit() {
   const [editForm, setEditForm] = useState(emptyForm);
   const [editSelectedItems, setEditSelectedItems] = useState({});
   const [editImageFile, setEditImageFile] = useState(null);
+  const [showCreateForm, setShowCreateForm] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
@@ -267,6 +268,7 @@ export default function SpecialKit() {
 
       setKits((currentKits) => [res.data?.data, ...currentKits].filter(Boolean));
       resetForm();
+      setShowCreateForm(false);
       setSuccess("Special kit created successfully.");
     } catch (err) {
       setError(err.response?.data?.message || "Unable to create special kit.");
@@ -441,10 +443,16 @@ export default function SpecialKit() {
           <p>Bundle active items into premium offerings and manage them from one place.</p>
         </div>
 
-        <button type="button" onClick={fetchKits}>
-          <FiRefreshCw />
-          Refresh
-        </button>
+        <div className="flex items-center gap-2">
+          <button type="button" onClick={() => setShowCreateForm((current) => !current)}>
+            <FiPlus />
+            {showCreateForm ? "Hide Form" : "Create Special Kit"}
+          </button>
+          <button type="button" onClick={fetchKits}>
+            <FiRefreshCw />
+            Refresh
+          </button>
+        </div>
       </section>
 
       {(error || success) && (
@@ -454,6 +462,7 @@ export default function SpecialKit() {
       )}
 
       <div className="special-kit-layout">
+        {showCreateForm && (
         <form className="special-kit-form" onSubmit={handleCreateKit}>
           <div>
             <p className="special-kit-eyebrow">New kit</p>
@@ -600,6 +609,7 @@ export default function SpecialKit() {
             </button>
           </div>
         </form>
+        )}
 
         <section className="special-kit-list-panel">
           <div className="special-kit-list-head">

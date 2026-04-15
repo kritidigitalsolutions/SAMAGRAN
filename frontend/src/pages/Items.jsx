@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import API from "../api/axios";
 import "./Items.css";
 import "./AddItem.css";
-import { FiEye, FiEdit, FiSearch, FiTrash2, FiX } from "react-icons/fi";
+import { FiEye, FiEdit, FiPlus, FiSearch, FiTrash2, FiX } from "react-icons/fi";
 
 const apiOrigin = (API.defaults.baseURL || "http://localhost:8000/api").replace(/\/api\/?$/, "");
 
@@ -175,6 +175,7 @@ export default function Items() {
   const [createForm, setCreateForm] = useState(buildItemForm());
   const [createImages, setCreateImages] = useState([]);
   const [createPreview, setCreatePreview] = useState([]);
+  const [showCreateForm, setShowCreateForm] = useState(false);
 
   const [viewItem, setViewItem] = useState(null);
   const [editItem, setEditItem] = useState(null);
@@ -253,6 +254,7 @@ export default function Items() {
       setCreateImages([]);
       setCreatePreview([]);
       await fetchItems();
+      setShowCreateForm(false);
     } catch (err) {
       setActionError(err.response?.data?.message || "Unable to add item.");
     } finally {
@@ -359,9 +361,19 @@ export default function Items() {
           <h2>Items Management</h2>
           <p>Add, search, update and manage puja products from one panel.</p>
         </div>
-        <span className="items-count">{items.length} items</span>
+        <div className="flex items-center gap-2">
+          <span className="items-count ">{items.length} items</span>
+          <button
+            type="button"
+            onClick={() => setShowCreateForm((current) => !current)}
+            className="product-btn flex flex-row justify-center items-center"
+          >
+            <FiPlus />{showCreateForm ? "Hide Form" : "Create Product"}
+          </button>
+        </div>
       </div>
 
+      {showCreateForm && (
       <section className="items-create-panel">
         <h3>Add New Item</h3>
         <form className="add-item-form" onSubmit={handleCreateSubmit}>
@@ -483,6 +495,7 @@ export default function Items() {
           </button>
         </form>
       </section>
+      )}
 
       <div className="items-search-bar">
         <FiSearch />
