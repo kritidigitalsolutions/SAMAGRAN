@@ -86,7 +86,6 @@ export default function UserKit() {
       const haystack = [
         kit.name,
         kit.user?.name,
-        kit.user?.email,
         kit.user?.phone,
         ...(kit.items || []).map((item) => item.name),
       ]

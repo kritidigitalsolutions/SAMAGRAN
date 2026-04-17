@@ -66,8 +66,8 @@
 .product-btn{
   border-radius: 10px;
   padding: 9px 14px;
-  background: rgba(255,255,255,0.7);
-  color: #8b1e3f;
+  background: #8b1e3f;
+  color: white;
   font-weight: 700;
   padding: 10px 20px;
 }
@@ -86,7 +86,7 @@
 
 .items-create-panel h3 {
   margin: 0 0 14px;
-  font-size: 18px;
+  font-size: 18px;   
   font-weight: 800;
 }
 

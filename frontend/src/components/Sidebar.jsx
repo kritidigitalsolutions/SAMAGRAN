@@ -9,6 +9,9 @@ const navItems = [
   { label: "Special Kit", path: "/dashboard/special-kit", icon: "gift" },
   { label: "Default Kit", path: "/dashboard/default-kit", icon: "default-kit" },
   { label: "User Custom Kit", path: "/dashboard/user-kits", icon: "custom-kit" },
+  { label: "Pandits", path: "/dashboard/pandits", icon: "pandits" },
+  { label: "Rituals", path: "/dashboard/rituals", icon: "rituals" },
+  { label: "Pandit Bookings", path: "/dashboard/pandit-bookings", icon: "pandit-bookings" },
 ];
 
 function SidebarIcon({ icon }) {
@@ -70,6 +73,38 @@ function SidebarIcon({ icon }) {
         <path d="M4 11H20" stroke="currentColor" strokeWidth="1.8" />
         <path d="M9 3V9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
         <path d="M15 3V9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      </svg>
+    );
+  }
+
+  if (icon === "pandits") {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" className={common}>
+        <path d="M12 4C13.6569 4 15 5.34315 15 7C15 8.65685 13.6569 10 12 10C10.3431 10 9 8.65685 9 7C9 5.34315 10.3431 4 12 4Z" stroke="currentColor" strokeWidth="1.8" />
+        <path d="M6 19C6 16.7909 7.79086 15 10 15H14C16.2091 15 18 16.7909 18 19" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+        <path d="M4 12H7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+        <path d="M17 12H20" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      </svg>
+    );
+  }
+
+  if (icon === "pandit-bookings") {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" className={common}>
+        <rect x="4" y="5" width="16" height="15" rx="2.5" stroke="currentColor" strokeWidth="1.8" />
+        <path d="M8 3V7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+        <path d="M16 3V7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+        <path d="M4 10H20" stroke="currentColor" strokeWidth="1.8" />
+        <path d="M9 14H15" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      </svg>
+    );
+  }
+
+  if (icon === "rituals") {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" className={common}>
+        <path d="M12 21C12 21 5 16.8 5 10.5C5 8.01 7.01 6 9.5 6C10.88 6 12.12 6.63 13 7.62C13.88 6.63 15.12 6 16.5 6C18.99 6 21 8.01 21 10.5C21 16.8 14 21 14 21H12Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M12.5 4.5C12.5 3.67 13.17 3 14 3C14.83 3 15.5 3.67 15.5 4.5C15.5 5.33 14.83 6 14 6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
       </svg>
     );
   }

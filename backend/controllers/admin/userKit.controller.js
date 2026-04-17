@@ -6,7 +6,6 @@ import UserKit from "../../models/userKit.model.js";
 export const getAllUserKitsForAdmin = async (req, res) => {
   try {
     const kits = await UserKit.find()
-      .populate("user", "name email phone")
       .populate("items.product", "title pricing media")
       .sort({ createdAt: -1 });
 
@@ -17,7 +16,6 @@ export const getAllUserKitsForAdmin = async (req, res) => {
         ? {
             _id: kit.user._id,
             name: kit.user.name || "Unnamed user",
-            email: kit.user.email || "",
             phone: kit.user.phone || "",
           }
         : null,

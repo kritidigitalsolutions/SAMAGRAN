@@ -85,7 +85,7 @@ export default function Navbar({ onMenuClick, onToggleSidebar, sidebarCollapsed 
 
           <div>
           <p className="text-xs font-semibold uppercase tracking-[0.35em] text-[#9f3144] dark:text-[#D4AF37]">
-            Samagran Admin
+            Samagran Admin Portal
           </p>
           <h1 className="mt-1 text-2xl font-bold tracking-tight text-[#2f1618] dark:text-[#f9f0de]">
             Ritual commerce command center

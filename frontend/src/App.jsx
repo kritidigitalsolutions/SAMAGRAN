@@ -12,6 +12,9 @@ import Items from "./pages/Items";
 import SpecialKit from "./pages/SpecialKit";
 import DefaultKit from "./pages/DefaultKit";
 import UserKit from "./pages/UserKit";
+import Pandits from "./pages/Pandits";
+import PanditBookings from "./pages/PanditBookings";
+import Rituals from "./pages/Rituals";
 
 
 function App() {
@@ -37,6 +40,9 @@ function App() {
         <Route path="special-kit" element={<SpecialKit />} />
         <Route path="default-kit" element={<DefaultKit />} />
         <Route path="user-kits" element={<UserKit />} />
+        <Route path="pandits" element={<Pandits />} />
+        <Route path="rituals" element={<Rituals />} />
+        <Route path="pandit-bookings" element={<PanditBookings />} />
       </Route>
     </Routes>
   );
