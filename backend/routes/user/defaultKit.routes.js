@@ -11,6 +11,7 @@ const router = express.Router();
 
 router.get("/", getDefaultKitsForUsers);
 router.get("/:id", getDefaultKitByIdForUsers);
+
 // Create a customizable draft from a selected default kit
 router.post("/from-default/:defaultKitId", protect, createUserKitFromDefaultKit);
 

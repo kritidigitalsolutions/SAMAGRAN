@@ -78,7 +78,7 @@ import productRoutes from "./routes/admin/product.routes.js";
 app.use("/api/user/items", userProductRoutes);
 
 // Ensure default admin exists after DB connection is established in server.js
-const ensureAdmin = async () => {
+export const ensureAdmin = async () => {
   try {
     const email = process.env.ADMIN_EMAIL;
     const password = process.env.ADMIN_PASSWORD;
@@ -107,8 +107,6 @@ const ensureAdmin = async () => {
     console.log(err.message);
   }
 };
-
-ensureAdmin();
 
 
 // ############ Admin API ##########################
