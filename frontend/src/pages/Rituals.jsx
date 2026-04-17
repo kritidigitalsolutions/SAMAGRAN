@@ -108,7 +108,8 @@ export default function Rituals() {
 
   const handleDelete = async (ritual) => {
     if (!ritual?._id) return;
-    if (!window.confirm(`Delete ritual \"${ritual.title}\"?`)) return;
+    if (!window.confirm(`Delete ritual "${ritual.title}"?`)) return;
+    // if (!window.confirm(`Delete ritual \"${ritual.title}\"?`)) return;
 
     try {
       setDeletingId(ritual._id);
