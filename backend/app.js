@@ -2,8 +2,11 @@ import express from "express";
 import cors from "cors";
 import bcrypt from "bcryptjs";
 import Admin from "./models/admin.model.js";
+import connectDB from "./config/db.js";
 
 const app = express();
+app.set("trust proxy", 1);
+app.disable("x-powered-by");
 
 const parseOriginList = (value = "") =>
   value
@@ -108,6 +111,27 @@ export const ensureAdmin = async () => {
   }
 };
 
+let bootstrapPromise;
+
+export const bootstrapApp = async () => {
+  if (bootstrapPromise) {
+    return bootstrapPromise;
+  }
+
+  bootstrapPromise = (async () => {
+    await connectDB();
+    await ensureAdmin();
+  })();
+
+  try {
+    await bootstrapPromise;
+    return bootstrapPromise;
+  } catch (error) {
+    bootstrapPromise = undefined;
+    throw error;
+  }
+};
+
 
 // ############ Admin API ##########################
 
@@ -150,6 +174,20 @@ app.use("/api/user-kits", userKit);
 
 // user pandit booking journey
 app.use("/api/pandit-bookings", userPanditBookingRoutes);
+
+app.use((err, req, res, next) => {
+  if (res.headersSent) {
+    return next(err);
+  }
+
+  const statusCode = err.message === "Not allowed by CORS" ? 403 : err.status || 500;
+  const isProd = process.env.NODE_ENV === "production";
+
+  res.status(statusCode).json({
+    message: statusCode === 500 ? "Internal Server Error" : err.message,
+    ...(isProd ? {} : { error: err.message }),
+  });
+});
 
 
 export default app;

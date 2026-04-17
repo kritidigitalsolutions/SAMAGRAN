@@ -28,7 +28,7 @@ const connectDB = async () => {
   } catch (error) {
     connectPromise = undefined;
     console.error("DB Error:", error.message);
-    process.exit(1);
+    throw error;
   }
 };
 
