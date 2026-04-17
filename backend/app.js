@@ -5,6 +5,19 @@ import Admin from "./models/admin.model.js";
 
 const app = express();
 
+const parseOriginList = (value = "") =>
+  value
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+
+const allowedOrigins = [
+  process.env.FRONTEND_URL,
+  process.env.ADMIN_FRONTEND_URL,
+  process.env.CORS_ORIGINS,
+  "https://samagran-admin.vercel.app",
+].flatMap((value) => parseOriginList(value));
+
 // Middleware
 app.use(
   cors({
@@ -13,11 +26,11 @@ app.use(
         return callback(null, true);
       }
 
-      const allowedOrigins = [process.env.FRONTEND_URL].filter(Boolean);
       const isLocalhostOrigin = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin);
       const isLanOrigin = /^https?:\/\/192\.168\.\d+\.\d+(?::\d+)?$/i.test(origin);
+      const isVercelAppOrigin = /^https:\/\/samagran(?:-[a-z0-9-]+)?\.vercel\.app$/i.test(origin);
 
-      if (allowedOrigins.includes(origin) || isLocalhostOrigin || isLanOrigin) {
+      if (allowedOrigins.includes(origin) || isLocalhostOrigin || isLanOrigin || isVercelAppOrigin) {
         return callback(null, true);
       }
 
