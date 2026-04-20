@@ -8,7 +8,7 @@
 .special-kit-list-panel {
   border: 1px solid rgba(219,199,168,0.6);
   border-radius: 8px;
-  background: linear-gradient(180deg, rgba(255,251,244,0.9), rgba(245,235,217,0.82));
+  background: var(--admin-surface);
   box-shadow: 0 18px 60px rgba(59,13,20,0.1);
 }
 
@@ -17,7 +17,7 @@
 .dark .special-kit-list-panel {
   color: #fff3dc;
   border-color: rgba(255,255,255,0.1);
-  background: linear-gradient(180deg, rgba(59,13,20,0.84), rgba(18,8,10,0.94));
+  background: var(--admin-surface);
 }
 
 .special-kit-hero {
@@ -423,7 +423,7 @@
   display: grid;
   place-items: center;
   color: #f7e7bf;
-  background: linear-gradient(135deg, #53202a, #2a0c12);
+  background: var(--admin-primary);
   font-size: 42px;
   font-weight: 900;
 }
@@ -585,16 +585,14 @@
   border-radius: 8px;
   padding: 22px;
   color: #2f1618;
-  background:
-    linear-gradient(180deg, rgba(255,255,255,0.96), rgba(255,247,235,0.94));
+  background: var(--admin-surface);
   box-shadow: 0 30px 90px rgba(0,0,0,0.28);
 }
 
 .dark .special-kit-modal {
   color: #fff3dc;
   border-color: rgba(212,175,55,0.18);
-  background:
-    linear-gradient(180deg, rgba(40,12,18,0.98), rgba(15,7,8,0.98));
+  background: var(--admin-surface);
   box-shadow: 0 30px 90px rgba(0,0,0,0.54);
 }
 
@@ -649,7 +647,7 @@
   overflow: hidden;
   border-radius: 8px;
   color: #f7e7bf;
-  background: linear-gradient(135deg, #53202a, #2a0c12);
+  background: var(--admin-primary);
   font-size: 72px;
   font-weight: 900;
 }
@@ -940,15 +938,11 @@
 /* ================= POLISH PASS ================= */
 .special-kit-page {
   min-height: 100%;
-  background:
-    radial-gradient(circle at 16% 0%, rgba(139,30,63,0.09), transparent 28%),
-    radial-gradient(circle at 92% 6%, rgba(212,175,55,0.12), transparent 24%);
+  background: var(--admin-bg);
 }
 
 .dark .special-kit-page {
-  background:
-    radial-gradient(circle at 16% 0%, rgba(212,175,55,0.1), transparent 26%),
-    radial-gradient(circle at 90% 8%, rgba(139,30,63,0.16), transparent 28%);
+  background: var(--admin-bg);
 }
 
 .special-kit-hero,
@@ -957,16 +951,14 @@
   position: relative;
   overflow: hidden;
   border-color: rgba(139,30,63,0.14);
-  background:
-    linear-gradient(180deg, rgba(255,255,255,0.92), rgba(255,247,235,0.84));
+  background: var(--admin-surface);
 }
 
 .dark .special-kit-hero,
 .dark .special-kit-form,
 .dark .special-kit-list-panel {
   border-color: rgba(212,175,55,0.16);
-  background:
-    linear-gradient(180deg, rgba(40,12,18,0.94), rgba(15,7,8,0.96));
+  background: var(--admin-surface);
   box-shadow: 0 24px 70px rgba(0,0,0,0.38);
 }
 
@@ -977,7 +969,7 @@
   position: absolute;
   inset: 0 0 auto;
   height: 3px;
-  background: linear-gradient(90deg, #8b1e3f, #d4af37);
+  background: var(--admin-primary);
 }
 
 .special-kit-hero {
@@ -1123,9 +1115,7 @@
 }
 
 .special-kit-image {
-  background:
-    linear-gradient(135deg, rgba(83,32,42,0.94), rgba(42,12,18,0.98)),
-    linear-gradient(135deg, #8b1e3f, #d4af37);
+  background: var(--admin-primary);
 }
 
 .special-kit-card-body {

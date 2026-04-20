@@ -63,13 +63,13 @@ export default function Navbar({ onMenuClick, onToggleSidebar, sidebarCollapsed 
   };
 
   return (
-    <div className="sticky top-0 z-20 border-b border-[#e6d7bd]/75 bg-[linear-gradient(180deg,rgba(255,248,238,0.86),rgba(248,238,222,0.80))] px-4 py-4 backdrop-blur-xl dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(23,10,14,0.84),rgba(12,7,8,0.86))]">
+    <div className="sticky top-0 z-20 border-b border-[var(--admin-border)] bg-[var(--admin-surface)]/95 px-4 py-3 backdrop-blur-md">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div className="flex items-start gap-3">
           <button
             type="button"
             onClick={onMenuClick}
-            className="mt-1 grid h-10 w-10 place-items-center rounded-xl border border-[#dcc7aa]/80 bg-white/70 text-[#5b1724] lg:hidden dark:border-white/10 dark:bg-white/5 dark:text-[#f8edd7]"
+            className="mt-1 grid h-10 w-10 place-items-center rounded-xl border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] text-[var(--admin-primary)] lg:hidden"
             aria-label="Open sidebar"
           >
             <span className="text-lg">☰</span>
@@ -78,21 +78,21 @@ export default function Navbar({ onMenuClick, onToggleSidebar, sidebarCollapsed 
           {/* <button
             type="button"
             onClick={onToggleSidebar}
-            className="mt-1 hidden h-10 rounded-xl border border-[#dcc7aa]/80 bg-white/70 px-3 text-xs font-semibold text-[#5b1724] lg:block dark:border-white/10 dark:bg-white/5 dark:text-[#f8edd7]"
+            className="mt-1 hidden h-10 rounded-xl border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] px-3 text-xs font-semibold text-[var(--admin-primary)] lg:block"
           >
             {sidebarCollapsed ? "Expand" : "Compact"}
           </button> */}
 
           <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.35em] text-[#9f3144] dark:text-[#D4AF37]">
-            Samagran Admin Portal
-          </p>
-          <h1 className="mt-1 text-2xl font-bold tracking-tight text-[#2f1618] dark:text-[#f9f0de]">
-            Ritual commerce command center
-          </h1>
-          <p className="mt-1 text-sm text-[#7c5b4b] dark:text-[#dbcdb8]/70">
-            Premium operations, bookings, analytics and fulfillment.
-          </p>
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--admin-primary)]">
+              Admin Panel
+            </p>
+            <h1 className="mt-1 text-2xl font-bold tracking-tight text-[var(--admin-text)]">
+              Samagran Dashboard
+            </h1>
+            <p className="mt-1 text-sm text-[var(--admin-muted)]">
+              Manage orders, users, pandits, kits and rituals from one place.
+            </p>
           </div>
         </div>
 
@@ -101,39 +101,39 @@ export default function Navbar({ onMenuClick, onToggleSidebar, sidebarCollapsed 
           <div className="relative">
             <button
               onClick={() => setProfileOpen((open) => !open)}
-              className="flex items-center gap-3 rounded-full border border-[#dfc9a3]/60 bg-[linear-gradient(135deg,rgba(255,250,241,0.92),rgba(246,232,206,0.88))] px-2 py-2 pr-4 text-left shadow-[0_14px_40px_rgba(90,26,38,0.12)] transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_18px_45px_rgba(90,26,38,0.18)] dark:border-white/10 dark:bg-[linear-gradient(135deg,rgba(59,13,20,0.88),rgba(17,9,11,0.94))]"
+              className="flex items-center gap-3 rounded-full border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] px-2 py-2 pr-4 text-left shadow-sm transition duration-300 hover:shadow-md"
             >
-              <div className="h-11 w-11 rounded-full bg-[linear-gradient(135deg,#D4AF37,#8B1E3F)] p-[2px]">
-                <div className="flex h-full w-full items-center justify-center rounded-full bg-[linear-gradient(135deg,#53202a,#2a0c12)] text-sm font-bold text-[#f7e7bf]">
+              <div className="h-11 w-11 rounded-full bg-[linear-gradient(135deg,var(--admin-primary),var(--admin-primary-strong))] p-[2px]">
+                <div className="flex h-full w-full items-center justify-center rounded-full bg-[var(--admin-surface)] text-sm font-bold text-[var(--admin-primary)]">
                   {adminInitials}
                 </div>
               </div>
               <div>
-                <p className="text-sm font-semibold text-[#33161c] dark:text-[#f9f0de]">{adminName}</p>
-                <p className="text-xs text-[#7c5b4b] dark:text-[#dbcdb8]/70">Admin account</p>
+                <p className="text-sm font-semibold text-[var(--admin-text)]">{adminName}</p>
+                <p className="text-xs text-[var(--admin-muted)]">Admin account</p>
               </div>
-              <span className="text-[#8B1E3F] dark:text-[#D4AF37]">
+              <span className="text-[var(--admin-primary)]">
                 <ChevronIcon />
               </span>
             </button>
 
             {profileOpen && (
-  <div className="absolute right-0 mt-3 w-56 overflow-hidden rounded-3xl border border-[#e4cfaa]/70 bg-[linear-gradient(180deg,rgba(255,249,240,0.98),rgba(246,234,211,0.96))] p-2 shadow-[0_22px_70px_rgba(59,13,20,0.18)] dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(59,13,20,0.98),rgba(16,8,9,0.98))]">
+  <div className="absolute right-0 mt-3 w-56 overflow-hidden rounded-2xl border border-[var(--admin-border)] bg-[var(--admin-surface)] p-2 shadow-[var(--admin-shadow)]">
 
-    <button className="flex w-full flex-col items-start rounded-2xl px-4 py-3 text-sm font-medium text-[#472128] dark:text-[#f3e7cd]">
+    <button className="flex w-full flex-col items-start rounded-xl px-4 py-3 text-sm font-medium text-[var(--admin-text)]">
       <span>{adminName}</span>
-      <span className="mt-1 text-xs font-normal text-[#7c5b4b] dark:text-[#dbcdb8]/70">
+      <span className="mt-1 text-xs font-normal text-[var(--admin-muted)]">
         {admin?.email || "Admin profile"}
       </span>
     </button>
 
-    <button className="flex w-full items-center rounded-2xl px-4 py-3 text-sm font-medium text-[#472128] dark:text-[#f3e7cd]">
+    <button className="flex w-full items-center rounded-xl px-4 py-3 text-sm font-medium text-[var(--admin-text)]">
       Account Settings
     </button>
 
     <button
       onClick={handleLogout}
-      className="flex w-full items-center rounded-2xl px-4 py-3 text-sm font-medium text-red-500"
+      className="flex w-full items-center rounded-xl px-4 py-3 text-sm font-medium text-[var(--admin-primary)]"
     >
       Sign out
     </button>

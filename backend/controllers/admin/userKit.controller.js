@@ -48,3 +48,29 @@ export const getAllUserKitsForAdmin = async (req, res) => {
     });
   }
 };
+
+// DELETE /api/admin/user-kits/:userKitId
+export const deleteUserKitByAdmin = async (req, res) => {
+  try {
+    const { userKitId } = req.params;
+
+    const deletedKit = await UserKit.findByIdAndDelete(userKitId);
+
+    if (!deletedKit) {
+      return res.status(404).json({
+        success: false,
+        message: "User kit not found",
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: "User kit deleted successfully",
+    });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      message: err.message || "Unable to delete user kit.",
+    });
+  }
+};

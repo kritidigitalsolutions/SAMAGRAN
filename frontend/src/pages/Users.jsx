@@ -65,7 +65,7 @@ function UserAvatar({ user }) {
   }
 
   return (
-    <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,#8B1E3F,#D4AF37)] text-lg font-bold text-white">
+    <div className="flex h-16 w-16 items-center justify-center rounded-2xl admin-btn-primary text-lg font-bold text-white">
       {getInitials(user)}
     </div>
   );
@@ -120,20 +120,20 @@ export default function Users() {
 
   return (
     <div className="space-y-4">
-      <section className="rounded-[30px] border border-[#dbc7a8]/60 bg-[linear-gradient(180deg,rgba(255,251,244,0.82),rgba(245,235,217,0.76))] p-6 shadow-[0_18px_60px_rgba(59,13,20,0.10)] backdrop-blur-xl dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(59,13,20,0.84),rgba(18,8,10,0.94))]">
-        <p className="text-sm font-semibold uppercase tracking-[0.32em] text-[#8B1E3F] dark:text-[#D4AF37]">Customers</p>
+      <section className="rounded-[30px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-6 shadow-[var(--admin-shadow)]">
+        <p className="text-sm font-semibold uppercase tracking-[0.32em] text-[var(--admin-primary)]">Customers</p>
         <h2 className="mt-2 text-2xl font-bold text-[#2f1618] dark:text-[#fff3dc]">Customer Overview</h2>
       </section>
 
-      <section className="rounded-[30px] border border-[#dbc7a8]/60 bg-[linear-gradient(180deg,rgba(255,251,244,0.82),rgba(245,235,217,0.76))] p-6 shadow-[0_18px_60px_rgba(59,13,20,0.10)] backdrop-blur-xl dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(59,13,20,0.84),rgba(18,8,10,0.94))]">
+      <section className="rounded-[30px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-6 shadow-[var(--admin-shadow)]">
         <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.35em] text-[#8B1E3F] dark:text-[#D4AF37]">Directory</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.35em] text-[var(--admin-primary)]">Directory</p>
             <h3 className="mt-1 text-xl font-bold text-[#2f1618] dark:text-[#fff3dc]">All Users</h3>
           </div>
 
           <div className="flex w-full max-w-lg items-center gap-2 rounded-xl border border-[#d7c3a3] bg-white/70 px-3 dark:border-white/10 dark:bg-white/5">
-            <FiSearch className="text-[#8B1E3F] dark:text-[#D4AF37]" />
+            <FiSearch className="text-[var(--admin-primary)]" />
             <input
               type="search"
               value={searchTerm}
@@ -147,7 +147,7 @@ export default function Users() {
                 type="button"
                 onClick={() => setSearchTerm("")}
                 aria-label="Clear user search"
-                className="grid h-8 w-8 place-items-center rounded-md bg-[#8B1E3F]/10 text-[#8B1E3F] dark:bg-[#D4AF37]/20 dark:text-[#D4AF37]"
+                className="grid h-8 w-8 place-items-center rounded-md bg-[#8B1E3F]/10 text-[#8B1E3F] dark:bg-[var(--admin-surface)] dark:text-[var(--admin-primary)]"
               >
                 <FiX />
               </button>
@@ -209,7 +209,7 @@ export default function Users() {
 
       {selectedUser && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/45 p-4">
-          <div className="w-full max-w-lg rounded-3xl border border-[#dbc7a8]/60 bg-[linear-gradient(180deg,rgba(255,251,244,0.96),rgba(245,235,217,0.92))] p-6 shadow-[0_24px_70px_rgba(59,13,20,0.24)] dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(59,13,20,0.95),rgba(18,8,10,0.98))]">
+          <div className="w-full max-w-lg rounded-3xl border border-[#dbc7a8]/60 bg-[var(--admin-surface)] p-6 shadow-[0_24px_70px_rgba(59,13,20,0.24)] dark:border-white/10 dark:bg-[var(--admin-surface)]">
             <div className="mb-5 flex items-center justify-between">
               <h3 className="text-xl font-bold text-[#2f1618] dark:text-[#fff3dc]">User Details</h3>
               <button onClick={() => setSelectedUser(null)} className="text-2xl leading-none">&times;</button>
@@ -237,3 +237,5 @@ export default function Users() {
     </div>
   );
 }
+
+

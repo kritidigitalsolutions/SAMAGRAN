@@ -1,6 +1,8 @@
 import Cart from "../models/cart.model.js";
 import Item from "../models/product.model.js";
 import FestivalKit from "../models/festivalKit.model.js";
+import DefaultKit from "../models/defaultKit.model.js";
+import UserKit from "../models/userKit.model.js";
 
 // ADD / INCREMENT
 export const addToCart = async (req, res) => {
@@ -58,6 +60,46 @@ export const addToCart = async (req, res) => {
         }
 
         price = kit.kitPrice;
+      }
+
+      if (productType === "DefaultKit") {
+        const kit = await DefaultKit.findOne({ _id: productId, status: "active" });
+
+        if (!kit) {
+          return res.status(404).json({
+            success: false,
+            message: "Default kit not found",
+          });
+        }
+
+        price = kit.kitPrice || kit.totalPrice || 0;
+      }
+
+      if (productType === "UserKit") {
+        const userKit = await UserKit.findOne({ _id: productId, user: userId });
+
+        if (!userKit) {
+          return res.status(404).json({
+            success: false,
+            message: "User kit not found",
+          });
+        }
+
+        if (userKit.status === "ordered") {
+          return res.status(400).json({
+            success: false,
+            message: "Ordered user kit cannot be added to cart",
+          });
+        }
+
+        price = userKit.totalPrice || 0;
+      }
+
+      if (price <= 0) {
+        return res.status(400).json({
+          success: false,
+          message: "Unable to add product with invalid price",
+        });
       }
 
       cart = await Cart.create({

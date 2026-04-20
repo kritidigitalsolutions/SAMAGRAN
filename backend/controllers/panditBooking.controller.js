@@ -2,6 +2,7 @@ import Pandit from "../models/pandit.model.js";
 import PanditBooking from "../models/panditBooking.model.js";
 import DefaultKit from "../models/defaultKit.model.js";
 import Ritual from "../models/ritual.model.js";
+import mongoose from "mongoose";
 
 const STATIC_SLOT_TEMPLATE = [
   { label: "6:00 AM - 8:00 AM", startTime: "06:00", endTime: "08:00" },
@@ -476,3 +477,204 @@ export const getPanditBookingById = async (req, res) => {
      });
    }
  };
+
+const isValidObjectId = (id) => mongoose.Types.ObjectId.isValid(id);
+
+const buildBookingStats = (bookings = []) => {
+  const stats = {
+    total: bookings.length,
+    requested: 0,
+    confirmed: 0,
+    cancelled: 0,
+    completed: 0,
+  };
+
+  bookings.forEach((booking) => {
+    const status = booking?.bookingStatus;
+    if (Object.prototype.hasOwnProperty.call(stats, status)) {
+      stats[status] += 1;
+    }
+  });
+
+  return stats;
+};
+
+export const getPanditAssignedBookings = async (req, res) => {
+  try {
+    const { status = "all", search = "" } = req.query;
+
+    const filter = {
+      pandit: req.pandit._id,
+    };
+
+    if (status !== "all") {
+      filter.bookingStatus = status;
+    }
+
+    if (search.trim()) {
+      const regex = { $regex: search.trim(), $options: "i" };
+      filter.$or = [
+        { "ritual.name": regex },
+        { bookingDate: regex },
+        { "address.city": regex },
+        { "address.state": regex },
+      ];
+    }
+
+    const bookings = await PanditBooking.find(filter)
+      .populate("user", "name phone email profileImage")
+      .populate("recommendedKit", "name image kitPrice")
+      .sort({ createdAt: -1 });
+
+    const allBookingsForStats = await PanditBooking.find({ pandit: req.pandit._id }).select("bookingStatus");
+
+    res.json({
+      success: true,
+      count: bookings.length,
+      stats: buildBookingStats(allBookingsForStats),
+      data: bookings,
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: err.message || "Unable to load pandit bookings",
+    });
+  }
+};
+
+export const approvePanditBooking = async (req, res) => {
+  try {
+    const { bookingId } = req.params;
+
+    if (!isValidObjectId(bookingId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid booking id",
+      });
+    }
+
+    const booking = await PanditBooking.findOne({
+      _id: bookingId,
+      pandit: req.pandit._id,
+    })
+      .populate("user", "name phone email profileImage")
+      .populate("recommendedKit", "name image kitPrice");
+
+    if (!booking) {
+      return res.status(404).json({
+        success: false,
+        message: "Booking not found",
+      });
+    }
+
+    if (booking.bookingStatus === "cancelled") {
+      return res.status(400).json({
+        success: false,
+        message: "Cancelled booking cannot be approved",
+      });
+    }
+
+    booking.bookingStatus = "confirmed";
+    await booking.save();
+
+    return res.json({
+      success: true,
+      message: "Appointment approved successfully",
+      data: booking,
+    });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      message: err.message || "Unable to approve booking",
+    });
+  }
+};
+
+export const rejectPanditBooking = async (req, res) => {
+  try {
+    const { bookingId } = req.params;
+    const { reason = "" } = req.body;
+
+    if (!isValidObjectId(bookingId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid booking id",
+      });
+    }
+
+    const booking = await PanditBooking.findOne({
+      _id: bookingId,
+      pandit: req.pandit._id,
+    })
+      .populate("user", "name phone email profileImage")
+      .populate("recommendedKit", "name image kitPrice");
+
+    if (!booking) {
+      return res.status(404).json({
+        success: false,
+        message: "Booking not found",
+      });
+    }
+
+    if (booking.bookingStatus === "completed") {
+      return res.status(400).json({
+        success: false,
+        message: "Completed booking cannot be rejected",
+      });
+    }
+
+    booking.bookingStatus = "cancelled";
+    if (reason.trim()) {
+      booking.notes = booking.notes
+        ? `${booking.notes}\nRejected by pandit: ${reason.trim()}`
+        : `Rejected by pandit: ${reason.trim()}`;
+    }
+    await booking.save();
+
+    return res.json({
+      success: true,
+      message: "Appointment rejected successfully",
+      data: booking,
+    });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      message: err.message || "Unable to reject booking",
+    });
+  }
+};
+
+export const deletePanditBooking = async (req, res) => {
+  try {
+    const { bookingId } = req.params;
+
+    if (!isValidObjectId(bookingId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid booking id",
+      });
+    }
+
+    const deleted = await PanditBooking.findOneAndDelete({
+      _id: bookingId,
+      pandit: req.pandit._id,
+    });
+
+    if (!deleted) {
+      return res.status(404).json({
+        success: false,
+        message: "Booking not found",
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: "Appointment deleted successfully",
+    });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      message: err.message || "Unable to delete booking",
+    });
+  }
+};

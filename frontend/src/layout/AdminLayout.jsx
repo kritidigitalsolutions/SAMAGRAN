@@ -8,7 +8,7 @@ export default function AdminLayout() {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[radial-gradient(circle_at_top,_rgba(212,175,55,0.14),_transparent_22%),radial-gradient(circle_at_right,_rgba(139,30,63,0.10),_transparent_24%),linear-gradient(180deg,#f9f3ea_0%,#f4ebdc_100%)] dark:bg-[radial-gradient(circle_at_top,_rgba(212,175,55,0.10),_transparent_20%),radial-gradient(circle_at_right,_rgba(139,30,63,0.10),_transparent_22%),linear-gradient(180deg,#14060a_0%,#0a0405_100%)]">
+    <div className="flex h-screen overflow-hidden bg-[var(--admin-bg)] text-[var(--admin-text)]">
       <Sidebar
         collapsed={sidebarCollapsed}
         setCollapsed={setSidebarCollapsed}
@@ -27,7 +27,7 @@ export default function AdminLayout() {
           sidebarCollapsed={sidebarCollapsed}
         />
 
-        <main className="content-scroll flex-1 overflow-y-auto p-4 md:p-6">
+        <main className="content-scroll flex-1 overflow-y-auto p-4 md:p-5">
           <Outlet />
         </main>
       </div>

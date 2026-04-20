@@ -5,8 +5,10 @@ import {
   getMyKits,
   checkoutUserKit,
   updateUserKitItems,
+  deleteMyUserKit,
 } from "../../controllers/userKit.controller.js";
 import protect from "../../middleware/auth.middleware.js";
+import {  createUserKitFromDefaultKit} from "../../controllers/userKit.controller.js";
 
 const router = express.Router();
 
@@ -22,5 +24,10 @@ router.put("/:userKitId/items", protect, updateUserKitItems);
 
 // Checkout draft kit
 router.post("/:userKitId/checkout", protect, checkoutUserKit);
+
+// Delete draft kit
+router.delete("/:userKitId", protect, deleteMyUserKit);
+// Create a customizable draft from a selected default kit
+router.post("/from-default/:defaultKitId", protect, createUserKitFromDefaultKit);
 
 export default router;

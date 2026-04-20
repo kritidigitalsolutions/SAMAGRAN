@@ -3,7 +3,7 @@ import mongoose from "mongoose";
 const orderItemSchema = new mongoose.Schema({
   productType: {
     type: String,
-    enum: ["Item", "FestivalKit"],
+    enum: ["Item", "FestivalKit", "DefaultKit", "UserKit"],
     required: true,
   },
 
@@ -29,6 +29,17 @@ const orderSchema = new mongoose.Schema(
 
     totalAmount: Number,
 
+    amountBreakup: {
+      itemTotal: {
+        type: Number,
+        default: 0,
+      },
+      deliveryFee: {
+        type: Number,
+        default: 0,
+      },
+    },
+
     address: {
       name: String,
       phone: String,
@@ -40,12 +51,34 @@ const orderSchema = new mongoose.Schema(
 
     paymentMethod: {
       type: String,
+      enum: ["COD", "ONLINE"],
       default: "COD",
     },
 
     paymentStatus: {
       type: String,
+      enum: ["Pending", "Paid", "Failed"],
       default: "Pending",
+    },
+
+    paymentGateway: {
+      type: String,
+      default: null,
+    },
+
+    razorpayOrderId: {
+      type: String,
+      default: null,
+    },
+
+    razorpayPaymentId: {
+      type: String,
+      default: null,
+    },
+
+    razorpaySignature: {
+      type: String,
+      default: null,
     },
 
     orderStatus: {

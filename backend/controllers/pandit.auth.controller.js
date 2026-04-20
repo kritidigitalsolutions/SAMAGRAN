@@ -19,7 +19,6 @@ const generatePanditToken = (panditId) => {
 };
 
 const buildOtp = () => Math.floor(100000 + Math.random() * 900000).toString();
-const OTP_SESSION_WINDOW_MS = 15 * 60 * 1000;
 
 const parseJsonIfString = (value, fallback = null) => {
   if (value === undefined || value === null || value === "") {
@@ -283,15 +282,23 @@ export const verifyPanditOtp = async (req, res) => {
       });
     }
 
-    res.json({
+    const token = generatePanditToken(pandit._id);
+    await PanditOTP.deleteMany({ phone, type: otpDoc.type });
+
+    return res.json({
       success: true,
       isNewPandit: false,
-      message: "Login verified successfully",
+      message: pandit.isProfileComplete
+        ? "Login verified successfully"
+        : "Login verified, please complete remaining profile details",
       data: {
         flow: "login",
+        token,
         pandit,
       },
     });
+
+
   } catch (err) {
     console.error("PANDIT VERIFY OTP ERROR:", err);
     res.status(500).json({
@@ -346,22 +353,14 @@ export const updatePanditProfile = async (req, res) => {
       const validSession = await PanditOTP.findOne({
         phone,
         isVerified: true,
-        verifiedAt: { $gte: new Date(Date.now() - OTP_SESSION_WINDOW_MS) },
       }).sort({ verifiedAt: -1 });
-
-      if (!validSession) {
-        return res.status(401).json({
-          success: false,
-          message: "OTP verification required before profile update",
-        });
-      }
 
       pandit = await Pandit.findOne({ phone });
 
       if (!pandit) {
         pandit = await Pandit.create({
           phone,
-          fullName: validSession.fullName || "",
+          fullName: validSession?.fullName || "",
           status: "active",
         });
       }

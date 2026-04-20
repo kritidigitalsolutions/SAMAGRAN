@@ -45,7 +45,7 @@ const formatImageUrl = (path) => {
 export default function UserKit() {
   const [kits, setKits] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");  
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedKit, setSelectedKit] = useState(null);
   const [error, setError] = useState("");
@@ -112,10 +112,10 @@ export default function UserKit() {
 
   return (
     <div className="space-y-4">
-      <section className="rounded-[30px] border border-[#dbc7a8]/60 bg-[linear-gradient(180deg,rgba(255,251,244,0.82),rgba(245,235,217,0.76))] p-6 shadow-[0_18px_60px_rgba(59,13,20,0.10)] backdrop-blur-xl dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(59,13,20,0.84),rgba(18,8,10,0.94))]">
+      <section className="rounded-[30px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-6 shadow-[var(--admin-shadow)]">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.32em] text-[#8B1E3F] dark:text-[#D4AF37]">User Custom Kits</p>
+            <p className="text-sm font-semibold uppercase tracking-[0.32em] text-[var(--admin-primary)]">User Custom Kits</p>
             <h2 className="mt-2 text-2xl font-bold text-[#2f1618] dark:text-[#fff3dc]">Review the kits users build on their own</h2>
             <p className="mt-2 text-sm text-[#6e4b40] dark:text-[#f7e3c0]/70">Track draft and ordered kits in one devotional commerce dashboard.</p>
           </div>
@@ -133,27 +133,27 @@ export default function UserKit() {
 
       <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <article className="rounded-2xl border border-[#dbc7a8]/60 bg-white/75 p-4 dark:border-white/10 dark:bg-white/5">
-          <span className="text-xs uppercase tracking-[0.22em] text-[#8B1E3F] dark:text-[#D4AF37]">Total custom kits</span>
+          <span className="text-xs uppercase tracking-[0.22em] text-[var(--admin-primary)]">Total custom kits</span>
           <strong className="mt-2 block text-2xl font-bold">{stats.total}</strong>
         </article>
         <article className="rounded-2xl border border-[#dbc7a8]/60 bg-white/75 p-4 dark:border-white/10 dark:bg-white/5">
-          <span className="text-xs uppercase tracking-[0.22em] text-[#8B1E3F] dark:text-[#D4AF37]">Ordered kits</span>
+          <span className="text-xs uppercase tracking-[0.22em] text-[var(--admin-primary)]">Ordered kits</span>
           <strong className="mt-2 block text-2xl font-bold">{stats.ordered}</strong>
         </article>
         <article className="rounded-2xl border border-[#dbc7a8]/60 bg-white/75 p-4 dark:border-white/10 dark:bg-white/5">
-          <span className="text-xs uppercase tracking-[0.22em] text-[#8B1E3F] dark:text-[#D4AF37]">Draft kits</span>
+          <span className="text-xs uppercase tracking-[0.22em] text-[var(--admin-primary)]">Draft kits</span>
           <strong className="mt-2 block text-2xl font-bold">{stats.draft}</strong>
         </article>
         <article className="rounded-2xl border border-[#dbc7a8]/60 bg-white/75 p-4 dark:border-white/10 dark:bg-white/5">
-          <span className="text-xs uppercase tracking-[0.22em] text-[#8B1E3F] dark:text-[#D4AF37]">Total kit value</span>
+          <span className="text-xs uppercase tracking-[0.22em] text-[var(--admin-primary)]">Total kit value</span>
           <strong className="mt-2 block text-2xl font-bold">{formatCurrency(stats.totalValue)}</strong>
         </article>
       </section>
 
-      <section className="rounded-[30px] border border-[#dbc7a8]/60 bg-[linear-gradient(180deg,rgba(255,251,244,0.82),rgba(245,235,217,0.76))] p-6 shadow-[0_18px_60px_rgba(59,13,20,0.10)] backdrop-blur-xl dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(59,13,20,0.84),rgba(18,8,10,0.94))]">
+      <section className="rounded-[30px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-6 shadow-[var(--admin-shadow)]">
         <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.35em] text-[#8B1E3F] dark:text-[#D4AF37]">Catalog</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.35em] text-[var(--admin-primary)]">Catalog</p>
             <h3 className="mt-1 text-xl font-bold text-[#2f1618] dark:text-[#fff3dc]">Custom kits from users</h3>
           </div>
           <span className="rounded-full bg-[#D4AF37]/18 px-3 py-1 text-xs font-semibold text-[#5a1a2b] dark:text-[#f6dfaf]">{filteredKits.length} visible</span>
@@ -161,7 +161,7 @@ export default function UserKit() {
 
         <div className="mb-4 flex flex-col gap-3 md:flex-row">
           <div className="flex w-full items-center gap-2 rounded-xl border border-[#d7c3a3] bg-white/70 px-3 dark:border-white/10 dark:bg-white/5">
-            <FiSearch className="text-[#8B1E3F] dark:text-[#D4AF37]" />
+            <FiSearch className="text-[var(--admin-primary)]" />
             <input
               type="search"
               value={searchTerm}
@@ -171,7 +171,7 @@ export default function UserKit() {
               aria-label="Search user custom kits"
             />
             {searchTerm && (
-              <button type="button" onClick={() => setSearchTerm("")} aria-label="Clear kit search" className="grid h-8 w-8 place-items-center rounded-md bg-[#8B1E3F]/10 text-[#8B1E3F] dark:bg-[#D4AF37]/20 dark:text-[#D4AF37]">
+              <button type="button" onClick={() => setSearchTerm("")} aria-label="Clear kit search" className="grid h-8 w-8 place-items-center rounded-md bg-[#8B1E3F]/10 text-[#8B1E3F] dark:bg-[var(--admin-surface)] dark:text-[var(--admin-primary)]">
                 <FiX />
               </button>
             )}
@@ -225,7 +225,7 @@ export default function UserKit() {
                 <button
                   type="button"
                   onClick={() => setSelectedKit(kit)}
-                  className="inline-flex h-10 items-center gap-2 rounded-xl bg-[linear-gradient(135deg,#8B1E3F,#D4AF37)] px-4 text-sm font-semibold text-white"
+                  className="inline-flex h-10 items-center gap-2 rounded-xl admin-btn-primary px-4 text-sm font-semibold text-white"
                 >
                   <FiShoppingBag />
                   View details
@@ -238,10 +238,10 @@ export default function UserKit() {
 
       {selectedKit && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/45 p-4">
-          <section className="w-full max-w-4xl rounded-3xl border border-[#dbc7a8]/60 bg-[linear-gradient(180deg,rgba(255,251,244,0.96),rgba(245,235,217,0.92))] p-6 shadow-[0_24px_70px_rgba(59,13,20,0.24)] dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(59,13,20,0.95),rgba(18,8,10,0.98))]">
+          <section className="w-full max-w-4xl rounded-3xl border border-[#dbc7a8]/60 bg-[var(--admin-surface)] p-6 shadow-[0_24px_70px_rgba(59,13,20,0.24)] dark:border-white/10 dark:bg-[var(--admin-surface)]">
             <div className="mb-5 flex items-center justify-between">
               <div>
-                <p className="text-xs uppercase tracking-[0.35em] text-[#8B1E3F] dark:text-[#D4AF37]">Kit details</p>
+                <p className="text-xs uppercase tracking-[0.35em] text-[var(--admin-primary)]">Kit details</p>
                 <h3 className="mt-1 text-2xl font-bold text-[#2f1618] dark:text-[#fff3dc]">{selectedKit.name || "Custom kit"}</h3>
               </div>
               <button type="button" onClick={() => setSelectedKit(null)} className="grid h-10 w-10 place-items-center rounded-xl bg-white/70 dark:bg-white/5"><FiX /></button>
@@ -305,3 +305,5 @@ export default function UserKit() {
     </div>
   );
 }
+
+

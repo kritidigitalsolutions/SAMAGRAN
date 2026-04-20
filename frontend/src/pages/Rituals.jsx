@@ -130,10 +130,10 @@ export default function Rituals() {
 
   return (
     <div className="space-y-6 text-[#2f1618] dark:text-[#fff3dc]">
-      <section className="rounded-3xl border border-[#dcc7ab]/60 bg-[linear-gradient(140deg,rgba(255,248,237,0.94),rgba(247,235,211,0.9))] p-6 shadow-[0_18px_45px_rgba(59,13,20,0.08)] dark:border-white/10 dark:bg-[linear-gradient(140deg,rgba(59,13,20,0.65),rgba(11,5,7,0.82))]">
+      <section className="rounded-3xl border border-[var(--admin-border)] bg-[var(--admin-surface)] p-6 shadow-[var(--admin-shadow)]">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.26em] text-[#8B1E3F] dark:text-[#D4AF37]">Admin Rituals</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.26em] text-[var(--admin-primary)]">Admin Rituals</p>
             <h2 className="mt-2 text-2xl font-bold">Manage rituals for pandit booking</h2>
             <p className="mt-2 text-sm text-[#6e4b40] dark:text-[#f7e3c0]/75">
               Add ritual title and description. Active rituals will be visible in user app.
@@ -149,7 +149,7 @@ export default function Rituals() {
                 openCreate();
               }
             }}
-            className="rounded-2xl bg-[linear-gradient(135deg,#8B1E3F,#5f1828)] px-4 py-2 text-sm font-semibold text-[#fff3dc] shadow hover:brightness-110"
+            className="admin-btn-primary rounded-2xl px-4 py-2 text-sm font-semibold shadow"
           >
             {showForm ? "Hide Form" : "Create Ritual"}
           </button>
@@ -226,7 +226,7 @@ export default function Rituals() {
             <button
               type="submit"
               disabled={submitting}
-              className="rounded-xl bg-[linear-gradient(135deg,#8B1E3F,#5f1828)] px-4 py-2 text-sm font-semibold text-[#fff3dc] shadow hover:brightness-110 disabled:opacity-60"
+              className="admin-btn-primary rounded-xl px-4 py-2 text-sm font-semibold shadow disabled:opacity-60"
             >
               {submitting ? "Saving..." : editingId ? "Save Changes" : "Create Ritual"}
             </button>
@@ -310,3 +310,5 @@ export default function Rituals() {
     </div>
   );
 }
+
+

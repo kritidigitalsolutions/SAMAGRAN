@@ -9,77 +9,6 @@ const validatePhone = (phone) => {
 };
 
 
-// export const signup = async (req, res) => {
-
-//   try {
-//     let { phone, name, email, address } = req.body;
-
-//     // ✅ Handle image safely (file OR text OR none)
-//     const profileImage = req.file
-//       ? `/uploads/${req.file.filename}`   // form-data file
-//       : req.body.profileImage || null;    // fallback (JSON or none)
-
-//     if (!phone) {
-//       return res.status(400).json({
-//         success: false,
-//         message: "Phone is required",
-//       });
-//     }
-
-//     phone = phone.replace(/\s+/g, "").trim();
-
-//     // ✅ STRICT VALIDATION
-// if (!validatePhone(phone)) {
-//   return res.status(400).json({
-//     success: false,
-//     message: "Phone number must be 10 digits",
-//   });
-// }
-
-//     const existingUser = await User.findOne({ phone });
-
-//     if (existingUser) {
-//       return res.status(400).json({
-//         success: false,
-//         isNewUser:false,
-//         message: "User already exists. Please login.",
-//       });
-//     }
-
-//     if (!name || !address) {
-//       return res.status(400).json({
-//         success: false,
-//         message: "Name and Address required",
-//       });
-//     }
-
-//     const otp = Math.floor(100000 + Math.random() * 900000).toString();
-
-//     const user = await User.create({
-//       phone,
-//       name,
-//       email,
-//       address,
-//       profileImage, // ✅ always safe now
-//       otp,
-//       otpExpires: new Date(Date.now() + 5 * 60 * 1000),
-//     });
-
-//     res.json({
-//       success: true,
-//       isNewUser:true,
-//       message: "OTP sent for signup",
-//       data: {
-//         OTP: otp,
-//         profileImage,
-//       },
-//     });
-
-//   } catch (err) {
-//     console.error("SIGNUP ERROR:", err);
-//     res.status(500).json({ success: false, message: "Server error" });
-//   }
-// };
 
 export const signup = async (req, res) => {
   try {
@@ -137,6 +66,7 @@ const profileImage = req.file
       message: "OTP sent for signup",
       data: { OTP: otp },
     });
+    console.log("The OTP is:", OTP)
   } catch (err) {
     console.error("SIGNUP ERROR:", err);
     res.status(500).json({
@@ -145,52 +75,7 @@ const profileImage = req.file
     });
   }
 };
-//login api
-// export const login = async (req, res) => {
-//   try {
-//     let { phone } = req.body;
 
-//     phone = phone.trim();
-
-//     const user = await User.findOne({ phone });
-
-//     // ❌ user not found
-//     if (!user) {
-//       return res.status(400).json({
-//         success: false,
-//         isNewUser:true,
-//         message: "User not found. Please signup.",
-//       });
-//     }
-
-//     // 🔒 Prevent OTP spam
-//     if (user.otpExpires && user.otpExpires > new Date()) {
-//       return res.status(400).json({
-//         success: false,
-//         message: "Please wait before requesting another OTP",
-//       });
-//     }
-
-//     const otp = Math.floor(100000 + Math.random() * 900000).toString();
-
-//     user.otp = otp;
-//     user.otpExpires = new Date(Date.now() + 5 * 60 * 1000);
-
-//     await user.save();
-
-//     console.log("LOGIN OTP:", otp);
-
-//     res.json({
-//       success: true,
-//       message: "OTP sent for login",
-//       data: { OTP: otp },
-//     });
-
-//   } catch (err) {
-//     console.error(err);
-//     res.status(500).json({ success: false, message: "Server error" });
-//   }
-// };
 export const login = async (req, res) => {
   try {
     let { phone } = req.body;
@@ -240,6 +125,7 @@ export const login = async (req, res) => {
       message: "OTP sent for login",
       data: { OTP: otp },
     });
+    console.log(`The Login OTP is :`, OTP)
   } catch (err) {
     console.error("LOGIN ERROR:", err);
     res.status(500).json({
@@ -475,6 +361,7 @@ export const resendOtp = async (req, res) => {
       message: "OTP resent",
       data: { OTP: otp },
     });
+    console.log("the otp is:", OTP)
 
   } catch (err) {
     console.error(err);

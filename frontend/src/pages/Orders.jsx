@@ -9,16 +9,18 @@ const data = [
 export default function Orders() {
   return (
     <div className="space-y-4">
-      <section className="rounded-[30px] border border-[#dbc7a8]/60 bg-[linear-gradient(180deg,rgba(255,251,244,0.82),rgba(245,235,217,0.76))] p-6 shadow-[0_18px_60px_rgba(59,13,20,0.10)] backdrop-blur-xl dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(59,13,20,0.84),rgba(18,8,10,0.94))]">
-        <p className="text-sm font-semibold uppercase tracking-[0.32em] text-[#8B1E3F] dark:text-[#D4AF37]">Orders</p>
+      <section className="rounded-[30px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-6 shadow-[var(--admin-shadow)]">
+        <p className="text-sm font-semibold uppercase tracking-[0.32em] text-[var(--admin-primary)]">Orders</p>
         <h2 className="mt-2 text-2xl font-bold text-[#2f1618] dark:text-[#fff3dc]">Booking and order management</h2>
         <p className="mt-2 text-sm text-[#6e4b40] dark:text-[#f7e3c0]/70">Review recent bookings, kit purchases, and service orders.</p>
       </section>
 
-      <section className="rounded-[30px] border border-[#dbc7a8]/60 bg-[linear-gradient(180deg,rgba(255,251,244,0.82),rgba(245,235,217,0.76))] p-6 shadow-[0_18px_60px_rgba(59,13,20,0.10)] backdrop-blur-xl dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(59,13,20,0.84),rgba(18,8,10,0.94))]">
+      <section className="rounded-[30px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-6 shadow-[var(--admin-shadow)]">
         <h3 className="mb-4 text-lg font-semibold text-[#2f1618] dark:text-[#fff3dc]">Recent orders</h3>
         <Table data={data} />
       </section>
     </div>
   );
 }
+
+

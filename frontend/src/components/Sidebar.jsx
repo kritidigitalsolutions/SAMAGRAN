@@ -132,13 +132,13 @@ export default function Sidebar({
       collapsed ? "justify-center" : "gap-3"
     } ${
       isActive
-        ? "border-[#D4AF37]/45 bg-[linear-gradient(135deg,#5f1828_0%,#3B0D14_55%,#D4AF37_140%)] text-[#f8edd7]"
-        : "border-transparent text-[#6b4b42] hover:border-[#D4AF37]/20 hover:bg-[#8B1E3F]/8 hover:text-[#5b1724] dark:text-[#ecd9bb]/72 dark:hover:border-[#D4AF37]/15 dark:hover:bg-white/5 dark:hover:text-[#f8edd7]"
+        ? "border-transparent bg-[linear-gradient(180deg,var(--admin-primary),var(--admin-primary-strong))] text-white shadow"
+        : "border-transparent text-[var(--admin-text)] hover:border-[var(--admin-border)] hover:bg-[var(--admin-surface-soft)]"
     }`;
 
   const wrapperClass = `${
     mobileOpen ? "translate-x-0" : "-translate-x-full"
-  } lg:translate-x-0 fixed inset-y-0 left-0 z-40 flex h-screen flex-col overflow-y-auto border-r border-[#dcc7ab]/65 bg-[radial-gradient(circle_at_top,_rgba(212,175,55,0.12),_transparent_28%),linear-gradient(180deg,#fbf4e8_0%,#f4ead8_100%)] p-4 text-[#3f2026] shadow-[0_25px_90px_rgba(59,13,20,0.08)] transition-all duration-300 dark:border-white/10 dark:bg-[radial-gradient(circle_at_top,_rgba(212,175,55,0.14),_transparent_30%),linear-gradient(180deg,#1e090f_0%,#130609_48%,#090405_100%)] dark:text-[#f7ecda] ${collapsed ? "w-24" : "w-72"}`;
+  } lg:translate-x-0 sidebar-scroll fixed inset-y-0 left-0 z-40 flex h-screen flex-col overflow-y-auto border-r border-[var(--admin-border)] bg-[var(--admin-surface)] p-4 text-[var(--admin-text)] shadow-[var(--admin-shadow)] transition-all duration-300 ${collapsed ? "w-24" : "w-72"}`;
 
   const handleLogout = () => {
     clearAdminSession();
@@ -157,7 +157,7 @@ export default function Sidebar({
       )}
 
       <aside className={wrapperClass}>
-        <div className="mb-6 rounded-[10px] border border-[#dfcfb4]/70 bg-[linear-gradient(180deg,rgba(255,250,243,0.85),rgba(247,234,208,0.78))] backdrop-blur-2xl dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(59,13,20,0.68),rgba(18,8,10,0.8))]">
+        <div className="mb-6 rounded-[14px] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)]">
           <div className="flex flex-col items-center">
             {!collapsed && (
               <div className="flex h-20 w-auto items-center justify-center overflow-hidden">
@@ -180,7 +180,7 @@ export default function Sidebar({
               onClick={() => setMobileOpen(false)}
               className={({ isActive }) => menuClass(isActive)}
             >
-              <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#8B1E3F]/8 text-[#8B1E3F] dark:bg-white/5 dark:text-[#D4AF37]">
+              <span className="flex h-10 w-10 items-center justify-center ">
                 <SidebarIcon icon={item.icon} />
               </span>
               {!collapsed && <span>{item.label}</span>}
@@ -194,7 +194,7 @@ export default function Sidebar({
             onClick={() => setCollapsed((prev) => !prev)}
             aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
             title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-            className="flex w-full items-center justify-center rounded-2xl border border-[#D4AF37]/28 bg-white/40 px-3 py-3 text-sm font-semibold text-[#5b1724] dark:bg-white/5 dark:text-[#f8edd7]"
+            className="flex w-full items-center justify-center rounded-2xl border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] px-3 py-3 text-sm font-semibold text-[var(--admin-primary)]"
           >
             <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5" aria-hidden="true">
               {collapsed ? (
@@ -214,7 +214,7 @@ export default function Sidebar({
           <button
             type="button"
             onClick={handleLogout}
-            className="flex w-full items-center justify-center rounded-2xl border border-[#D4AF37]/28 bg-[linear-gradient(145deg,rgba(212,175,55,0.10),rgba(139,30,63,0.08))] px-3 py-3 text-sm font-medium text-[#5b1724] dark:border-[#D4AF37]/20 dark:bg-[linear-gradient(145deg,rgba(212,175,55,0.10),rgba(59,13,20,0.26))] dark:text-[#f8edd7]"
+            className="admin-btn-primary flex w-full items-center justify-center rounded-2xl border border-transparent px-3 py-3 text-sm font-medium"
           >
             {collapsed ? "Out" : "Logout"}
           </button>

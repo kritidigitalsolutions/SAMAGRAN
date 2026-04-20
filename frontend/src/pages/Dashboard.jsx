@@ -18,7 +18,7 @@ const metrics = [
     trend: "+12.4%",
     progress: 78,
     icon: "O",
-    tone: "from-[#8B1E3F] via-[#5b1724] to-[#2a0c12]",
+    tone: "from-[var(--admin-primary)] to-[var(--admin-primary-strong)]",
   },
   {
     title: "Revenue",
@@ -27,7 +27,7 @@ const metrics = [
     trend: "+18.9%",
     progress: 84,
     icon: "R",
-    tone: "from-[#D4AF37] via-[#b18418] to-[#8B1E3F]",
+    tone: "from-[#d94279] to-[#b9144b]",
   },
   {
     title: "Users",
@@ -36,7 +36,7 @@ const metrics = [
     trend: "+9.1%",
     progress: 67,
     icon: "U",
-    tone: "from-[#1d7a72] via-[#115e59] to-[#2a0c12]",
+    tone: "from-[#22b488] to-[#16956f]",
   },
   {
     title: "Pandit Availability",
@@ -45,7 +45,7 @@ const metrics = [
     trend: "+6.3%",
     progress: 94,
     icon: "P",
-    tone: "from-[#D4AF37] via-[#8B1E3F] to-[#3B0D14]",
+    tone: "from-[#e4497d] to-[#b9144b]",
   },
 ];
 
@@ -129,47 +129,47 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-4">
-      <section className="shimmer-border relative overflow-hidden rounded-[32px] border border-[#dcc9ae]/60 bg-[linear-gradient(135deg,rgba(107,24,41,0.96),rgba(59,13,20,0.96)_42%,rgba(18,8,10,0.98))] p-6 text-white shadow-[0_24px_80px_rgba(59,13,20,0.26)] dark:border-white/10 dark:bg-[linear-gradient(135deg,rgba(59,13,20,0.98),rgba(23,8,11,0.98)_48%,rgba(7,4,5,1))] md:p-7">
-        <div className="float-slow absolute -left-12 top-10 h-36 w-36 rounded-full bg-[#D4AF37]/18 blur-3xl" />
-        <div className="float-delayed absolute right-0 top-0 h-44 w-44 rounded-full bg-[#8B1E3F]/22 blur-3xl" />
+      <section className="relative overflow-hidden rounded-[30px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-6 text-[var(--admin-text)] shadow-[var(--admin-shadow)] md:p-7">
+        <div className="absolute -left-12 top-10 h-36 w-36 rounded-full bg-[#ca1755]/8 blur-3xl" />
+        <div className="absolute right-0 top-0 h-44 w-44 rounded-full bg-[#18b887]/8 blur-3xl" />
 
         <div className="relative grid gap-5 xl:grid-cols-[1.5fr_0.85fr]">
           <div className="card-enter">
-            <p className="text-xs font-semibold uppercase tracking-[0.4em] text-[#f0d68a]">
-              Dynamic Overview
+            <p className="text-xs font-semibold uppercase tracking-[0.34em] text-[var(--admin-primary)]">
+              Dashboard Overview
             </p>
             <h2 className="mt-3 max-w-2xl text-3xl font-bold tracking-tight md:text-4xl">
-              {greeting}, manage your e-pooja operations beautifully.
+              {greeting}, manage your temple commerce operations.
             </h2>
-            <p className="mt-3 max-w-2xl text-sm text-[#f5e8cf]/82 md:text-base">
-              A premium command center for bookings, kits, pandit availability, and revenue performance.
+            <p className="mt-3 max-w-2xl text-sm text-[var(--admin-muted)] md:text-base">
+              Track bookings, kits, pandit availability, and revenue in a clean workflow.
             </p>
 
             <div className="mt-5 flex flex-wrap gap-3">
-              <div className="rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm backdrop-blur">
+              <div className="rounded-full border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] px-4 py-2 text-sm">
                 {formattedDate}
               </div>
-              <div className="rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm backdrop-blur">
+              <div className="rounded-full border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] px-4 py-2 text-sm">
                 Synced at {formattedTime}
               </div>
-              <div className="rounded-full border border-[#D4AF37]/35 bg-[#D4AF37]/12 px-4 py-2 text-sm text-[#f7e6b1] backdrop-blur">
+              <div className="rounded-full border border-emerald-500/25 bg-emerald-500/10 px-4 py-2 text-sm text-emerald-700">
                 Conversion up 7.8%
               </div>
             </div>
           </div>
 
-          <div className="card-enter rounded-[28px] border border-[#D4AF37]/20 bg-[linear-gradient(160deg,rgba(212,175,55,0.14),rgba(255,255,255,0.08))] p-5 backdrop-blur-xl" style={{ animationDelay: "140ms" }}>
-            <p className="text-xs uppercase tracking-[0.35em] text-[#f0d68a]/90">Live spotlight</p>
-            <p className="mt-4 text-sm font-medium text-[#f7ebd2]/78">{currentSpotlight.label}</p>
-            <p className="mt-2 text-4xl font-bold text-[#fff4dc]">{currentSpotlight.value}</p>
-            <p className="mt-3 text-sm text-[#f4e5c5]/72">{currentSpotlight.note}</p>
+          <div className="card-enter rounded-[24px] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] p-5" style={{ animationDelay: "140ms" }}>
+            <p className="text-xs uppercase tracking-[0.35em] text-[var(--admin-primary)]">Live spotlight</p>
+            <p className="mt-4 text-sm font-medium text-[var(--admin-muted)]">{currentSpotlight.label}</p>
+            <p className="mt-2 text-4xl font-bold text-[var(--admin-text)]">{currentSpotlight.value}</p>
+            <p className="mt-3 text-sm text-[var(--admin-muted)]">{currentSpotlight.note}</p>
 
             <div className="mt-5 flex gap-2">
               {spotlightStats.map((item, index) => (
                 <span
                   key={item.label}
                   className={`h-2 rounded-full transition-all duration-500 ${
-                    index === activeSpotlight ? "w-8 bg-[#D4AF37]" : "w-2 bg-white/25"
+                    index === activeSpotlight ? "w-8 bg-[var(--admin-primary)]" : "w-2 bg-[var(--admin-border)]"
                   }`}
                 />
               ))}
@@ -185,18 +185,18 @@ export default function Dashboard() {
       </section>
 
       <section className="grid gap-4 xl:grid-cols-[1.5fr_0.85fr]">
-        <div className="card-enter relative overflow-hidden rounded-[30px] border border-[#dbc7a8]/60 bg-[linear-gradient(180deg,rgba(255,251,244,0.82),rgba(245,235,217,0.76))] p-6 shadow-[0_18px_60px_rgba(59,13,20,0.10)] backdrop-blur-xl dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(59,13,20,0.84),rgba(18,8,10,0.94))]" style={{ animationDelay: "140ms" }}>
-          <div className="absolute right-0 top-0 h-24 w-24 rounded-full bg-[#D4AF37]/12 blur-3xl dark:bg-[#D4AF37]/10" />
+        <div className="card-enter relative overflow-hidden rounded-[30px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-6 shadow-[var(--admin-shadow)]" style={{ animationDelay: "140ms" }}>
+          <div className="absolute right-0 top-0 h-24 w-24 rounded-full bg-[#ca1755]/10 blur-3xl" />
           <div className="mb-5 flex items-center justify-between gap-4">
             <div>
-              <p className="text-sm font-semibold uppercase tracking-[0.32em] text-[#8B1E3F] dark:text-[#D4AF37]">
+              <p className="text-sm font-semibold uppercase tracking-[0.32em] text-[var(--admin-primary)]">
                 Revenue Flow
               </p>
-              <h3 className="mt-2 text-2xl font-bold text-[#2f1618] dark:text-[#fff3dc]">
+              <h3 className="mt-2 text-2xl font-bold text-[var(--admin-text)]">
                 Weekly earnings and order momentum
               </h3>
             </div>
-            <div className="rounded-full bg-[#D4AF37]/14 px-4 py-2 text-sm font-semibold text-[#8B1E3F] dark:text-[#f5dc9d]">
+            <div className="rounded-full bg-emerald-500/10 px-4 py-2 text-sm font-semibold text-emerald-700">
               +15.2% this week
             </div>
           </div>
@@ -205,8 +205,8 @@ export default function Dashboard() {
             <AreaChart data={revenueData}>
               <defs>
                 <linearGradient id="revenueFill" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#D4AF37" stopOpacity={0.36} />
-                  <stop offset="95%" stopColor="#D4AF37" stopOpacity={0.04} />
+                  <stop offset="5%" stopColor="#ca1755" stopOpacity={0.32} />
+                  <stop offset="95%" stopColor="#ca1755" stopOpacity={0.04} />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.20)" />
@@ -219,14 +219,14 @@ export default function Dashboard() {
                 contentStyle={{
                   borderRadius: "18px",
                   border: "1px solid rgba(148,163,184,0.2)",
-                  background: "rgba(15,23,42,0.95)",
-                  color: "#fff",
+                  background: "#ffffff",
+                  color: "#1f2030",
                 }}
               />
               <Area
                 type="monotone"
                 dataKey="revenue"
-                stroke="#D4AF37"
+                stroke="#ca1755"
                 strokeWidth={3}
                 fill="url(#revenueFill)"
                 animationDuration={1100}
@@ -236,22 +236,22 @@ export default function Dashboard() {
         </div>
 
         <div>
-          <div className="card-enter rounded-[30px] border border-[#dbc7a8]/60 bg-[linear-gradient(180deg,rgba(255,251,244,0.82),rgba(245,235,217,0.76))] p-6 shadow-[0_18px_60px_rgba(59,13,20,0.10)] backdrop-blur-xl dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(59,13,20,0.84),rgba(18,8,10,0.94))]" style={{ animationDelay: "220ms" }}>
-            <p className="text-sm font-semibold uppercase tracking-[0.32em] text-[#1d7a72] dark:text-[#7fd0c6]">
+          <div className="card-enter rounded-[30px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-6 shadow-[var(--admin-shadow)]" style={{ animationDelay: "220ms" }}>
+            <p className="text-sm font-semibold uppercase tracking-[0.32em] text-[#1d7a72]">
               Live Activity
             </p>
-            <h3 className="mt-2 text-2xl font-bold text-[#2f1618] dark:text-[#fff3dc]">
+            <h3 className="mt-2 text-2xl font-bold text-[var(--admin-text)]">
               What&apos;s happening now
             </h3>
 
             <div className="mt-5 space-y-3">
               {activityFeed.map((item) => (
-                <div key={item.title} className="card-hover flex items-start justify-between gap-3 rounded-2xl bg-[#fff8ee]/80 px-4 py-4 transition dark:bg-white/5">
+                <div key={item.title} className="flex items-start justify-between gap-3 rounded-2xl border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] px-4 py-4 transition hover:bg-white">
                   <div>
-                    <p className="font-medium text-[#422127] dark:text-[#fff3dc]">{item.title}</p>
-                    <p className="mt-1 text-xs text-[#7a5e4d] dark:text-[#eadcc4]/70">{item.time}</p>
+                    <p className="font-medium text-[var(--admin-text)]">{item.title}</p>
+                    <p className="mt-1 text-xs text-[var(--admin-muted)]">{item.time}</p>
                   </div>
-                  <span className="rounded-full bg-[linear-gradient(135deg,#D4AF37,#b78922)] px-3 py-1 text-xs font-semibold text-[#331116] dark:bg-[linear-gradient(135deg,#D4AF37,#b78922)] dark:text-[#331116]">
+                  <span className="rounded-full bg-[var(--admin-primary)] px-3 py-1 text-xs font-semibold text-white">
                     {item.amount}
                   </span>
                 </div>
@@ -263,3 +263,4 @@ export default function Dashboard() {
     </div>
   );
 }
+

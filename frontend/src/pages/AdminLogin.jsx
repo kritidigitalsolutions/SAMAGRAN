@@ -49,7 +49,7 @@ export default function AdminLogin() {
       <div className="absolute -left-20 top-10 h-64 w-64 rounded-full bg-[#D4AF37]/20 blur-3xl" />
       <div className="absolute -right-10 bottom-0 h-72 w-72 rounded-full bg-[#8B1E3F]/20 blur-3xl" />
 
-      <div className="relative w-full max-w-md rounded-3xl border border-[#dcc7ab]/60 bg-[linear-gradient(180deg,rgba(255,251,244,0.92),rgba(245,235,217,0.88))] p-8 shadow-[0_28px_80px_rgba(59,13,20,0.18)] backdrop-blur-xl dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(59,13,20,0.84),rgba(18,8,10,0.94))]">
+      <div className="relative w-full max-w-md rounded-3xl border border-[#dcc7ab]/60 bg-[var(--admin-surface)] p-8 shadow-[0_28px_80px_rgba(59,13,20,0.18)] backdrop-blur-xl dark:border-white/10 dark:bg-[var(--admin-surface)]">
         <h2 className="text-center text-3xl font-bold text-[#2f1618] dark:text-[#fff3dc]">
           Admin Login
         </h2>
@@ -80,7 +80,7 @@ export default function AdminLogin() {
           <button
             type="submit"
             disabled={loading}
-            className="h-12 w-full rounded-xl bg-[linear-gradient(135deg,#8B1E3F,#D4AF37)] font-semibold text-white transition hover:opacity-90 disabled:opacity-60"
+            className="h-12 w-full rounded-xl admin-btn-primary font-semibold text-white transition hover:opacity-90 disabled:opacity-60"
           >
             {loading ? "Logging in..." : "Login"}
           </button>
@@ -93,3 +93,5 @@ export default function AdminLogin() {
     </div>
   );
 }
+
+

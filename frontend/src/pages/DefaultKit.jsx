@@ -240,10 +240,10 @@ export default function DefaultKit() {
 
   return (
     <div className="space-y-6 text-[#2f1618] dark:text-[#fff3dc]">
-      <section className="rounded-3xl border border-[#dcc7ab]/60 bg-[linear-gradient(140deg,rgba(255,248,237,0.94),rgba(247,235,211,0.9))] p-6 shadow-[0_18px_45px_rgba(59,13,20,0.08)] dark:border-white/10 dark:bg-[linear-gradient(140deg,rgba(59,13,20,0.65),rgba(11,5,7,0.82))]">
+      <section className="rounded-3xl border border-[var(--admin-border)] bg-[var(--admin-surface)] p-6 shadow-[var(--admin-shadow)]">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.26em] text-[#8B1E3F] dark:text-[#D4AF37]">Admin Default Kit</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.26em] text-[var(--admin-primary)]">Admin Default Kit</p>
             <h2 className="mt-2 text-2xl font-bold">Manage default kit catalog</h2>
             <p className="mt-2 text-sm text-[#6e4b40] dark:text-[#f7e3c0]/75">
               Publish, edit and delete default kits that users can customize.
@@ -260,7 +260,7 @@ export default function DefaultKit() {
                 setShowCreateForm(true);
               }
             }}
-            className="rounded-2xl bg-[linear-gradient(135deg,#8B1E3F,#5f1828)] px-4 py-2 text-sm font-semibold text-[#fff3dc] shadow hover:brightness-110"
+            className="admin-btn-primary rounded-2xl px-4 py-2 text-sm font-semibold shadow"
           >
             {showCreateForm ? "Hide Form" : "Create Default Kit"}
           </button>
@@ -384,7 +384,7 @@ export default function DefaultKit() {
               <button
                 type="submit"
                 disabled={submitting}
-                className="w-full rounded-2xl bg-[linear-gradient(135deg,#8B1E3F,#5f1828)] px-4 py-3 text-sm font-semibold text-[#fff3dc] shadow hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
+                className="admin-btn-primary w-full rounded-2xl px-4 py-3 text-sm font-semibold shadow disabled:cursor-not-allowed disabled:opacity-70"
               >
                 {formSubmitLabel}
               </button>
@@ -521,3 +521,5 @@ export default function DefaultKit() {
     </div>
   );
 }
+
+
