@@ -4,13 +4,44 @@ import FestivalKit from "../models/festivalKit.model.js";
 import DefaultKit from "../models/defaultKit.model.js";
 import UserKit from "../models/userKit.model.js";
 
+const CART_PRODUCT_POPULATE = {
+  path: "product",
+  strictPopulate: false,
+  populate: [
+    {
+      path: "items.product",
+      strictPopulate: false,
+    },
+    {
+      path: "baseKit",
+      strictPopulate: false,
+      populate: {
+        path: "items.product",
+        strictPopulate: false,
+      },
+    },
+  ],
+};
+
+const buildCartResponse = (cartItems = []) => {
+  const total = cartItems.reduce((sum, item) => {
+    return sum + item.priceAtAdd * item.quantity;
+  }, 0);
+
+  return {
+    count: cartItems.length,
+    total,
+    data: cartItems,
+  };
+};
+
 // ADD / INCREMENT
 export const addToCart = async (req, res) => {
   try {
     const userId = req.user._id;
-    const { productId, productType } = req.body;
+    const { productId } = req.body;
 
-    if (!productId || !productType) {
+    if (!productId) {
       return res.status(400).json({
         success: false,
         message: "productId and productType required",
@@ -20,7 +51,6 @@ export const addToCart = async (req, res) => {
     let cart = await Cart.findOne({
       user: userId,
       product: productId,
-      productType,
     });
 
     if (cart) {
@@ -29,71 +59,7 @@ export const addToCart = async (req, res) => {
     } else {
       let price = 0;
 
-      if (productType === "Item") {
-        const item = await Item.findById(productId);
 
-        if (!item || item.status !== "active") {
-          return res.status(404).json({
-            success: false,
-            message: "Item not found",
-          });
-        }
-
-        if (item.stock.quantity < 1) {
-          return res.status(400).json({
-            success: false,
-            message: "Out of stock",
-          });
-        }
-
-        price = item.pricing.price;
-      }
-
-      if (productType === "FestivalKit") {
-        const kit = await FestivalKit.findById(productId);
-
-        if (!kit) {
-          return res.status(404).json({
-            success: false,
-            message: "Kit not found",
-          });
-        }
-
-        price = kit.kitPrice;
-      }
-
-      if (productType === "DefaultKit") {
-        const kit = await DefaultKit.findOne({ _id: productId, status: "active" });
-
-        if (!kit) {
-          return res.status(404).json({
-            success: false,
-            message: "Default kit not found",
-          });
-        }
-
-        price = kit.kitPrice || kit.totalPrice || 0;
-      }
-
-      if (productType === "UserKit") {
-        const userKit = await UserKit.findOne({ _id: productId, user: userId });
-
-        if (!userKit) {
-          return res.status(404).json({
-            success: false,
-            message: "User kit not found",
-          });
-        }
-
-        if (userKit.status === "ordered") {
-          return res.status(400).json({
-            success: false,
-            message: "Ordered user kit cannot be added to cart",
-          });
-        }
-
-        price = userKit.totalPrice || 0;
-      }
 
       if (price <= 0) {
         return res.status(400).json({
@@ -105,16 +71,17 @@ export const addToCart = async (req, res) => {
       cart = await Cart.create({
         user: userId,
         product: productId,
-        productType,
         quantity: 1,
         priceAtAdd: price,
       });
     }
 
+    const populatedCartItem = await cart.populate(CART_PRODUCT_POPULATE);
+
     res.json({
       success: true,
       message: "Quantity increased",
-      data: cart,
+      data: populatedCartItem,
     });
   } catch (err) {
     res.status(500).json({
@@ -128,12 +95,11 @@ export const addToCart = async (req, res) => {
 export const removeFromCart = async (req, res) => {
   try {
     const userId = req.user._id;
-    const { productId, productType } = req.body;
+    const { productId } = req.body;
 
     const cart = await Cart.findOne({
       user: userId,
       product: productId,
-      productType,
     });
 
     if (!cart) {
@@ -150,9 +116,16 @@ export const removeFromCart = async (req, res) => {
       await cart.deleteOne();
     }
 
+    const updatedCart = await Cart.find({
+      user: userId,
+    }).populate(CART_PRODUCT_POPULATE);
+
+    const cartSummary = buildCartResponse(updatedCart);
+
     res.json({
       success: true,
       message: "Quantity decreased",
+      ...cartSummary,
     });
   } catch (err) {
     res.status(500).json({
@@ -167,17 +140,13 @@ export const getCart = async (req, res) => {
   try {
     const cart = await Cart.find({
       user: req.user._id,
-    }).populate("product");
+    }).populate(CART_PRODUCT_POPULATE);
 
-    const total = cart.reduce((sum, item) => {
-      return sum + item.priceAtAdd * item.quantity;
-    }, 0);
+    const cartSummary = buildCartResponse(cart);
 
     res.json({
       success: true,
-      count: cart.length,
-      total,
-      data: cart,
+      ...cartSummary,
     });
   } catch (err) {
     res.status(500).json({

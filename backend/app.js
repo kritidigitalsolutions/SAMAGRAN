@@ -60,12 +60,13 @@ import adminUserKitRoutes from "./routes/admin/userKit.routes.js";
 import adminPanditRoutes from "./routes/admin/pandit.routes.js";
 import adminPanditBookingRoutes from "./routes/admin/panditBooking.routes.js";
 import adminRitualRoutes from "./routes/admin/ritual.routes.js";
+import adminOrderRoutes from "./routes/admin/order.routes.js";
 import adminAuthRoutes from "./routes/admin/auth.routes.js";
 import adminRoutes from "./routes/admin/admin.routes.js";
 
 import userRoutes from "./routes/user/user.routes.js";
 import authRoutes from "./routes/user/auth.routes.js";
-import panditAuthRoutes from "./routes/pandit.auth.routes.js";
+import panditAuthRoutes from "./routes/pandit/pandit.auth.routes.js";
 
 
 // User Routs
@@ -77,6 +78,8 @@ import userPanditBookingRoutes from "./routes/user/panditBooking.routes.js";
 import cartRoutes from "./routes/user/cart.routes.js";
 import orderRoutes from "./routes/user/order.routes.js";
 import productRoutes from "./routes/admin/product.routes.js";
+import bookingDetails from "./routes/pandit/bookingDetails.routes.js";
+import ritual from "./routes/pandit/ritual.routes.js";
 
 app.use("/api/user/items", userProductRoutes);
 
@@ -144,6 +147,7 @@ app.use("/api/admin/user-kits", adminUserKitRoutes);
 app.use("/api/admin/pandits", adminPanditRoutes);
 app.use("/api/admin/pandit-bookings", adminPanditBookingRoutes);
 app.use("/api/admin/rituals", adminRitualRoutes);
+app.use("/api/admin/orders", adminOrderRoutes);
 // Backward-compatible alias for existing frontend calls.
 app.use("/api/kits", festivalKitRoutes);
 
@@ -174,6 +178,9 @@ app.use("/api/user-kits", userKit);
 
 // user pandit booking journey
 app.use("/api/pandit-bookings", userPanditBookingRoutes);
+app.use("/api/booking-details", bookingDetails)
+app.use("/api/ritual", ritual)
+
 
 app.use((err, req, res, next) => {
   if (res.headersSent) {

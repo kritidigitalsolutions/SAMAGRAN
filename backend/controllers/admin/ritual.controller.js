@@ -2,7 +2,16 @@ import Ritual from "../../models/ritual.model.js";
 
 export const createRitual = async (req, res) => {
   try {
-    const { title = "", description = "", status = "active" } = req.body;
+    const {
+      title = "",
+      description = "",
+      image = "",
+      durationHours = 2,
+      travelForSpecialPooja = false,
+      standardSamagri = false,
+      customSamagri = false,
+      status = "active",
+    } = req.body;
 
     if (!title.trim()) {
       return res.status(400).json({
@@ -25,6 +34,11 @@ export const createRitual = async (req, res) => {
     const ritual = await Ritual.create({
       title: title.trim(),
       description: String(description || "").trim(),
+      image: String(image || "").trim(),
+      durationHours: Number(durationHours) > 0 ? Number(durationHours) : 2,
+      travelForSpecialPooja: Boolean(travelForSpecialPooja),
+      standardSamagri: Boolean(standardSamagri),
+      customSamagri: Boolean(customSamagri),
       status: status === "inactive" ? "inactive" : "active",
     });
 
@@ -74,7 +88,16 @@ export const getAllRitualsForAdmin = async (req, res) => {
 export const updateRitual = async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, description, status } = req.body;
+    const {
+      title,
+      description,
+      image,
+      durationHours,
+      travelForSpecialPooja,
+      standardSamagri,
+      customSamagri,
+      status,
+    } = req.body;
 
     const ritual = await Ritual.findById(id);
     if (!ritual) {
@@ -102,6 +125,29 @@ export const updateRitual = async (req, res) => {
 
     if (typeof description === "string") {
       ritual.description = description.trim();
+    }
+
+    if (typeof image === "string") {
+      ritual.image = image.trim();
+    }
+
+    if (durationHours !== undefined) {
+      const parsedDuration = Number(durationHours);
+      if (Number.isFinite(parsedDuration) && parsedDuration >= 0) {
+        ritual.durationHours = parsedDuration;
+      }
+    }
+
+    if (travelForSpecialPooja !== undefined) {
+      ritual.travelForSpecialPooja = Boolean(travelForSpecialPooja);
+    }
+
+    if (standardSamagri !== undefined) {
+      ritual.standardSamagri = Boolean(standardSamagri);
+    }
+
+    if (customSamagri !== undefined) {
+      ritual.customSamagri = Boolean(customSamagri);
     }
 
     if (status === "active" || status === "inactive") {

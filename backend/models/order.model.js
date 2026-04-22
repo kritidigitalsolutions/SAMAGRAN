@@ -40,10 +40,18 @@ const orderSchema = new mongoose.Schema(
       },
     },
 
+    addressType: {
+      type: String,
+      default: "others",
+    },
     address: {
       name: String,
       phone: String,
       fullAddress: String,
+      addressType: {
+        type: String,
+        default: "others",
+      },
       city: String,
       state: String,
       pincode: String,

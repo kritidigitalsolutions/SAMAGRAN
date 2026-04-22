@@ -130,7 +130,11 @@ export const getRitualsForBooking = async (req, res) => {
       title: ritual.title,
       name: ritual.title,
       description: ritual.description || buildRitualDescription(ritual.title),
-      image: "",
+      image: ritual.image || "",
+      durationHours: Number(ritual.durationHours || 2),
+      travelForSpecialPooja: Boolean(ritual.travelForSpecialPooja),
+      standardSamagri: Boolean(ritual.standardSamagri),
+      customSamagri: Boolean(ritual.customSamagri),
     }));
 
     res.json({
@@ -480,6 +484,46 @@ export const getPanditBookingById = async (req, res) => {
 
 const isValidObjectId = (id) => mongoose.Types.ObjectId.isValid(id);
 
+const normalizeSamagriType = (value = "") => {
+  const normalized = String(value || "").trim().toLowerCase();
+
+  if (["standard", "standard_kit", "standardkit"].includes(normalized)) {
+    return "standard";
+  }
+
+  if (["customize", "custom", "customize_kit", "customkit"].includes(normalized)) {
+    return "customize";
+  }
+
+  return "";
+};
+
+const normalizeRejectReasonType = (value = "") => {
+  const normalized = String(value || "").trim().toLowerCase();
+
+  if (["time_slot_already_booked", "time_slot", "slot_booked"].includes(normalized)) {
+    return "time_slot_already_booked";
+  }
+
+  if (["location_too_far", "location_far", "far"].includes(normalized)) {
+    return "location_too_far";
+  }
+
+  if (["pooja_not_performed", "not_performed", "not_my_pooja"].includes(normalized)) {
+    return "pooja_not_performed";
+  }
+
+  if (["unavailable_personal", "personal", "unavailable"].includes(normalized)) {
+    return "unavailable_personal";
+  }
+
+  if (normalized === "other") {
+    return "other";
+  }
+
+  return "";
+};
+
 const buildBookingStats = (bookings = []) => {
   const stats = {
     total: bookings.length,
@@ -545,6 +589,16 @@ export const getPanditAssignedBookings = async (req, res) => {
 export const approvePanditBooking = async (req, res) => {
   try {
     const { bookingId } = req.params;
+    const { samagriType = "", note = "" } = req.body || {};
+
+    const resolvedSamagriType = normalizeSamagriType(samagriType);
+
+    if (!resolvedSamagriType) {
+      return res.status(400).json({
+        success: false,
+        message: "samagriType is required and must be standard or customize",
+      });
+    }
 
     if (!isValidObjectId(bookingId)) {
       return res.status(400).json({
@@ -574,7 +628,29 @@ export const approvePanditBooking = async (req, res) => {
       });
     }
 
+    if (booking.bookingStatus === "completed") {
+      return res.status(400).json({
+        success: false,
+        message: "Completed booking cannot be approved",
+      });
+    }
+
     booking.bookingStatus = "confirmed";
+    booking.panditDecision = {
+      ...booking.panditDecision,
+      samagriType: resolvedSamagriType,
+      rejectReasonType: "",
+      rejectReasonText: "",
+      note: String(note || "").trim(),
+      decidedAt: new Date(),
+    };
+
+    if (String(note || "").trim()) {
+      booking.notes = booking.notes
+        ? `${booking.notes}\nPandit note (approved): ${String(note).trim()}`
+        : `Pandit note (approved): ${String(note).trim()}`;
+    }
+
     await booking.save();
 
     return res.json({
@@ -593,7 +669,38 @@ export const approvePanditBooking = async (req, res) => {
 export const rejectPanditBooking = async (req, res) => {
   try {
     const { bookingId } = req.params;
-    const { reason = "" } = req.body;
+    const {
+      reasonType = "",
+      reason = "",
+      otherReason = "",
+      note = "",
+    } = req.body || {};
+
+    const resolvedReasonType = normalizeRejectReasonType(reasonType || reason);
+    const resolvedNote = String(note || "").trim();
+    const resolvedOtherReason = String(otherReason || "").trim();
+
+    if (!resolvedReasonType) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "reasonType is required. Allowed values: time_slot_already_booked, location_too_far, pooja_not_performed, unavailable_personal, other",
+      });
+    }
+
+    if (!resolvedNote) {
+      return res.status(400).json({
+        success: false,
+        message: "note is required when rejecting a booking",
+      });
+    }
+
+    if (resolvedReasonType === "other" && !resolvedOtherReason) {
+      return res.status(400).json({
+        success: false,
+        message: "otherReason is required when reasonType is other",
+      });
+    }
 
     if (!isValidObjectId(bookingId)) {
       return res.status(400).json({
@@ -624,11 +731,24 @@ export const rejectPanditBooking = async (req, res) => {
     }
 
     booking.bookingStatus = "cancelled";
-    if (reason.trim()) {
-      booking.notes = booking.notes
-        ? `${booking.notes}\nRejected by pandit: ${reason.trim()}`
-        : `Rejected by pandit: ${reason.trim()}`;
-    }
+    booking.panditDecision = {
+      ...booking.panditDecision,
+      samagriType: "",
+      rejectReasonType: resolvedReasonType,
+      rejectReasonText: resolvedReasonType === "other" ? resolvedOtherReason : "",
+      note: resolvedNote,
+      decidedAt: new Date(),
+    };
+
+    const rejectSummary =
+      resolvedReasonType === "other"
+        ? `Rejected by pandit: other - ${resolvedOtherReason}`
+        : `Rejected by pandit: ${resolvedReasonType}`;
+
+    booking.notes = booking.notes
+      ? `${booking.notes}\n${rejectSummary}\nPandit note: ${resolvedNote}`
+      : `${rejectSummary}\nPandit note: ${resolvedNote}`;
+
     await booking.save();
 
     return res.json({

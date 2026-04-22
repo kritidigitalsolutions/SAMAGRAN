@@ -5,15 +5,9 @@ import {
   requestPanditOtp,
   updatePanditProfile,
   verifyPanditOtp,
-} from "../controllers/pandit.auth.controller.js";
-import { protectPandit } from "../middleware/pandit.middleware.js";
-import { upload } from "../middleware/upload.js";
-import {
-  approvePanditBooking as approveAssignedBooking,
-  deletePanditBooking as deleteAssignedBooking,
-  getPanditAssignedBookings as getAssignedBookings,
-  rejectPanditBooking as rejectAssignedBooking,
-} from "../controllers/panditBooking.controller.js";
+} from "../../controllers/pandit.auth.controller.js";
+import { protectPandit } from "../../middleware/pandit.middleware.js";
+import { upload } from "../../middleware/upload.js";
 
 const router = express.Router();
 
@@ -43,10 +37,5 @@ router.patch(
   ]),
   completePanditProfile
 );
-
-router.get("/bookings", protectPandit, getAssignedBookings);
-router.patch("/bookings/:bookingId/approve", protectPandit, approveAssignedBooking);
-router.patch("/bookings/:bookingId/reject", protectPandit, rejectAssignedBooking);
-router.delete("/bookings/:bookingId", protectPandit, deleteAssignedBooking);
 
 export default router;

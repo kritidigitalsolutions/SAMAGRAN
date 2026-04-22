@@ -1,5 +1,55 @@
 import mongoose from "mongoose";
 
+const savedAddressSchema = new mongoose.Schema(
+  {
+    label: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    name: {
+      type: String,
+      trim: true,
+      required: true,
+    },
+    phone: {
+      type: String,
+      trim: true,
+      required: true,
+    },
+    fullAddress: {
+      type: String,
+      trim: true,
+      required: true,
+    },
+    addressType: {
+      type: String,
+      trim: true,
+      default: "others",
+    },
+    city: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    state: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    pincode: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    isDefault: {
+      type: Boolean,
+      default: false,
+    },
+  },
+  { _id: true, timestamps: true }
+);
+
 const userSchema = new mongoose.Schema(
   {
     phone: {
@@ -24,6 +74,8 @@ const userSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
+
+    savedAddresses: [savedAddressSchema],
 
     profileImage: {
       type: String,

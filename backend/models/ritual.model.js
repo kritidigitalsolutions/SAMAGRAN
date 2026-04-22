@@ -12,6 +12,28 @@ const ritualSchema = new mongoose.Schema(
       default: "",
       trim: true,
     },
+    image: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+    durationHours: {
+      type: Number,
+      default: 2,
+      min: 0,
+    },
+    travelForSpecialPooja: {
+      type: Boolean,
+      default: false,
+    },
+    standardSamagri: {
+      type: Boolean,
+      default: false,
+    },
+    customSamagri: {
+      type: Boolean,
+      default: false,
+    },
     status: {
       type: String,
       enum: ["active", "inactive"],

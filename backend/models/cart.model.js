@@ -10,14 +10,14 @@ const cartSchema = new mongoose.Schema(
 
     productType: {
       type: String,
-      enum: ["Item", "FestivalKit", "DefaultKit", "UserKit"],
-      required: true,
+      // enum: ["Item", "FestivalKit", "DefaultKit", "UserKit"],
+      // required: true,
     },
 
     product: {
       type: mongoose.Schema.Types.ObjectId,
       refPath: "productType",
-      required: true,
+      // required: true,
     },
 
     quantity: {

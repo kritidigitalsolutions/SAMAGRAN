@@ -106,6 +106,39 @@ const panditBookingSchema = new mongoose.Schema(
       trim: true,
       default: "",
     },
+    panditDecision: {
+      samagriType: {
+        type: String,
+        enum: ["standard", "customize", ""],
+        default: "",
+      },
+      rejectReasonType: {
+        type: String,
+        enum: [
+          "time_slot_already_booked",
+          "location_too_far",
+          "pooja_not_performed",
+          "unavailable_personal",
+          "other",
+          "",
+        ],
+        default: "",
+      },
+      rejectReasonText: {
+        type: String,
+        trim: true,
+        default: "",
+      },
+      note: {
+        type: String,
+        trim: true,
+        default: "",
+      },
+      decidedAt: {
+        type: Date,
+        default: null,
+      },
+    },
   },
   { timestamps: true }
 );
