@@ -1,7 +1,25 @@
 import Ritual from "../../models/ritual.model.js";
 import Pandit from "../../models/pandit.model.js";
+import mongoose from "mongoose";
 
 const normalizeName = (value = "") => String(value || "").trim().toLowerCase();
+
+const toCustomSamagriItem = (item = {}) => ({
+  ...(item._id ? { _id: item._id } : {}),
+  itemName: String(item.itemName || item.name || "").trim(),
+  quantity: Math.max(1, Number(item.quantity || 1)),
+  size: String(item.size || "").trim(),
+});
+
+const sanitizeCustomSamagriItems = (items = []) => {
+  if (!Array.isArray(items)) {
+    return [];
+  }
+
+  return items
+    .map(toCustomSamagriItem)
+    .filter((item) => item.itemName);
+};
 
 const toOfferingFromRitual = ({ ritual, existingOffering = null }) => ({
   name: ritual.title,
@@ -16,7 +34,54 @@ const toOfferingFromRitual = ({ ritual, existingOffering = null }) => ({
   customSamagri: existingOffering
     ? Boolean(existingOffering.customSamagri)
     : Boolean(ritual.customSamagri),
+  customSamagriItems: sanitizeCustomSamagriItems(existingOffering?.customSamagriItems || []),
 });
+
+const buildRitualPayload = ({ ritual, linkedOffering }) => ({
+  ...ritual,
+  isSelected: Boolean(linkedOffering?.isSelected),
+  durationHours: Number(linkedOffering?.durationHours || ritual.durationHours || 2),
+  travelForSpecialPooja: linkedOffering
+    ? Boolean(linkedOffering.travelForSpecialPooja)
+    : Boolean(ritual.travelForSpecialPooja),
+  standardSamagri: linkedOffering
+    ? Boolean(linkedOffering.standardSamagri)
+    : Boolean(ritual.standardSamagri),
+  customSamagri: linkedOffering
+    ? Boolean(linkedOffering.customSamagri)
+    : Boolean(ritual.customSamagri),
+  customSamagriItems: sanitizeCustomSamagriItems(linkedOffering?.customSamagriItems || []),
+});
+
+const getRitualAndPanditOfferingContext = async ({ panditId, ritualId }) => {
+  if (!mongoose.Types.ObjectId.isValid(ritualId)) {
+    throw new Error("Invalid ritual id");
+  }
+
+  const ritual = await Ritual.findOne({ _id: ritualId, status: "active" }).lean();
+  if (!ritual) {
+    throw new Error("Ritual not found");
+  }
+
+  const pandit = await Pandit.findById(panditId);
+  if (!pandit) {
+    throw new Error("Pandit not found");
+  }
+
+  if (!Array.isArray(pandit.poojaOfferings)) {
+    pandit.poojaOfferings = [];
+  }
+
+  const offeringIndex = pandit.poojaOfferings.findIndex(
+    (offering) => normalizeName(offering.name) === normalizeName(ritual.title)
+  );
+
+  return {
+    ritual,
+    pandit,
+    offeringIndex,
+  };
+};
 
 export const getAllRitualsForPandit = async (req, res) => {
   try {
@@ -41,20 +106,7 @@ export const getAllRitualsForPandit = async (req, res) => {
     const data = rituals.map((ritual) => {
       const linkedOffering = offeringsMap.get(normalizeName(ritual.title));
 
-      return {
-        ...ritual,
-        isSelected: Boolean(linkedOffering?.isSelected),
-        durationHours: Number(linkedOffering?.durationHours || ritual.durationHours || 2),
-        travelForSpecialPooja: linkedOffering
-          ? Boolean(linkedOffering.travelForSpecialPooja)
-          : Boolean(ritual.travelForSpecialPooja),
-        standardSamagri: linkedOffering
-          ? Boolean(linkedOffering.standardSamagri)
-          : Boolean(ritual.standardSamagri),
-        customSamagri: linkedOffering
-          ? Boolean(linkedOffering.customSamagri)
-          : Boolean(ritual.customSamagri),
-      };
+      return buildRitualPayload({ ritual, linkedOffering });
     });
 
     return res.json({
@@ -70,6 +122,37 @@ export const getAllRitualsForPandit = async (req, res) => {
   }
 };
 
+export const getMyRitualsForPandit = async (req, res) => {
+  try {
+    const rituals = await Ritual.find({ status: "active" }).sort({ createdAt: -1 }).lean();
+    const pandit = await Pandit.findById(req.pandit._id).select("poojaOfferings").lean();
+
+    const offerings = Array.isArray(pandit?.poojaOfferings) ? pandit.poojaOfferings : [];
+    const offeringsMap = new Map(
+      offerings.map((offering) => [normalizeName(offering.name), offering])
+    );
+
+    const selectedRituals = rituals
+      .map((ritual) => ({
+        ritual,
+        linkedOffering: offeringsMap.get(normalizeName(ritual.title)),
+      }))
+      .filter(({ linkedOffering }) => Boolean(linkedOffering?.isSelected))
+      .map(({ ritual, linkedOffering }) => buildRitualPayload({ ritual, linkedOffering }));
+
+    return res.json({
+      success: true,
+      count: selectedRituals.length,
+      data: selectedRituals,
+    });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      message: err.message || "Unable to load my rituals",
+    });
+  }
+};
+
 export const addRitualForPandit = async (req, res) => {
   try {
     const {
@@ -81,6 +164,7 @@ export const addRitualForPandit = async (req, res) => {
       travelForSpecialPooja = false,
       standardSamagri = false,
       customSamagri = false,
+      customSamagriItems = [],
       isSelected = true,
     } = req.body;
 
@@ -174,6 +258,13 @@ export const addRitualForPandit = async (req, res) => {
               (existingIndex >= 0 && pandit.poojaOfferings[existingIndex]?.customSamagri) ||
                 ritual.customSamagri
             ),
+      customSamagriItems:
+        customSamagriItems !== undefined
+          ? sanitizeCustomSamagriItems(customSamagriItems)
+          : sanitizeCustomSamagriItems(
+              (existingIndex >= 0 && pandit.poojaOfferings[existingIndex]?.customSamagriItems) ||
+                []
+            ),
     };
 
     if (existingIndex >= 0) {
@@ -196,6 +287,145 @@ export const addRitualForPandit = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: err.message || "Unable to add ritual",
+    });
+  }
+};
+
+export const addCustomSamagriToPanditRitual = async (req, res) => {
+  try {
+    const { ritualId } = req.params;
+    const { itemName, quantity = 1, size = "" } = req.body || {};
+
+    const finalItemName = String(itemName || "").trim();
+    if (!finalItemName) {
+      return res.status(400).json({
+        success: false,
+        message: "itemName is required",
+      });
+    }
+
+    const { pandit, offeringIndex, ritual } = await getRitualAndPanditOfferingContext({
+      panditId: req.pandit._id,
+      ritualId,
+    });
+
+    const baseOffering = {
+      ...toOfferingFromRitual({
+        ritual,
+        existingOffering: offeringIndex >= 0 ? pandit.poojaOfferings[offeringIndex] : null,
+      }),
+      isSelected: true,
+      customSamagri: true,
+    };
+
+    const items = sanitizeCustomSamagriItems(baseOffering.customSamagriItems || []);
+    const normalizedName = normalizeName(finalItemName);
+    const existingItemIndex = items.findIndex((item) => normalizeName(item.itemName) === normalizedName);
+
+    const incomingItem = {
+      itemName: finalItemName,
+      quantity: Math.max(1, Number(quantity || 1)),
+      size: String(size || "").trim(),
+    };
+
+    if (existingItemIndex >= 0) {
+      items[existingItemIndex] = {
+        ...items[existingItemIndex],
+        ...incomingItem,
+      };
+    } else {
+      items.push(incomingItem);
+    }
+
+    baseOffering.customSamagriItems = items;
+
+    if (offeringIndex >= 0) {
+      pandit.poojaOfferings[offeringIndex] = baseOffering;
+    } else {
+      pandit.poojaOfferings.push(baseOffering);
+    }
+
+    await pandit.save();
+
+    return res.status(201).json({
+      success: true,
+      message: "Custom samagri added successfully",
+      data: {
+        ritualId: ritual._id,
+        ritualName: ritual.title,
+        customSamagriItems: baseOffering.customSamagriItems,
+      },
+    });
+  } catch (err) {
+    const message = err.message || "Unable to add custom samagri";
+    const statusCode = message === "Invalid ritual id" ? 400 : message === "Ritual not found" ? 404 : 500;
+    return res.status(statusCode).json({
+      success: false,
+      message,
+    });
+  }
+};
+
+export const removeCustomSamagriFromPanditRitual = async (req, res) => {
+  try {
+    const { ritualId, itemId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(itemId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid custom samagri item id",
+      });
+    }
+
+    const { pandit, offeringIndex, ritual } = await getRitualAndPanditOfferingContext({
+      panditId: req.pandit._id,
+      ritualId,
+    });
+
+    if (offeringIndex < 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Ritual offering not found for pandit",
+      });
+    }
+
+    const offering = {
+      ...pandit.poojaOfferings[offeringIndex].toObject(),
+    };
+
+    const currentItems = sanitizeCustomSamagriItems(offering.customSamagriItems || []);
+    const filteredItems = currentItems.filter(
+      (item) => String(item._id) !== String(itemId)
+    );
+
+    if (filteredItems.length === currentItems.length) {
+      return res.status(404).json({
+        success: false,
+        message: "Custom samagri item not found",
+      });
+    }
+
+    offering.customSamagriItems = filteredItems;
+    offering.customSamagri = filteredItems.length > 0 ? true : Boolean(offering.customSamagri);
+    pandit.poojaOfferings[offeringIndex] = offering;
+
+    await pandit.save();
+
+    return res.json({
+      success: true,
+      message: "Custom samagri removed successfully",
+      data: {
+        ritualId: ritual._id,
+        ritualName: ritual.title,
+        customSamagriItems: filteredItems,
+      },
+    });
+  } catch (err) {
+    const message = err.message || "Unable to remove custom samagri";
+    const statusCode = message === "Invalid ritual id" ? 400 : message === "Ritual not found" ? 404 : 500;
+    return res.status(statusCode).json({
+      success: false,
+      message,
     });
   }
 };

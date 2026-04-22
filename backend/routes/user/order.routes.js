@@ -3,6 +3,7 @@ import protect from "../../middleware/auth.middleware.js";
 import {
 	addSavedAddress,
 	createRazorpayOrder,
+	deleteSavedAddress,
 	getMyOrders,
 	getOrderTracking,
 	getSavedAddresses,
@@ -19,5 +20,6 @@ router.get("/:orderId/tracking", protect, getOrderTracking);
 router.get("/addresses", protect, getSavedAddresses);
 router.post("/addresses", protect, addSavedAddress);
 router.patch("/addresses/:addressId", protect, updateSavedAddress);
+router.delete("/addresses/:addressId", protect, deleteSavedAddress);
 
 export default router;

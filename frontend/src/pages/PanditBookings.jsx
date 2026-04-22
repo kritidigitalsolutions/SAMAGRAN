@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import API from "../api/axios";
-import { FiEye, FiSearch, FiX } from "react-icons/fi";
+import { FiEye, FiSearch, FiTrash2, FiX } from "react-icons/fi";
 
 const statusBadgeClass = (status) => {
   if (status === "confirmed") {
@@ -44,6 +44,11 @@ export default function PanditBookings() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedBooking, setSelectedBooking] = useState(null);
+  const [success, setSuccess] = useState("");
+  const [updatingBookingId, setUpdatingBookingId] = useState("");
+  const [deletingBookingId, setDeletingBookingId] = useState("");
+  const [statusUpdates, setStatusUpdates] = useState({});
+  const [paymentUpdates, setPaymentUpdates] = useState({});
 
   const fetchBookings = useCallback(async (searchValue = "", statusValue = "all") => {
     try {
@@ -58,6 +63,24 @@ export default function PanditBookings() {
       });
 
       setBookings(res.data?.data || []);
+      setStatusUpdates((current) => {
+        const next = { ...current };
+        (res.data?.data || []).forEach((booking) => {
+          if (!next[booking._id]) {
+            next[booking._id] = booking.bookingStatus || "requested";
+          }
+        });
+        return next;
+      });
+      setPaymentUpdates((current) => {
+        const next = { ...current };
+        (res.data?.data || []).forEach((booking) => {
+          if (!next[booking._id]) {
+            next[booking._id] = booking.payment?.status || "pending";
+          }
+        });
+        return next;
+      });
     } catch (err) {
       setError(err.response?.data?.message || "Unable to load pandit bookings.");
     } finally {
@@ -72,6 +95,62 @@ export default function PanditBookings() {
 
     return () => clearTimeout(timer);
   }, [fetchBookings, searchTerm, statusFilter]);
+
+  const handleUpdateBooking = async (booking) => {
+    if (!booking?._id) return;
+
+    try {
+      setUpdatingBookingId(booking._id);
+      setError("");
+      setSuccess("");
+
+      const res = await API.patch(`/admin/pandit-bookings/${booking._id}`, {
+        bookingStatus: statusUpdates[booking._id] || booking.bookingStatus,
+        payment: {
+          ...booking.payment,
+          status: paymentUpdates[booking._id] || booking.payment?.status || "pending",
+        },
+      });
+
+      const updated = res.data?.data;
+
+      if (updated?._id) {
+        setBookings((current) =>
+          current.map((entry) => (entry._id === updated._id ? updated : entry))
+        );
+        if (selectedBooking?._id === updated._id) {
+          setSelectedBooking(updated);
+        }
+      }
+
+      setSuccess("Booking updated successfully.");
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to update booking.");
+    } finally {
+      setUpdatingBookingId("");
+    }
+  };
+
+  const handleDeleteBooking = async (booking) => {
+    if (!booking?._id) return;
+    if (!window.confirm(`Delete booking ${booking._id}?`)) return;
+
+    try {
+      setDeletingBookingId(booking._id);
+      setError("");
+      setSuccess("");
+      await API.delete(`/admin/pandit-bookings/${booking._id}`);
+      setBookings((current) => current.filter((entry) => entry._id !== booking._id));
+      if (selectedBooking?._id === booking._id) {
+        setSelectedBooking(null);
+      }
+      setSuccess("Booking deleted successfully.");
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to delete booking.");
+    } finally {
+      setDeletingBookingId("");
+    }
+  };
 
   const summary = useMemo(() => {
     const requested = bookings.filter((entry) => entry.bookingStatus === "requested").length;
@@ -95,6 +174,18 @@ export default function PanditBookings() {
           <span className="rounded-full bg-emerald-100 px-3 py-1 font-semibold text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-200">Confirmed {summary.confirmed}</span>
         </div>
       </section>
+
+      {(error || success) && (
+        <div
+          className={`rounded-2xl border px-4 py-3 text-sm ${
+            error
+              ? "border-red-300 bg-red-50 text-red-700 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-200"
+              : "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-200"
+          }`}
+        >
+          {error || success}
+        </div>
+      )}
 
       <section className="rounded-[30px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-6 shadow-[var(--admin-shadow)]">
         <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -156,6 +247,7 @@ export default function PanditBookings() {
                   <th className="px-4 py-3 font-semibold">Date & Slot</th>
                   <th className="px-4 py-3 font-semibold">Amount</th>
                   <th className="px-4 py-3 font-semibold">Status</th>
+                  <th className="px-4 py-3 font-semibold">Update</th>
                   <th className="px-4 py-3 font-semibold">Actions</th>
                 </tr>
               </thead>
@@ -179,14 +271,62 @@ export default function PanditBookings() {
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <button
-                        type="button"
-                        onClick={() => setSelectedBooking(booking)}
-                        className="grid h-9 w-9 place-items-center rounded-lg bg-blue-100 text-blue-700 hover:bg-blue-200"
-                        aria-label="View booking"
-                      >
-                        <FiEye />
-                      </button>
+                      <div className="flex min-w-[220px] items-center gap-2">
+                        <select
+                          value={statusUpdates[booking._id] || booking.bookingStatus || "requested"}
+                          onChange={(event) =>
+                            setStatusUpdates((current) => ({ ...current, [booking._id]: event.target.value }))
+                          }
+                          className="h-9 rounded-lg border border-[#d7c3a3] bg-white/75 px-2 text-xs outline-none dark:border-white/10 dark:bg-white/5"
+                        >
+                          <option value="requested">Requested</option>
+                          <option value="confirmed">Confirmed</option>
+                          <option value="cancelled">Cancelled</option>
+                          <option value="completed">Completed</option>
+                        </select>
+
+                        <select
+                          value={paymentUpdates[booking._id] || booking.payment?.status || "pending"}
+                          onChange={(event) =>
+                            setPaymentUpdates((current) => ({ ...current, [booking._id]: event.target.value }))
+                          }
+                          className="h-9 rounded-lg border border-[#d7c3a3] bg-white/75 px-2 text-xs outline-none dark:border-white/10 dark:bg-white/5"
+                        >
+                          <option value="pending">Pending</option>
+                          <option value="paid">Paid</option>
+                          <option value="failed">Failed</option>
+                        </select>
+
+                        <button
+                          type="button"
+                          onClick={() => handleUpdateBooking(booking)}
+                          disabled={updatingBookingId === booking._id}
+                          className="rounded-lg bg-[#8B1E3F] px-3 py-2 text-xs font-semibold text-white disabled:opacity-60"
+                        >
+                          {updatingBookingId === booking._id ? "..." : "Update"}
+                        </button>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedBooking(booking)}
+                          className="grid h-9 w-9 place-items-center rounded-lg bg-blue-100 text-blue-700 hover:bg-blue-200"
+                          aria-label="View booking"
+                        >
+                          <FiEye />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteBooking(booking)}
+                          disabled={deletingBookingId === booking._id}
+                          className="grid h-9 w-9 place-items-center rounded-lg border border-red-300 text-red-600 hover:bg-red-50 disabled:opacity-60 dark:border-red-500/40 dark:text-red-200 dark:hover:bg-red-500/10"
+                          aria-label="Delete booking"
+                        >
+                          <FiTrash2 />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}

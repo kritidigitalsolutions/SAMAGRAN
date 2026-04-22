@@ -53,6 +53,15 @@ const serviceTypeSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const customSamagriItemSchema = new mongoose.Schema(
+  {
+    itemName: { type: String, trim: true, required: true },
+    quantity: { type: Number, default: 1, min: 1 },
+    size: { type: String, trim: true, default: "" },
+  },
+  { _id: true, timestamps: false }
+);
+
 const poojaOfferingSchema = new mongoose.Schema(
   {
     name: { type: String, trim: true, required: true },
@@ -61,6 +70,10 @@ const poojaOfferingSchema = new mongoose.Schema(
     travelForSpecialPooja: { type: Boolean, default: false },
     standardSamagri: { type: Boolean, default: false },
     customSamagri: { type: Boolean, default: false },
+    customSamagriItems: {
+      type: [customSamagriItemSchema],
+      default: [],
+    },
   },
   { _id: false }
 );

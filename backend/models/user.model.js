@@ -87,6 +87,11 @@ const userSchema = new mongoose.Schema(
       default: false,
     },
 
+    isBlocked: {
+      type: Boolean,
+      default: false,
+    },
+
     // 🔐 OTP fields (core of your auth)
     otp: String,
     otpExpires: Date,

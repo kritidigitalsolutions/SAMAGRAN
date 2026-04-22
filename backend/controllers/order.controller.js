@@ -722,6 +722,54 @@ export const updateSavedAddress = async (req, res) => {
   }
 };
 
+export const deleteSavedAddress = async (req, res) => {
+  try {
+    const { addressId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(addressId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid address id",
+      });
+    }
+
+    const user = await User.findById(req.user._id);
+    const addresses = Array.isArray(user?.savedAddresses) ? user.savedAddresses : [];
+    const targetAddress = addresses.id(addressId);
+
+    if (!targetAddress) {
+      return res.status(404).json({
+        success: false,
+        message: "Saved address not found",
+      });
+    }
+
+    const deletedWasDefault = Boolean(targetAddress.isDefault);
+    targetAddress.deleteOne();
+
+    if (deletedWasDefault && user.savedAddresses.length > 0) {
+      user.savedAddresses.forEach((saved, index) => {
+        saved.isDefault = index === 0;
+      });
+    }
+
+    await user.save();
+
+    return res.json({
+      success: true,
+      message: "Address deleted successfully",
+      data: {
+        addresses: user.savedAddresses,
+      },
+    });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+};
+
 export const getMyOrders = async (req, res) => {
   try {
     const orders = await Order.find({ user: req.user._id }).sort({ createdAt: -1 }).lean();

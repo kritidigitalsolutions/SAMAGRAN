@@ -1,7 +1,6 @@
 import express from "express";
 import { protectAdmin } from "../../middleware/admin.middleware.js";
 import {
-  createOrderByAdmin,
   deleteOrderByAdmin,
   getAllOrdersForAdmin,
   getOrderByIdForAdmin,
@@ -10,8 +9,6 @@ import {
 } from "../../controllers/admin/order.controller.js";
 
 const router = express.Router();
-
-router.post("/", protectAdmin, createOrderByAdmin);
 router.get("/", protectAdmin, getAllOrdersForAdmin);
 router.get("/:id", protectAdmin, getOrderByIdForAdmin);
 router.put("/:id", protectAdmin, updateOrderByAdmin);

@@ -98,7 +98,7 @@ const panditBookingSchema = new mongoose.Schema(
     },
     bookingStatus: {
       type: String,
-      enum: ["requested", "confirmed", "cancelled", "completed"],
+      // enum: ["requested", "confirmed", "cancelled", "completed"],
       default: "requested",
     },
     notes: {
