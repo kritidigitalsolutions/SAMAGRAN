@@ -161,7 +161,8 @@ export const getPanditsForBooking = async (req, res) => {
     res.json({
       success: true,
       count: pandits.length,
-      data: pandits.map(mapPanditCard),
+      // data: pandits.map(mapPanditCard),
+      data: pandits
     });
   } catch (err) {
     res.status(500).json({

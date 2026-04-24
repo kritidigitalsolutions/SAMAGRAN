@@ -125,7 +125,7 @@ export const login = async (req, res) => {
       message: "OTP sent for login",
       data: { OTP: otp },
     });
-    console.log(`The Login OTP is :`, OTP)
+    console.log(`The Login OTP is :`, otp)
   } catch (err) {
     console.error("LOGIN ERROR:", err);
     res.status(500).json({

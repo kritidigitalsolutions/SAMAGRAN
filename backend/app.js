@@ -61,6 +61,7 @@ import adminPanditRoutes from "./routes/admin/pandit.routes.js";
 import adminPanditBookingRoutes from "./routes/admin/panditBooking.routes.js";
 import adminRitualRoutes from "./routes/admin/ritual.routes.js";
 import adminOrderRoutes from "./routes/admin/order.routes.js";
+import adminWishlistRoutes from "./routes/admin/wishlist.routes.js";
 import adminAuthRoutes from "./routes/admin/auth.routes.js";
 import adminRoutes from "./routes/admin/admin.routes.js";
 
@@ -74,15 +75,17 @@ import userFestivalKitRoutes from "./routes/user/festivalKit.routes.js";
 import userDefaultKitRoutes from "./routes/user/defaultKit.routes.js";
 import userKit from "./routes/user/userKit.routes.js";
 import userProductRoutes from "./routes/user/product.routes.js";
-import userPanditBookingRoutes from "./routes/user/panditBooking.routes.js";
+import panditBooking from "./routes/user/panditBooking.routes.js";
 import cartRoutes from "./routes/user/cart.routes.js";
+import wishlistRoutes from "./routes/user/wishlist.routes.js";
 import orderRoutes from "./routes/user/order.routes.js";
 import productRoutes from "./routes/admin/product.routes.js";
 import bookingDetails from "./routes/pandit/bookingDetails.routes.js";
 import ritual from "./routes/pandit/ritual.routes.js";
+import legal from "./routes/admin/legal.routes.js";
+import aboutUs from "./routes/admin/aboutUs.routes.js";
 
 app.use("/api/user/items", userProductRoutes);
-
 // Ensure default admin exists after DB connection is established in server.js
 export const ensureAdmin = async () => {
   try {
@@ -148,8 +151,13 @@ app.use("/api/admin/pandits", adminPanditRoutes);
 app.use("/api/admin/pandit-bookings", adminPanditBookingRoutes);
 app.use("/api/admin/rituals", adminRitualRoutes);
 app.use("/api/admin/orders", adminOrderRoutes);
+app.use("/api/admin/wishlists", adminWishlistRoutes);
+app.use("/api/legal", legal)
+app.use("/api/aboutus", aboutUs)
+
 // Backward-compatible alias for existing frontend calls.
 app.use("/api/kits", festivalKitRoutes);
+
 
 
 
@@ -166,6 +174,7 @@ app.use("/api/default-kits", userDefaultKitRoutes);
 
 //cart
 app.use("/api/cart", cartRoutes);
+app.use("/api/wishlist", wishlistRoutes);
 
 // items
 app.use("/api/items", productRoutes);
@@ -177,7 +186,7 @@ app.use("/api/order", orderRoutes);
 app.use("/api/user-kits", userKit);
 
 // user pandit booking journey
-app.use("/api/pandit-bookings", userPanditBookingRoutes);
+app.use("/api/pandit-bookings", panditBooking);
 app.use("/api/booking-details", bookingDetails)
 app.use("/api/ritual", ritual)
 

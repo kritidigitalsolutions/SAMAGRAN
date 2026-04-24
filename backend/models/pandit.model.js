@@ -65,6 +65,7 @@ const customSamagriItemSchema = new mongoose.Schema(
 const poojaOfferingSchema = new mongoose.Schema(
   {
     name: { type: String, trim: true, required: true },
+    description: { type: String, trim: true, default: "" },
     isSelected: { type: Boolean, default: false },
     durationHours: { type: Number, default: 2 },
     travelForSpecialPooja: { type: Boolean, default: false },

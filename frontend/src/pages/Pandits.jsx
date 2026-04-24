@@ -34,6 +34,8 @@ const initialForm = {
   fullName: "",
   profileImage: "",
   bio: "",
+  ratingAverage: 4.5,
+  ratingCount: 0,
   yearsOfExperience: 0,
   templeAssociated: "",
   languagesSpoken: "",
@@ -46,6 +48,22 @@ const initialForm = {
   city: "",
   state: "",
   pinCode: "",
+  aadhaarNumber: "",
+  aadhaarFrontImage: "",
+  aadhaarBackImage: "",
+  aadhaarConsentGiven: false,
+  serviceOnlinePooja: false,
+  serviceHomeVisit: false,
+  serviceAtTemple: false,
+  serviceTravelForSpecialPoojas: false,
+  serviceDetectedCity: "",
+  serviceDetectedState: "",
+  serviceDistanceSelected: "",
+  serviceDistanceCustomKm: 0,
+  serviceWithinDistrict: false,
+  serviceWithinState: false,
+  serviceAnywhereInIndia: false,
+  poojaOfferings: [{ title: "", description: "" }],
 };
 
 export default function Pandits() {
@@ -125,6 +143,8 @@ export default function Pandits() {
       fullName: pandit?.fullName || "",
       profileImage: pandit?.profileImage || "",
       bio: pandit?.bio || "",
+      ratingAverage: Number(pandit?.ratingAverage ?? 4.5),
+      ratingCount: Number(pandit?.ratingCount || 0),
       yearsOfExperience: Number(pandit?.yearsOfExperience || 0),
       templeAssociated: pandit?.templeAssociated || "",
       languagesSpoken: Array.isArray(pandit?.languagesSpoken) ? pandit.languagesSpoken.join(", ") : "",
@@ -137,6 +157,28 @@ export default function Pandits() {
       city: pandit?.address?.city || "",
       state: pandit?.address?.state || "",
       pinCode: pandit?.address?.pinCode || "",
+      aadhaarNumber: pandit?.aadhaar?.number || "",
+      aadhaarFrontImage: pandit?.aadhaar?.frontImage || "",
+      aadhaarBackImage: pandit?.aadhaar?.backImage || "",
+      aadhaarConsentGiven: Boolean(pandit?.aadhaar?.consentGiven),
+      serviceOnlinePooja: Boolean(pandit?.serviceTypes?.onlinePooja),
+      serviceHomeVisit: Boolean(pandit?.serviceTypes?.homeVisit),
+      serviceAtTemple: Boolean(pandit?.serviceTypes?.atTemple),
+      serviceTravelForSpecialPoojas: Boolean(pandit?.serviceTypes?.travelForSpecialPoojas),
+      serviceDetectedCity: pandit?.serviceTypes?.detectedLocation?.city || "",
+      serviceDetectedState: pandit?.serviceTypes?.detectedLocation?.state || "",
+      serviceDistanceSelected: pandit?.serviceTypes?.serviceDistance?.selected || "",
+      serviceDistanceCustomKm: Number(pandit?.serviceTypes?.serviceDistance?.customKm || 0),
+      serviceWithinDistrict: Boolean(pandit?.serviceTypes?.outstationAvailability?.withinDistrict),
+      serviceWithinState: Boolean(pandit?.serviceTypes?.outstationAvailability?.withinState),
+      serviceAnywhereInIndia: Boolean(pandit?.serviceTypes?.outstationAvailability?.anywhereInIndia),
+      poojaOfferings:
+        Array.isArray(pandit?.poojaOfferings) && pandit.poojaOfferings.length
+          ? pandit.poojaOfferings.map((entry) => ({
+              title: entry?.name || entry?.title || "",
+              description: entry?.description || "",
+            }))
+          : [{ title: "", description: "" }],
     });
 
     setEditingPanditId(pandit?._id || "");
@@ -158,6 +200,37 @@ export default function Pandits() {
     }));
   };
 
+  const handlePoojaOfferingChange = (index, field, value) => {
+    setForm((current) => {
+      const updated = [...current.poojaOfferings];
+      updated[index] = {
+        ...updated[index],
+        [field]: value,
+      };
+      return {
+        ...current,
+        poojaOfferings: updated,
+      };
+    });
+  };
+
+  const addPoojaOfferingRow = () => {
+    setForm((current) => ({
+      ...current,
+      poojaOfferings: [...current.poojaOfferings, { title: "", description: "" }],
+    }));
+  };
+
+  const removePoojaOfferingRow = (index) => {
+    setForm((current) => {
+      const updated = current.poojaOfferings.filter((_, idx) => idx !== index);
+      return {
+        ...current,
+        poojaOfferings: updated.length ? updated : [{ title: "", description: "" }],
+      };
+    });
+  };
+
   const handleSavePandit = async (event) => {
     event.preventDefault();
 
@@ -172,11 +245,25 @@ export default function Pandits() {
       setError("");
       setSuccess("");
 
+      const poojaOfferings = (form.poojaOfferings || [])
+        .map((entry) => ({
+          title: String(entry?.title || "").trim(),
+          description: String(entry?.description || "").trim(),
+        }))
+        .filter((entry) => entry.title)
+        .map((entry) => ({
+          title: entry.title,
+          description: entry.description,
+          isSelected: true,
+        }));
+
       const payload = {
         phone: form.phone.trim(),
         fullName: form.fullName,
         profileImage: form.profileImage,
         bio: form.bio,
+        ratingAverage: Number(form.ratingAverage || 0),
+        ratingCount: Number(form.ratingCount || 0),
         yearsOfExperience: Number(form.yearsOfExperience || 0),
         templeAssociated: form.templeAssociated,
         languagesSpoken: form.languagesSpoken,
@@ -191,6 +278,32 @@ export default function Pandits() {
           state: form.state,
           pinCode: form.pinCode,
         },
+        aadhaar: {
+          number: form.aadhaarNumber,
+          frontImage: form.aadhaarFrontImage,
+          backImage: form.aadhaarBackImage,
+          consentGiven: form.aadhaarConsentGiven,
+        },
+        serviceTypes: {
+          onlinePooja: form.serviceOnlinePooja,
+          homeVisit: form.serviceHomeVisit,
+          atTemple: form.serviceAtTemple,
+          travelForSpecialPoojas: form.serviceTravelForSpecialPoojas,
+          detectedLocation: {
+            city: form.serviceDetectedCity,
+            state: form.serviceDetectedState,
+          },
+          serviceDistance: {
+            selected: form.serviceDistanceSelected,
+            customKm: Number(form.serviceDistanceCustomKm || 0),
+          },
+          outstationAvailability: {
+            withinDistrict: form.serviceWithinDistrict,
+            withinState: form.serviceWithinState,
+            anywhereInIndia: form.serviceAnywhereInIndia,
+          },
+        },
+        poojaOfferings,
       };
 
       if (editingPanditId) {
@@ -342,6 +455,14 @@ export default function Pandits() {
               <input type="number" min="0" name="yearsOfExperience" value={form.yearsOfExperience} onChange={handleFormChange} className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20" />
             </div>
             <div className="space-y-2">
+              <label className="text-sm font-medium">Rating Average</label>
+              <input type="number" min="0" step="0.1" name="ratingAverage" value={form.ratingAverage} onChange={handleFormChange} className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20" />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Rating Count</label>
+              <input type="number" min="0" name="ratingCount" value={form.ratingCount} onChange={handleFormChange} className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20" />
+            </div>
+            <div className="space-y-2">
               <label className="text-sm font-medium">Temple Associated</label>
               <input name="templeAssociated" value={form.templeAssociated} onChange={handleFormChange} className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20" />
             </div>
@@ -377,6 +498,109 @@ export default function Pandits() {
               <label className="text-sm font-medium">Address Line 2</label>
               <input name="addressLine2" value={form.addressLine2} onChange={handleFormChange} className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20" />
             </div>
+
+            <div className="md:col-span-2 mt-2 rounded-2xl border border-[#d9c3a2]/70 p-4 dark:border-white/20">
+              <h4 className="mb-3 text-sm font-semibold">Aadhaar Details</h4>
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Aadhaar Number</label>
+                  <input name="aadhaarNumber" value={form.aadhaarNumber} onChange={handleFormChange} className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20" />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Aadhaar Front Image URL</label>
+                  <input name="aadhaarFrontImage" value={form.aadhaarFrontImage} onChange={handleFormChange} className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20" />
+                </div>
+                <div className="space-y-2 md:col-span-2">
+                  <label className="text-sm font-medium">Aadhaar Back Image URL</label>
+                  <input name="aadhaarBackImage" value={form.aadhaarBackImage} onChange={handleFormChange} className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20" />
+                </div>
+                <label className="inline-flex items-center gap-2 text-sm md:col-span-2"><input type="checkbox" name="aadhaarConsentGiven" checked={form.aadhaarConsentGiven} onChange={handleFormChange} /> Aadhaar Consent Given</label>
+              </div>
+            </div>
+
+            <div className="md:col-span-2 mt-2 rounded-2xl border border-[#d9c3a2]/70 p-4 dark:border-white/20">
+              <h4 className="mb-3 text-sm font-semibold">Service Types</h4>
+              <div className="grid gap-4 md:grid-cols-2">
+                <label className="inline-flex items-center gap-2 text-sm"><input type="checkbox" name="serviceOnlinePooja" checked={form.serviceOnlinePooja} onChange={handleFormChange} /> Online Pooja</label>
+                <label className="inline-flex items-center gap-2 text-sm"><input type="checkbox" name="serviceHomeVisit" checked={form.serviceHomeVisit} onChange={handleFormChange} /> Home Visit</label>
+                <label className="inline-flex items-center gap-2 text-sm"><input type="checkbox" name="serviceAtTemple" checked={form.serviceAtTemple} onChange={handleFormChange} /> At Temple</label>
+                <label className="inline-flex items-center gap-2 text-sm"><input type="checkbox" name="serviceTravelForSpecialPoojas" checked={form.serviceTravelForSpecialPoojas} onChange={handleFormChange} /> Travel for Special Poojas</label>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Detected City</label>
+                  <input name="serviceDetectedCity" value={form.serviceDetectedCity} onChange={handleFormChange} className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20" />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Detected State</label>
+                  <input name="serviceDetectedState" value={form.serviceDetectedState} onChange={handleFormChange} className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20" />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Service Distance</label>
+                  <select name="serviceDistanceSelected" value={form.serviceDistanceSelected} onChange={handleFormChange} className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20">
+                    <option value="">Select distance</option>
+                    <option value="within5">Within 5 km</option>
+                    <option value="within10">Within 10 km</option>
+                    <option value="within25">Within 25 km</option>
+                    <option value="within50">Within 50 km</option>
+                    <option value="custom">Custom</option>
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Custom Distance (km)</label>
+                  <input type="number" min="0" name="serviceDistanceCustomKm" value={form.serviceDistanceCustomKm} onChange={handleFormChange} className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20" />
+                </div>
+                <label className="inline-flex items-center gap-2 text-sm"><input type="checkbox" name="serviceWithinDistrict" checked={form.serviceWithinDistrict} onChange={handleFormChange} /> Within District</label>
+                <label className="inline-flex items-center gap-2 text-sm"><input type="checkbox" name="serviceWithinState" checked={form.serviceWithinState} onChange={handleFormChange} /> Within State</label>
+                <label className="inline-flex items-center gap-2 text-sm md:col-span-2"><input type="checkbox" name="serviceAnywhereInIndia" checked={form.serviceAnywhereInIndia} onChange={handleFormChange} /> Anywhere In India</label>
+              </div>
+            </div>
+
+            <div className="space-y-3 md:col-span-2">
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium">Pooja Offerings</label>
+                <button
+                  type="button"
+                  onClick={addPoojaOfferingRow}
+                  className="rounded-lg border border-[#d7bf9b] px-3 py-1 text-xs font-medium text-[#6f3945] hover:bg-[#8B1E3F]/10 dark:border-white/20 dark:text-[#f7e3c0]"
+                >
+                  + Add Ritual
+                </button>
+              </div>
+
+              {(form.poojaOfferings || []).map((offering, index) => (
+                <div key={index} className="rounded-xl border border-[#d9c3a2]/70 p-3 dark:border-white/20">
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Ritual Title</label>
+                      <input
+                        value={offering.title}
+                        onChange={(event) => handlePoojaOfferingChange(index, "title", event.target.value)}
+                        className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20"
+                        placeholder="e.g. Griha Pravesh"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Description</label>
+                      <input
+                        value={offering.description}
+                        onChange={(event) => handlePoojaOfferingChange(index, "description", event.target.value)}
+                        className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20"
+                        placeholder="Ritual description"
+                      />
+                    </div>
+                  </div>
+                  <div className="mt-2 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() => removePoojaOfferingRow(index)}
+                      className="rounded-lg bg-red-100 px-3 py-1 text-xs font-medium text-red-700 hover:bg-red-200"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
             <label className="inline-flex items-center gap-2 text-sm"><input type="checkbox" name="isVerified" checked={form.isVerified} onChange={handleFormChange} /> Verified</label>
             <label className="inline-flex items-center gap-2 text-sm"><input type="checkbox" name="isPhoneVerified" checked={form.isPhoneVerified} onChange={handleFormChange} /> Phone Verified</label>
             <label className="inline-flex items-center gap-2 text-sm md:col-span-2"><input type="checkbox" name="isProfileComplete" checked={form.isProfileComplete} onChange={handleFormChange} /> Profile Complete</label>
