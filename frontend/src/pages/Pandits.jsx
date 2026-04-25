@@ -73,6 +73,7 @@ export default function Pandits() {
   const [success, setSuccess] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [activeTab, setActiveTab] = useState("all");
   const [selectedPandit, setSelectedPandit] = useState(null);
   const [panditBookings, setPanditBookings] = useState([]);
   const [bookingsModalPandit, setBookingsModalPandit] = useState(null);
@@ -83,6 +84,9 @@ export default function Pandits() {
   const [submitting, setSubmitting] = useState(false);
   const [deletingPanditId, setDeletingPanditId] = useState("");
   const [statusUpdatingId, setStatusUpdatingId] = useState("");
+  const [profileImageFile, setProfileImageFile] = useState(null);
+  const [aadhaarFrontImageFile, setAadhaarFrontImageFile] = useState(null);
+  const [aadhaarBackImageFile, setAadhaarBackImageFile] = useState(null);
 
   const fetchPandits = useCallback(async (searchValue = "", statusValue = "all") => {
     try {
@@ -125,9 +129,19 @@ export default function Pandits() {
     };
   }, [pandits]);
 
+  const visiblePandits = useMemo(() => {
+    if (activeTab === "requests") {
+      return pandits.filter((pandit) => String(pandit.status || "").toLowerCase() === "pending");
+    }
+    return pandits;
+  }, [pandits, activeTab]);
+
   const resetForm = () => {
     setForm(initialForm);
     setEditingPanditId("");
+    setProfileImageFile(null);
+    setAadhaarFrontImageFile(null);
+    setAadhaarBackImageFile(null);
   };
 
   const openCreate = () => {
@@ -185,6 +199,9 @@ export default function Pandits() {
     setShowForm(true);
     setError("");
     setSuccess("");
+    setProfileImageFile(null);
+    setAadhaarFrontImageFile(null);
+    setAadhaarBackImageFile(null);
   };
 
   const closeForm = () => {
@@ -198,6 +215,25 @@ export default function Pandits() {
       ...current,
       [name]: type === "checkbox" ? checked : value,
     }));
+  };
+
+  const handleFileChange = (event) => {
+    const { name, files } = event.target;
+    const file = files?.[0] || null;
+
+    if (name === "profileImageFile") {
+      setProfileImageFile(file);
+      return;
+    }
+
+    if (name === "aadhaarFrontImageFile") {
+      setAadhaarFrontImageFile(file);
+      return;
+    }
+
+    if (name === "aadhaarBackImageFile") {
+      setAadhaarBackImageFile(file);
+    }
   };
 
   const handlePoojaOfferingChange = (index, field, value) => {
@@ -257,34 +293,45 @@ export default function Pandits() {
           isSelected: true,
         }));
 
-      const payload = {
-        phone: form.phone.trim(),
-        fullName: form.fullName,
-        profileImage: form.profileImage,
-        bio: form.bio,
-        ratingAverage: Number(form.ratingAverage || 0),
-        ratingCount: Number(form.ratingCount || 0),
-        yearsOfExperience: Number(form.yearsOfExperience || 0),
-        templeAssociated: form.templeAssociated,
-        languagesSpoken: form.languagesSpoken,
-        status: form.status,
-        isVerified: form.isVerified,
-        isPhoneVerified: form.isPhoneVerified,
-        isProfileComplete: form.isProfileComplete,
-        address: {
+      const formData = new FormData();
+      formData.append("phone", form.phone.trim());
+      formData.append("fullName", form.fullName || "");
+      formData.append("profileImage", form.profileImage || "");
+      formData.append("bio", form.bio || "");
+      formData.append("ratingAverage", String(Number(form.ratingAverage || 0)));
+      formData.append("ratingCount", String(Number(form.ratingCount || 0)));
+      formData.append("yearsOfExperience", String(Number(form.yearsOfExperience || 0)));
+      formData.append("templeAssociated", form.templeAssociated || "");
+      formData.append("languagesSpoken", form.languagesSpoken || "");
+      formData.append("status", form.status || "pending");
+      formData.append("isVerified", String(Boolean(form.isVerified)));
+      formData.append("isPhoneVerified", String(Boolean(form.isPhoneVerified)));
+      formData.append("isProfileComplete", String(Boolean(form.isProfileComplete)));
+
+      formData.append(
+        "address",
+        JSON.stringify({
           line1: form.addressLine1,
           line2: form.addressLine2,
           city: form.city,
           state: form.state,
           pinCode: form.pinCode,
-        },
-        aadhaar: {
+        }),
+      );
+
+      formData.append(
+        "aadhaar",
+        JSON.stringify({
           number: form.aadhaarNumber,
           frontImage: form.aadhaarFrontImage,
           backImage: form.aadhaarBackImage,
           consentGiven: form.aadhaarConsentGiven,
-        },
-        serviceTypes: {
+        }),
+      );
+
+      formData.append(
+        "serviceTypes",
+        JSON.stringify({
           onlinePooja: form.serviceOnlinePooja,
           homeVisit: form.serviceHomeVisit,
           atTemple: form.serviceAtTemple,
@@ -302,14 +349,29 @@ export default function Pandits() {
             withinState: form.serviceWithinState,
             anywhereInIndia: form.serviceAnywhereInIndia,
           },
-        },
-        poojaOfferings,
-      };
+        }),
+      );
+
+      formData.append("poojaOfferings", JSON.stringify(poojaOfferings));
+
+      if (profileImageFile) {
+        formData.append("profileImageFile", profileImageFile);
+      }
+      if (aadhaarFrontImageFile) {
+        formData.append("aadhaarFrontImageFile", aadhaarFrontImageFile);
+      }
+      if (aadhaarBackImageFile) {
+        formData.append("aadhaarBackImageFile", aadhaarBackImageFile);
+      }
 
       if (editingPanditId) {
-        await API.patch(`/admin/pandits/${editingPanditId}`, payload);
+        await API.patch(`/admin/pandits/${editingPanditId}`, formData, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
       } else {
-        await API.post("/admin/pandits", payload);
+        await API.post("/admin/pandits", formData, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
       }
 
       await fetchPandits(searchTerm, statusFilter);
@@ -443,8 +505,19 @@ export default function Pandits() {
               <input name="fullName" value={form.fullName} onChange={handleFormChange} className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20" />
             </div>
             <div className="space-y-2 md:col-span-2">
-              <label className="text-sm font-medium">Profile Image URL</label>
-              <input name="profileImage" value={form.profileImage} onChange={handleFormChange} className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20" />
+              <label className="text-sm font-medium">Profile Image File</label>
+              <input
+                name="profileImageFile"
+                type="file"
+                accept="image/*"
+                onChange={handleFileChange}
+                className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20"
+              />
+              {profileImageFile ? (
+                <p className="text-xs opacity-70">Selected: {profileImageFile.name}</p>
+              ) : form.profileImage ? (
+                <p className="text-xs opacity-70">Current profile image will remain unchanged if no file is selected.</p>
+              ) : null}
             </div>
             <div className="space-y-2 md:col-span-2">
               <label className="text-sm font-medium">Bio</label>
@@ -507,12 +580,34 @@ export default function Pandits() {
                   <input name="aadhaarNumber" value={form.aadhaarNumber} onChange={handleFormChange} className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20" />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Aadhaar Front Image URL</label>
-                  <input name="aadhaarFrontImage" value={form.aadhaarFrontImage} onChange={handleFormChange} className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20" />
+                  <label className="text-sm font-medium">Aadhaar Front Image File</label>
+                  <input
+                    name="aadhaarFrontImageFile"
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileChange}
+                    className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20"
+                  />
+                  {aadhaarFrontImageFile ? (
+                    <p className="text-xs opacity-70">Selected: {aadhaarFrontImageFile.name}</p>
+                  ) : form.aadhaarFrontImage ? (
+                    <p className="text-xs opacity-70">Current front image will remain unchanged if no file is selected.</p>
+                  ) : null}
                 </div>
                 <div className="space-y-2 md:col-span-2">
-                  <label className="text-sm font-medium">Aadhaar Back Image URL</label>
-                  <input name="aadhaarBackImage" value={form.aadhaarBackImage} onChange={handleFormChange} className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20" />
+                  <label className="text-sm font-medium">Aadhaar Back Image File</label>
+                  <input
+                    name="aadhaarBackImageFile"
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileChange}
+                    className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20"
+                  />
+                  {aadhaarBackImageFile ? (
+                    <p className="text-xs opacity-70">Selected: {aadhaarBackImageFile.name}</p>
+                  ) : form.aadhaarBackImage ? (
+                    <p className="text-xs opacity-70">Current back image will remain unchanged if no file is selected.</p>
+                  ) : null}
                 </div>
                 <label className="inline-flex items-center gap-2 text-sm md:col-span-2"><input type="checkbox" name="aadhaarConsentGiven" checked={form.aadhaarConsentGiven} onChange={handleFormChange} /> Aadhaar Consent Given</label>
               </div>
@@ -617,7 +712,36 @@ export default function Pandits() {
 
       <section className="rounded-[30px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-6 shadow-[var(--admin-shadow)]">
         <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <h3 className="text-xl font-bold text-[#2f1618] dark:text-[#fff3dc]">Pandit Listing</h3>
+          <div className="space-y-3">
+            <h3 className="text-xl font-bold text-[#2f1618] dark:text-[#fff3dc]">Pandit Listing</h3>
+            <div className="inline-flex rounded-full border border-[#d8c4a5] bg-white/70 p-1 dark:border-white/10 dark:bg-white/5">
+              <button
+                type="button"
+                onClick={() => setActiveTab("all")}
+                className={`rounded-full px-4 py-1.5 text-xs font-semibold ${
+                  activeTab === "all"
+                    ? "bg-[#8B1E3F] text-white"
+                    : "text-[#6e4b40] dark:text-[#f7e3c0]"
+                }`}
+              >
+                All Pandits ({summary.total})
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab("requests");
+                  setStatusFilter("pending");
+                }}
+                className={`rounded-full px-4 py-1.5 text-xs font-semibold ${
+                  activeTab === "requests"
+                    ? "bg-[#8B1E3F] text-white"
+                    : "text-[#6e4b40] dark:text-[#f7e3c0]"
+                }`}
+              >
+                Requests ({summary.pending})
+              </button>
+            </div>
+          </div>
 
           <button
             type="button"
@@ -652,10 +776,13 @@ export default function Pandits() {
 
           <select
             value={statusFilter}
-            onChange={(event) => setStatusFilter(event.target.value)}
-            className="h-11 rounded-xl border border-[#d7c3a3] bg-white/70  text-gray-600 dark:text-[#aa264d]  px-3 text-sm outline-none dark:border-white/10 dark:bg-white/5"
+            onChange={(event) => {
+              setStatusFilter(event.target.value);
+              setActiveTab("all");
+            }}
+            className="h-11 rounded-xl border border-[#d7c3a3] bg-white/70 text-gray-600 px-3 text-sm outline-none dark:border-white/10 dark:bg-white/5 dark:text-[#aa264d]"
           >
-            <option value="all" >All status</option>
+            <option value="all">All status</option>
             {statusOptions.map((status) => (
               <option key={status} value={status}>{status}</option>
             ))}
@@ -666,9 +793,9 @@ export default function Pandits() {
           <p className="rounded-xl bg-white/60 p-6 text-sm dark:bg-white/5">Loading pandits...</p>
         ) : error ? (
           <p className="rounded-xl bg-red-100 p-6 text-sm font-medium text-red-600 dark:bg-red-900/30 dark:text-red-300">{error}</p>
-        ) : !pandits.length ? (
+        ) : !visiblePandits.length ? (
           <p className="rounded-xl bg-white/60 p-6 text-sm dark:bg-white/5">
-            {searchTerm ? "No pandits match your search." : "No pandits found."}
+            {searchTerm ? "No pandits match your search." : activeTab === "requests" ? "No pending requests." : "No pandits found."}
           </p>
         ) : (
           <div className="overflow-x-auto rounded-2xl border border-[#d8c4a5] dark:border-white/10">
@@ -687,7 +814,7 @@ export default function Pandits() {
               </thead>
 
               <tbody>
-                {pandits.map((pandit) => (
+                {visiblePandits.map((pandit) => (
                   <tr key={pandit._id} className="border-t border-[#e8d7bf] dark:border-white/10">
                     <td className="px-4 py-3">
                       {pandit.profileImage ? (
@@ -708,16 +835,37 @@ export default function Pandits() {
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      <select
-                        value={pandit.status || "pending"}
-                        onChange={(event) => handleStatusUpdate(pandit._id, event.target.value)}
-                        disabled={statusUpdatingId === pandit._id}
-                        className="h-9 min-w-[130px] rounded-lg border border-[#d7c3a3] bg-white/75 px-2 text-xs outline-none dark:border-white/10 dark:bg-white/5"
-                      >
-                        {statusOptions.map((status) => (
-                          <option key={status} value={status}>{status}</option>
-                        ))}
-                      </select>
+                      {activeTab === "requests" ? (
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleStatusUpdate(pandit._id, "active")}
+                            disabled={statusUpdatingId === pandit._id}
+                            className="rounded-lg bg-emerald-100 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-200 disabled:opacity-60"
+                          >
+                            Approve
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleStatusUpdate(pandit._id, "blocked")}
+                            disabled={statusUpdatingId === pandit._id}
+                            className="rounded-lg bg-red-100 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-200 disabled:opacity-60"
+                          >
+                            Reject
+                          </button>
+                        </div>
+                      ) : (
+                        <select
+                          value={pandit.status || "pending"}
+                          onChange={(event) => handleStatusUpdate(pandit._id, event.target.value)}
+                          disabled={statusUpdatingId === pandit._id}
+                          className="h-9 min-w-[130px] rounded-lg border border-[#d7c3a3] bg-white/75 px-2 text-xs outline-none dark:border-white/10 dark:bg-white/5"
+                        >
+                          {statusOptions.map((status) => (
+                            <option key={status} value={status}>{status}</option>
+                          ))}
+                        </select>
+                      )}
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
@@ -791,7 +939,7 @@ export default function Pandits() {
                   {panditBookings.slice(0, 5).map((booking) => (
                     <div key={booking._id} className="rounded-xl bg-white/60 px-3 py-2 text-sm dark:bg-white/5">
                       <div className="font-semibold">{booking.ritual?.name || "Ritual"}</div>
-                      <div className="text-xs opacity-80">{booking.bookingDate} | {booking.timeSlot?.label || "-"} | {booking.bookingStatus}</div>
+                      <div className="text-xs opacity-80">{booking.bookingDate} | {booking.dateAndTime?.label || "-"} | {booking.bookingStatus}</div>
                     </div>
                   ))}
                 </div>
@@ -831,7 +979,7 @@ export default function Pandits() {
                       <tr key={booking._id} className="border-t border-[#e8d7bf] dark:border-white/10">
                         <td className="px-4 py-3">{booking.ritual?.name || "-"}</td>
                         <td className="px-4 py-3">{booking.user?.name || booking.user?.phone || "-"}</td>
-                        <td className="px-4 py-3">{booking.bookingDate} | {booking.timeSlot?.label || "-"}</td>
+                        <td className="px-4 py-3">{booking.bookingDate} | {booking.dateAndTime?.label || "-"}</td>
                         <td className="px-4 py-3">{booking.bookingMode || "-"}</td>
                         <td className="px-4 py-3">Rs {Number(booking.dakshinaAmount || 0).toFixed(2)}</td>
                         <td className="px-4 py-3">{booking.bookingStatus || "requested"}</td>

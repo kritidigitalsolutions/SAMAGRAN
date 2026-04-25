@@ -14,6 +14,7 @@ import { MdDelete } from "react-icons/md";
 
 const apiOrigin = (API.defaults.baseURL || "http://localhost:8000/api").replace(/\/api\/?$/, "");
 
+
 const formatImageUrl = (path) => {
   if (!path || typeof path !== "string") return "";
   if (/^(https?:|data:|blob:)/i.test(path)) return path;
@@ -41,6 +42,7 @@ const getProfileImage = (user = {}) => {
 
   return image?.url || image?.path || image?.src || "";
 };
+
 
 const getInitials = (user = {}) => {
   const name = user.name || user.email || user.phone || "User";
@@ -99,6 +101,7 @@ export default function Users() {
     profileImage: "",
     isProfileComplete: false,
   });
+  const [editProfileImageFile, setEditProfileImageFile] = useState(null);
   const [savingEdit, setSavingEdit] = useState(false);
   const [togglingBlockId, setTogglingBlockId] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
@@ -110,6 +113,12 @@ export default function Users() {
       .filter(Boolean)
       .join(", ");
   };
+
+  const handleEditImageFileChange = (event) => {
+    const file = event.target.files?.[0] || null;
+    setEditProfileImageFile(file);
+  };
+
 
   const fetchUsers = useCallback(async (searchValue = "") => {
     try {
@@ -172,10 +181,12 @@ export default function Users() {
     });
     setError("");
     setSuccess("");
+    setEditProfileImageFile(null);
   };
 
   const closeEdit = () => {
     setEditingUser(null);
+    setEditProfileImageFile(null);
   };
 
   const handleEditInput = (event) => {
@@ -192,16 +203,23 @@ export default function Users() {
 
     try {
       setSavingEdit(true);
-      const payload = {
-        name: editForm.name,
-        email: editForm.email,
-        phone: editForm.phone,
-        address: editForm.address,
-        profileImage: editForm.profileImage,
-        isProfileComplete: editForm.isProfileComplete,
-      };
+      const formData = new FormData();
+      formData.append("name", editForm.name || "");
+      formData.append("email", editForm.email || "");
+      formData.append("phone", editForm.phone || "");
+      formData.append("address", editForm.address || "");
+      formData.append("profileImage", editForm.profileImage || "");
+      formData.append("isProfileComplete", String(Boolean(editForm.isProfileComplete)));
 
-      const res = await API.patch(`/user/${editingUser._id}`, payload);
+      if (editProfileImageFile) {
+        formData.append("profileImageFile", editProfileImageFile);
+      }
+
+      const res = await API.patch(`/user/${editingUser._id}`, formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
       const updated = res.data?.data;
 
       setUsers((current) =>
@@ -554,9 +572,24 @@ export default function Users() {
                 <input name="address" value={editForm.address} onChange={handleEditInput} className="h-10 w-full rounded-xl border border-[#d7c3a3] bg-white px-3 text-sm dark:border-white/10 dark:bg-white/5" />
               </div>
 
-              <div className="space-y-1 md:col-span-2">
+              {/* <div className="space-y-1 md:col-span-2">
                 <label className="text-xs font-semibold uppercase tracking-[0.16em]">Profile Image URL</label>
                 <input name="profileImage" value={editForm.profileImage} onChange={handleEditInput} className="h-10 w-full rounded-xl border border-[#d7c3a3] bg-white px-3 text-sm dark:border-white/10 dark:bg-white/5" />
+              </div> */}
+              <div className="space-y-1 md:col-span-2">
+                <label className="text-xs font-semibold uppercase tracking-[0.16em]">Profile Image File</label>
+                <input
+                  name="profileImageFile"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleEditImageFileChange}
+                  className="w-full rounded-xl border border-[#d7c3a3] bg-white px-3 py-2 text-sm dark:border-white/10 dark:bg-white/5"
+                />
+                {editProfileImageFile ? (
+                  <p className="text-xs text-[#7c5b4b] dark:text-[#dbcdb8]/70">Selected: {editProfileImageFile.name}</p>
+                ) : editForm.profileImage ? (
+                  <p className="text-xs text-[#7c5b4b] dark:text-[#dbcdb8]/70">Current image will remain unchanged if no file is selected.</p>
+                ) : null}
               </div>
 
               <label className="mt-1 inline-flex items-center gap-2 text-sm md:col-span-2">

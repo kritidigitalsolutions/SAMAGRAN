@@ -9,12 +9,11 @@ import Dashboard from "./pages/Dashboard";
 import Users from "./pages/Users";
 import Orders from "./pages/Orders";
 import Items from "./pages/Items";
-import SpecialKit from "./pages/SpecialKit";
-import DefaultKit from "./pages/DefaultKit";
-import UserKit from "./pages/UserKit";
+import Kits from "./pages/Kits";
 import Pandits from "./pages/Pandits";
 import PanditBookings from "./pages/PanditBookings";
 import Rituals from "./pages/Rituals";
+import Temples from "./pages/Temples";
 
 
 function App() {
@@ -37,11 +36,10 @@ function App() {
         <Route path="users" element={<Users />} />
         <Route path="orders" element={<Orders />} />
         <Route path="items" element={<Items />} />
-        <Route path="special-kit" element={<SpecialKit />} />
-        <Route path="default-kit" element={<DefaultKit />} />
-        <Route path="user-kits" element={<UserKit />} />
+        <Route path="kits" element={<Kits />} />
         <Route path="pandits" element={<Pandits />} />
         <Route path="rituals" element={<Rituals />} />
+        <Route path="Temples" element={<Temples />} />
         <Route path="pandit-bookings" element={<PanditBookings />} />
       </Route>
     </Routes>

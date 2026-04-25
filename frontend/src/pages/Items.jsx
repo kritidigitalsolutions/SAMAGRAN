@@ -10,7 +10,12 @@ const buildItemForm = () => ({
   title: "",
   price: "",
   mrp: "",
+  gstPercent: "",
+  priceIncludesGst: true,
   categoryName: "",
+  hsnCode: "",
+  city: "",
+  status: "active",
   quantity: "",
   tags: "",
   isRecommended: false,
@@ -36,6 +41,7 @@ const formatCurrency = (value, currency = "INR") =>
 const normalizeItem = (item = {}, fallback = {}) => {
   const pricing = item.pricing || fallback.pricing || {};
   const stock = item.stock || fallback.stock || {};
+  const compliance = item.compliance || fallback.compliance || {};
   const flagSource = item.flags || fallback.flags || {};
   const products =
     item.products ||
@@ -54,6 +60,11 @@ const normalizeItem = (item = {}, fallback = {}) => {
     pricing: {
       price: pricing.price ?? fallback.pricing?.price ?? 0,
       mrp: pricing.mrp ?? fallback.pricing?.mrp ?? 0,
+      basePrice: pricing.basePrice ?? fallback.pricing?.basePrice ?? 0,
+      gstPercent: pricing.gstPercent ?? fallback.pricing?.gstPercent ?? 0,
+      gstAmount: pricing.gstAmount ?? fallback.pricing?.gstAmount ?? 0,
+      priceIncludesGst:
+        pricing.priceIncludesGst ?? fallback.pricing?.priceIncludesGst ?? true,
       currency: pricing.currency || fallback.pricing?.currency || "INR",
       discountPercent:
         pricing.discountPercent ?? fallback.pricing?.discountPercent ?? 0,
@@ -72,6 +83,11 @@ const normalizeItem = (item = {}, fallback = {}) => {
           ? Number(stock.quantity) > 0
           : fallback.stock?.available,
     },
+    compliance: {
+      hsnCode: compliance.hsnCode ?? "",
+      city: compliance.city ?? "",
+    },
+    status: item.status || fallback.status || "active",
     tags: item.tags || fallback.tags || [],
     flags: {
       isRecommended:
@@ -108,7 +124,12 @@ const buildEditForm = (item = {}) => ({
   title: item.title || "",
   price: item.pricing?.price ?? "",
   mrp: item.pricing?.mrp ?? "",
+  gstPercent: item.pricing?.gstPercent ?? "",
+  priceIncludesGst: item.pricing?.priceIncludesGst ?? true,
   categoryName: item.category?.name || "",
+  hsnCode: item.compliance?.hsnCode || "",
+  city: item.compliance?.city || "",
+  status: item.status || "active",
   quantity: item.stock?.quantity ?? "",
   tags: Array.isArray(item.tags) ? item.tags.join(", ") : "",
   isRecommended: Boolean(item.flags?.isRecommended),
@@ -170,6 +191,9 @@ export default function Items() {
   const [error, setError] = useState("");
   const [actionError, setActionError] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [cityFilter, setCityFilter] = useState("all");
+  const [gstFilter, setGstFilter] = useState("all");
   const [actionLoading, setActionLoading] = useState("");
 
   const [createForm, setCreateForm] = useState(buildItemForm());
@@ -206,6 +230,27 @@ export default function Items() {
     const timer = setTimeout(fetchItems, 300);
     return () => clearTimeout(timer);
   }, [fetchItems]);
+
+  const cityOptions = useMemo(() => {
+    return [
+      "all",
+      ...Array.from(new Set(items.map((item) => item.compliance?.city).filter(Boolean))).sort(),
+    ];
+  }, [items]);
+
+  const filteredItems = useMemo(() => {
+    return items.filter((item) => {
+      const itemStatus = String(item.status || "").toLowerCase();
+      const itemCity = item.compliance?.city || "";
+      const isPriceIncludesGst = Boolean(item.pricing?.priceIncludesGst);
+
+      if (statusFilter !== "all" && itemStatus !== statusFilter) return false;
+      if (cityFilter !== "all" && itemCity !== cityFilter) return false;
+      if (gstFilter === "include" && !isPriceIncludesGst) return false;
+      if (gstFilter === "exclude" && isPriceIncludesGst) return false;
+      return true;
+    });
+  }, [items, statusFilter, cityFilter, gstFilter]);
 
   const handleCreateChange = (event) => {
     const { name, value, type, checked } = event.target;
@@ -313,7 +358,13 @@ export default function Items() {
         title: editForm.title.trim(),
         price: Number(editForm.price),
         mrp: editForm.mrp === "" ? undefined : Number(editForm.mrp),
+        gstPercent:
+          editForm.gstPercent === "" ? undefined : Number(editForm.gstPercent),
+        priceIncludesGst: String(editForm.priceIncludesGst),
         categoryName: editForm.categoryName,
+        hsnCode: editForm.hsnCode,
+        city: editForm.city,
+        status: editForm.status,
         quantity: editForm.quantity === "" ? undefined : Number(editForm.quantity),
         tags: editForm.tags,
         isRecommended: String(editForm.isRecommended),
@@ -408,6 +459,34 @@ export default function Items() {
           </div>
 
           <div className="form-group">
+            <label>GST %</label>
+            <input
+              type="number"
+              name="gstPercent"
+              value={createForm.gstPercent}
+              onChange={handleCreateChange}
+            />
+          </div>
+
+          <div className="form-group">
+            <label>HSN Code</label>
+            <input name="hsnCode" value={createForm.hsnCode} onChange={handleCreateChange} />
+          </div>
+
+          <div className="form-group">
+            <label>City</label>
+            <input name="city" value={createForm.city} onChange={handleCreateChange} />
+          </div>
+
+          <div className="form-group">
+            <label>Status</label>
+            <select name="status" value={createForm.status} onChange={handleCreateChange}>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
+          </div>
+
+          <div className="form-group">
             <label>Stock</label>
             <input
               type="number"
@@ -443,6 +522,15 @@ export default function Items() {
           </div>
 
           <div className="items-flags-grid full-width">
+            <label className="item-edit-checkbox">
+              <input
+                type="checkbox"
+                name="priceIncludesGst"
+                checked={createForm.priceIncludesGst}
+                onChange={handleCreateChange}
+              />
+              Price Includes GST
+            </label>
             <label className="item-edit-checkbox">
               <input
                 type="checkbox"
@@ -513,62 +601,114 @@ export default function Items() {
         )}
       </div>
 
+      <div className="grid gap-2 sm:grid-cols-3">
+        <select
+          value={statusFilter}
+          onChange={(event) => setStatusFilter(event.target.value)}
+          className="h-11 rounded-xl border border-[#d7c3a3] bg-white text-black px-3 text-sm outline-none 
+           dark:bg-[#1e1e1e] dark:text-white dark:border-white/20"
+        >
+          <option value="all">All Status</option>
+          <option value="active">Active</option>
+          <option value="inactive">Inactive</option>
+        </select>
+        <select
+          value={cityFilter}
+          onChange={(event) => setCityFilter(event.target.value)}
+          className="h-11 rounded-xl border border-[#d7c3a3] bg-white text-black px-3 text-sm outline-none 
+           dark:bg-[#1e1e1e] dark:text-white dark:border-white/20"
+        >
+          {cityOptions.map((city) => (
+            <option key={city} value={city}>{city === "all" ? "All Cities" : city}</option>
+          ))}
+        </select>
+        <select
+          value={gstFilter}
+          onChange={(event) => setGstFilter(event.target.value)}
+          className="h-11 rounded-xl border border-[#d7c3a3] bg-white text-black px-3 text-sm outline-none 
+           dark:bg-[#1e1e1e] dark:text-white dark:border-white/20"
+        >
+          <option value="all">All GST Modes</option>
+          <option value="include">Price Includes GST</option>
+          <option value="exclude">Price Excludes GST</option>
+        </select>
+      </div>
+
       {actionError && !viewItem && !editItem && <div className="items-action-error">{actionError}</div>}
       {loading && <div className="items-state">Loading items...</div>}
       {!loading && error && <div className="items-state items-state--error">{error}</div>}
-      {!loading && !error && !items.length && (
+      {!loading && !error && !filteredItems.length && (
         <div className="items-state">No active items found.</div>
       )}
 
-      {!loading && !error && items.length > 0 && (
-        <div className="items-grid">
-          {items.map((item) => (
-            <article className="item-card" key={item._id}>
-              <ImageSlider images={item.products || []} title={item.title} />
-              {item.flags?.isRecommended && <span className="item-badge">Recommended</span>}
-
-              <div className="item-content">
-                <div className="item-title-row">
-                  <h3 className="item-title">{item.title}</h3>
-                  {item.pricing?.mrp > item.pricing?.price && (
-                    <span className="discount-badge">
-                      {Math.round(
-                        ((item.pricing.mrp - item.pricing.price) / item.pricing.mrp) * 100
+      {!loading && !error && filteredItems.length > 0 && (
+        <div className="overflow-x-auto rounded-2xl border mt-4 border-[#d8c4a5] bg-white/65 text-black dark:bg-[#181c24] dark:border-[#303745]">
+          <table className="min-w-full text-sm">
+            <thead className="dark:bg-[#2b2a25] text-left dark:text-[#f5deae] text-[#5c4a23]">
+              <tr>
+                <th className="px-4 py-3 font-semibold">Product</th>
+                <th className="px-4 py-3 font-semibold">Category</th>
+                <th className="px-4 py-3 font-semibold">MRP</th>
+                <th className="px-4 py-3 font-semibold">Base</th>
+                <th className="px-4 py-3 font-semibold">GST %</th>
+                <th className="px-4 py-3 font-semibold">GST Amt</th>
+                <th className="px-4 py-3 font-semibold">Selling</th>
+                <th className="px-4 py-3 font-semibold">HSN</th>
+                <th className="px-4 py-3 font-semibold">Stock</th>
+                <th className="px-4 py-3 font-semibold">City</th>
+                <th className="px-4 py-3 font-semibold">Status</th>
+                <th className="px-4 py-3 font-semibold">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredItems.map((item) => (
+                <tr key={item._id} className="border-t border-[#e8d7bf]">
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-3">
+                      {formatImageUrl(item.thumbnail) ? (
+                        <img src={formatImageUrl(item.thumbnail)} alt={item.title} className="h-10 w-10 rounded-lg object-cover" />
+                      ) : (
+                        <div className="h-10 w-10 rounded-lg bg-[#8B1E3F]/10" />
                       )}
-                      % off
+                      <div>
+                        <p className="font-semibold">{item.title}</p>
+                        <p className="text-xs opacity-70">{item.pricing?.priceIncludesGst ? "Incl GST" : "Excl GST"}</p>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3">{item.category?.name || "Uncategorized"}</td>
+                  <td className="px-4 py-3">{formatCurrency(item.pricing?.mrp)}</td>
+                  <td className="px-4 py-3">{formatCurrency(item.pricing?.basePrice)}</td>
+                  <td className="px-4 py-3">{Number(item.pricing?.gstPercent || 0)}%</td>
+                  <td className="px-4 py-3">{formatCurrency(item.pricing?.gstAmount)}</td>
+                  <td className="px-4 py-3 font-semibold">{formatCurrency(item.pricing?.price)}</td>
+                  <td className="px-4 py-3">{item.compliance?.hsnCode || "-"}</td>
+                  <td className="px-4 py-3">{item.stock?.quantity ?? "-"}</td>
+                  <td className="px-4 py-3">{item.compliance?.city || "-"}</td>
+                  <td className="px-4 py-3">
+                    <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
+                      item.status === "active" ? "bg-emerald-100 text-emerald-700" : "bg-slate-200 text-slate-700"
+                    }`}>
+                      {item.status || "active"}
                     </span>
-                  )}
-                </div>
-
-                <p className="item-category">{item.category?.name || "Uncategorized"}</p>
-                <div className="item-price-row">
-                  <span className="price">{formatCurrency(item.pricing?.price)}</span>
-                  {item.pricing?.mrp ? (
-                    <span className="old-price">{formatCurrency(item.pricing.mrp)}</span>
-                  ) : null}
-                </div>
-
-                <div className="item-mini-flags">
-                  {item.flags?.isMostPoojaEssentials && <span>Pooja Essentials</span>}
-                  {item.flags?.isMostUsed && <span>Most Used</span>}
-                  {item.flags?.isEveryDayRitual && <span>Daily Ritual</span>}
-                  {item.flags?.isRitualItems && <span>Ritual Item</span>}
-                </div>
-
-                <div className="item-actions-bottom">
-                  <button type="button" onClick={() => openViewModal(item)} title="View item">
-                    <FiEye />
-                  </button>
-                  <button type="button" onClick={() => openEditModal(item)} title="Edit item">
-                    <FiEdit />
-                  </button>
-                  <button type="button" onClick={() => handleDeleteItem(item)} title="Delete item">
-                    <FiTrash2 />
-                  </button>
-                </div>
-              </div>
-            </article>
-          ))}
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <button type="button" onClick={() => openViewModal(item)} title="View item">
+                        <FiEye />
+                      </button>
+                      <button type="button" onClick={() => openEditModal(item)} title="Edit item">
+                        <FiEdit />
+                      </button>
+                      <button type="button" onClick={() => handleDeleteItem(item)} title="Delete item">
+                        <FiTrash2 />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
 
@@ -613,6 +753,30 @@ export default function Items() {
                       ? `${viewItem.stock.quantity} available`
                       : "Out of stock"}
                   </strong>
+                </div>
+                <div>
+                  <span>HSN Code</span>
+                  <strong>{viewItem.compliance?.hsnCode || "-"}</strong>
+                </div>
+                <div>
+                  <span>City</span>
+                  <strong>{viewItem.compliance?.city || "-"}</strong>
+                </div>
+                <div>
+                  <span>GST %</span>
+                  <strong>{Number(viewItem.pricing?.gstPercent || 0)}%</strong>
+                </div>
+                <div>
+                  <span>Base Price</span>
+                  <strong>{formatCurrency(viewItem.pricing?.basePrice)}</strong>
+                </div>
+                <div>
+                  <span>GST Amount</span>
+                  <strong>{formatCurrency(viewItem.pricing?.gstAmount)}</strong>
+                </div>
+                <div>
+                  <span>Status</span>
+                  <strong className="uppercase">{viewItem.status || "active"}</strong>
                 </div>
               </div>
 
@@ -673,12 +837,36 @@ export default function Items() {
                 <input type="number" name="mrp" value={editForm.mrp} onChange={handleEditChange} />
               </label>
               <label>
+                GST %
+                <input
+                  type="number"
+                  name="gstPercent"
+                  value={editForm.gstPercent}
+                  onChange={handleEditChange}
+                />
+              </label>
+              <label>
                 Category
                 <input
                   name="categoryName"
                   value={editForm.categoryName}
                   onChange={handleEditChange}
                 />
+              </label>
+              <label>
+                HSN Code
+                <input name="hsnCode" value={editForm.hsnCode} onChange={handleEditChange} />
+              </label>
+              <label>
+                City
+                <input name="city" value={editForm.city} onChange={handleEditChange} />
+              </label>
+              <label>
+                Status
+                <select name="status" value={editForm.status} onChange={handleEditChange}>
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+                </select>
               </label>
               <label>
                 Stock
@@ -696,6 +884,15 @@ export default function Items() {
             </div>
 
             <div className="items-flags-grid">
+              <label className="item-edit-checkbox">
+                <input
+                  type="checkbox"
+                  name="priceIncludesGst"
+                  checked={editForm.priceIncludesGst}
+                  onChange={handleEditChange}
+                />
+                Price Includes GST
+              </label>
               <label className="item-edit-checkbox">
                 <input
                   type="checkbox"

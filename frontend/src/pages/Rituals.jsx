@@ -18,6 +18,7 @@ export default function Rituals() {
   const [form, setForm] = useState(initialForm);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [imageFile, setImageFile] = useState(null);
 
   const fetchRituals = async () => {
     try {
@@ -38,6 +39,7 @@ export default function Rituals() {
   const resetForm = () => {
     setForm(initialForm);
     setEditingId("");
+    setImageFile(null);
   };
 
   const handleChange = (event) => {
@@ -59,6 +61,7 @@ export default function Rituals() {
       status: ritual?.status || "active",
     });
     setEditingId(ritual?._id || "");
+    setImageFile(null);
     setError("");
     setSuccess("");
     setShowForm(true);
@@ -83,16 +86,24 @@ export default function Rituals() {
       setError("");
       setSuccess("");
 
-      const payload = {
-        title: form.title.trim(),
-        description: form.description.trim(),
-        status: form.status,
-      };
+      // const payload = {
+      const payload = new FormData();
+      payload.append("title", form.title.trim());
+      payload.append("description", form.description.trim());
+      payload.append("status", form.status);
+
+      if (imageFile) {
+        payload.append("imageFile", imageFile);
+      }
 
       if (editingId) {
-        await API.put(`/admin/rituals/${editingId}`, payload);
+        await API.put(`/admin/rituals/${editingId}`, payload, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
       } else {
-        await API.post("/admin/rituals", payload);
+        await API.post("/admin/rituals", payload, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
       }
 
       await fetchRituals();
@@ -204,6 +215,16 @@ export default function Rituals() {
                 onChange={handleChange}
                 rows={4}
                 placeholder="Short ritual description"
+                className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20"
+              />
+            </div>
+
+            <div className="space-y-2 md:col-span-2">
+              <label className="text-sm font-medium">Ritual Image</label>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(event) => setImageFile(event.target.files?.[0] || null)}
                 className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20"
               />
             </div>

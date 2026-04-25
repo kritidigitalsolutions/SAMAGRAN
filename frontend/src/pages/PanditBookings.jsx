@@ -246,8 +246,8 @@ export default function PanditBookings() {
                   <th className="px-4 py-3 font-semibold">Pandit</th>
                   <th className="px-4 py-3 font-semibold">Date & Slot</th>
                   <th className="px-4 py-3 font-semibold">Amount</th>
-                  <th className="px-4 py-3 font-semibold">Status</th>
-                  <th className="px-4 py-3 font-semibold">Update</th>
+                  <th className="px-4 py-3 font-semibold">Booking Status</th>
+                  <th className="px-4 py-3 font-semibold">payment Status</th>
                   <th className="px-4 py-3 font-semibold">Actions</th>
                 </tr>
               </thead>
@@ -258,13 +258,17 @@ export default function PanditBookings() {
                     <td className="px-4 py-3 text-[#2f1618] dark:text-[#fff3dc]">{booking.ritual?.name || "-"}</td>
                     <td className="px-4 py-3">{booking.user?.name || booking.user?.phone || "-"}</td>
                     <td className="px-4 py-3">{booking.pandit?.fullName || "-"}</td>
-                    <td className="px-4 py-3">{booking.bookingDate} | {booking.timeSlot?.label || "-"}</td>
+                    <td className="px-4 py-3">{booking.bookingDate} | {booking.dateAndTime?.label || "-"}</td>
                     <td className="px-4 py-3">Rs {Number(booking.dakshinaAmount || 0)}</td>
                     <td className="px-4 py-3">
                       <div className="flex flex-col gap-1">
                         <span className={`w-fit rounded-full px-2.5 py-1 text-xs font-semibold uppercase ${statusBadgeClass(booking.bookingStatus)}`}>
                           {booking.bookingStatus}
                         </span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-col gap-1">
                         <span className={`w-fit rounded-full px-2.5 py-1 text-xs font-semibold uppercase ${paymentBadgeClass(booking.payment?.status)}`}>
                           {booking.payment?.status || "pending"}
                         </span>
@@ -350,7 +354,7 @@ export default function PanditBookings() {
               <div className="rounded-xl bg-white/60 px-4 py-3 dark:bg-white/5"><span className="block text-xs opacity-70">User</span><strong>{selectedBooking.user?.name || selectedBooking.user?.phone || "-"}</strong></div>
               <div className="rounded-xl bg-white/60 px-4 py-3 dark:bg-white/5"><span className="block text-xs opacity-70">Pandit</span><strong>{selectedBooking.pandit?.fullName || "-"}</strong></div>
               <div className="rounded-xl bg-white/60 px-4 py-3 dark:bg-white/5"><span className="block text-xs opacity-70">Date</span><strong>{selectedBooking.bookingDate || "-"}</strong></div>
-              <div className="rounded-xl bg-white/60 px-4 py-3 dark:bg-white/5"><span className="block text-xs opacity-70">Slot</span><strong>{selectedBooking.timeSlot?.label || "-"}</strong></div>
+              <div className="rounded-xl bg-white/60 px-4 py-3 dark:bg-white/5"><span className="block text-xs opacity-70">Slot</span><strong>{selectedBooking.dateAndTime?.label || "-"}</strong></div>
               <div className="rounded-xl bg-white/60 px-4 py-3 dark:bg-white/5"><span className="block text-xs opacity-70">Payment</span><strong>{selectedBooking.payment?.status || "pending"}</strong></div>
               <div className="rounded-xl bg-white/60 px-4 py-3 dark:bg-white/5"><span className="block text-xs opacity-70">Amount</span><strong>Rs {Number(selectedBooking.dakshinaAmount || 0)}</strong></div>
               <div className="rounded-xl bg-white/60 px-4 py-3 dark:bg-white/5 md:col-span-2"><span className="block text-xs opacity-70">Address</span><strong>{formatAddress(selectedBooking) || "-"}</strong></div>

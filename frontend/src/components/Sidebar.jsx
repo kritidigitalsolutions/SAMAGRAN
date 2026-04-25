@@ -6,11 +6,10 @@ const navItems = [
   { label: "Users", path: "/dashboard/users", icon: "users" },
   { label: "Orders", path: "/dashboard/orders", icon: "orders" },
   { label: "Products", path: "/dashboard/items", icon: "box" },
-  { label: "Special Kit", path: "/dashboard/special-kit", icon: "gift" },
-  { label: "Default Kit", path: "/dashboard/default-kit", icon: "default-kit" },
-  { label: "User Custom Kit", path: "/dashboard/user-kits", icon: "custom-kit" },
+  { label: "Kits", path: "/dashboard/kits", icon: "gift" },
   { label: "Pandits", path: "/dashboard/pandits", icon: "pandits" },
   { label: "Rituals", path: "/dashboard/rituals", icon: "rituals" },
+  { label: "Temples", path: "/dashboard/temples", icon: "temples" },
   { label: "Pandit Bookings", path: "/dashboard/pandit-bookings", icon: "pandit-bookings" },
 ];
 
@@ -105,6 +104,19 @@ function SidebarIcon({ icon }) {
       <svg viewBox="0 0 24 24" fill="none" className={common}>
         <path d="M12 21C12 21 5 16.8 5 10.5C5 8.01 7.01 6 9.5 6C10.88 6 12.12 6.63 13 7.62C13.88 6.63 15.12 6 16.5 6C18.99 6 21 8.01 21 10.5C21 16.8 14 21 14 21H12Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
         <path d="M12.5 4.5C12.5 3.67 13.17 3 14 3C14.83 3 15.5 3.67 15.5 4.5C15.5 5.33 14.83 6 14 6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      </svg>
+    );
+  }
+
+  if (icon === "temples") {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" className={common}>
+        <path d="M4 20H20" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+        <path d="M6 20V10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+        <path d="M10 20V10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+        <path d="M14 20V10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+        <path d="M18 20V10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+        <path d="M4 10L12 4L20 10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
     );
   }

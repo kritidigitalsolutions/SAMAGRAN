@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { FiEdit2, FiEye, FiSearch, FiTrash2, FiX } from "react-icons/fi";
+import { FiEdit2, FiSearch, FiTrash2, FiX } from "react-icons/fi";
 import API from "../api/axios";
 
 const EMPTY_FORM = {
@@ -183,6 +183,19 @@ export default function Orders() {
     paymentMethodFilter,
     pagination.currentPage,
   ]);
+
+  useEffect(() => {
+    if (!orders.length) {
+      setSelectedOrder(null);
+      return;
+    }
+
+    const stillPresent = selectedOrder && orders.some((order) => order._id === selectedOrder._id);
+    if (!stillPresent) {
+      setSelectedOrder(orders[0]);
+      handleViewOrder(orders[0]._id);
+    }
+  }, [orders]);
 
   const summary = useMemo(() => {
     const totalRevenue = orders.reduce((sum, order) => sum + Number(order.totalAmount || 0), 0);
@@ -601,7 +614,8 @@ export default function Orders() {
             <select
               value={statusFilter}
               onChange={(event) => setStatusFilter(event.target.value)}
-              className="h-11 rounded-xl border border-[#d7c3a3] bg-white/70 px-3 text-sm outline-none dark:border-white/10 dark:bg-white/5"
+              className="h-11 rounded-xl border border-[#d7c3a3] bg-white text-black px-3 text-sm outline-none 
+           dark:bg-[#1e1e1e] dark:text-white dark:border-white/20"
             >
               <option value="all">All Order Status</option>
               {ORDER_STATUSES.map((status) => (
@@ -612,7 +626,8 @@ export default function Orders() {
             <select
               value={paymentStatusFilter}
               onChange={(event) => setPaymentStatusFilter(event.target.value)}
-              className="h-11 rounded-xl border border-[#d7c3a3] bg-white/70 px-3 text-sm outline-none dark:border-white/10 dark:bg-white/5"
+              className="h-11 rounded-xl border border-[#d7c3a3] bg-white text-black px-3 text-sm outline-none 
+           dark:bg-[#1e1e1e] dark:text-white dark:border-white/20"
             >
               <option value="all">All Payment Status</option>
               {PAYMENT_STATUSES.map((status) => (
@@ -623,7 +638,8 @@ export default function Orders() {
             <select
               value={paymentMethodFilter}
               onChange={(event) => setPaymentMethodFilter(event.target.value)}
-              className="h-11 rounded-xl border border-[#d7c3a3] bg-white/70 px-3 text-sm outline-none dark:border-white/10 dark:bg-white/5"
+              className="h-11 rounded-xl border border-[#d7c3a3] bg-white text-black px-3 text-sm outline-none 
+           dark:bg-[#1e1e1e] dark:text-white dark:border-white/20"
             >
               <option value="all">All Payment Methods</option>
               {PAYMENT_METHODS.map((method) => (
@@ -642,188 +658,148 @@ export default function Orders() {
               : "No orders found."}
           </p>
         ) : (
-          <>
-            <div className="overflow-x-auto rounded-2xl border border-[#d8c4a5] dark:border-white/10">
-              <table className="min-w-full text-sm">
-                <thead className="bg-[#8B1E3F]/8 text-left text-[#5a1b2b] dark:bg-[#D4AF37]/10 dark:text-[#f6dfaf]">
-                  <tr>
-                    <th className="px-4 py-3 font-semibold">Order Id</th>
-                    <th className="px-4 py-3 font-semibold">Customer</th>
-                    <th className="px-4 py-3 font-semibold">Items</th>
-                    <th className="px-4 py-3 font-semibold">Amount</th>
-                    <th className="px-4 py-3 font-semibold">Status</th>
-                    <th className="px-4 py-3 font-semibold">Tracking</th>
-                    <th className="px-4 py-3 font-semibold">Actions</th>
-                  </tr>
-                </thead>
+          <div className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
+            <div className="space-y-3 rounded-2xl border border-[#d8c4a5] bg-white/45 p-3 dark:border-white/10 dark:bg-white/5">
+              {orders.map((order) => (
+                <button
+                  key={order._id}
+                  type="button"
+                  onClick={() => handleViewOrder(order._id)}
+                  className={`w-full rounded-xl border px-4 py-3 text-left transition ${
+                    selectedOrder?._id === order._id
+                      ? "border-[#8B1E3F] bg-[#8B1E3F]/10"
+                      : "border-[#e5d3b6] bg-white/70 hover:bg-white dark:border-white/10 dark:bg-white/5"
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-semibold">#{String(order._id).slice(-8)}</p>
+                      <p className="text-xs opacity-75">{order?.user?.name || "Unknown"} • {order?.address?.city || "-"}</p>
+                    </div>
+                    <p className="text-sm font-semibold">Rs {Number(order.totalAmount || 0).toFixed(2)}</p>
+                  </div>
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${orderStatusBadgeClass(order.orderStatus)}`}>
+                      {order.orderStatus}
+                    </span>
+                    <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${paymentStatusBadgeClass(order.paymentStatus)}`}>
+                      {order.paymentStatus}
+                    </span>
+                    <span className="text-xs opacity-75">{Number(order.itemCount || order.items?.length || 0)} items</span>
+                  </div>
+                </button>
+              ))}
 
-                <tbody>
-                  {orders.map((order) => (
-                    <tr key={order._id} className="border-t border-[#e8d7bf] dark:border-white/10">
-                      <td className="px-4 py-3 font-semibold">#{String(order._id).slice(-8)}</td>
-                      <td className="px-4 py-3">
-                        <div className="font-medium">{order?.user?.name || "Unknown"}</div>
-                        <div className="text-xs opacity-70">{order?.user?.phone || "-"}</div>
-                      </td>
-                      <td className="px-4 py-3">{Number(order.itemCount || order.items?.length || 0)}</td>
-                      <td className="px-4 py-3 font-semibold">Rs {Number(order.totalAmount || 0).toFixed(2)}</td>
-                      <td className="px-4 py-3">
-                        <div className="flex flex-col gap-1">
-                          <span className={`w-fit rounded-full px-2.5 py-1 text-xs font-semibold ${orderStatusBadgeClass(order.orderStatus)}`}>
-                            {order.orderStatus}
-                          </span>
-                          <span className={`w-fit rounded-full px-2.5 py-1 text-xs font-semibold ${paymentStatusBadgeClass(order.paymentStatus)}`}>
-                            {order.paymentStatus}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex min-w-[200px] items-center gap-2">
-                          <select
-                            value={trackingUpdates[order._id] || order.orderStatus || "Placed"}
-                            onChange={(event) => handleChangeTrackingSelection(order._id, event.target.value)}
-                            className="h-9 flex-1 rounded-lg border border-[#d7c3a3] bg-white/75 px-2 text-xs outline-none dark:border-white/10 dark:bg-white/5"
-                          >
-                            {ORDER_STATUSES.map((status) => (
-                              <option key={status} value={status}>{status}</option>
-                            ))}
-                          </select>
-
-                          <button
-                            type="button"
-                            onClick={() => handleUpdateTracking(order)}
-                            disabled={trackingLoadingId === order._id}
-                            className="rounded-lg bg-[#8B1E3F] px-3 py-2 text-xs font-semibold text-white disabled:opacity-60"
-                          >
-                            {trackingLoadingId === order._id ? "..." : "Update"}
-                          </button>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => handleViewOrder(order._id)}
-                            className="rounded-lg border border-[#c6d6f5] bg-[#e9f1ff] p-2 text-[#2b5da8] hover:bg-[#dce8ff]"
-                            title="View"
-                          >
-                            <FiEye className="h-4 w-4" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => openEdit(order)}
-                            className="rounded-lg border border-[#d7bf9b] p-2 text-[#6f3945] hover:bg-[#8B1E3F]/10 dark:border-white/20 dark:text-[#f7e3c0]"
-                            title="Edit"
-                          >
-                            <FiEdit2 className="h-4 w-4" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteOrder(order)}
-                            disabled={deletingOrderId === order._id}
-                            className="rounded-lg border border-red-300 p-2 text-red-600 hover:bg-red-50 disabled:opacity-60 dark:border-red-500/40 dark:text-red-200 dark:hover:bg-red-500/10"
-                            title="Delete"
-                          >
-                            <FiTrash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <div className="mt-1 flex items-center justify-end gap-2 text-sm">
+                <button
+                  type="button"
+                  onClick={() => handlePageChange(pagination.currentPage - 1)}
+                  disabled={pagination.currentPage <= 1}
+                  className="rounded-lg border border-[#d7bf9b] px-3 py-1.5 disabled:opacity-50 dark:border-white/20"
+                >
+                  Prev
+                </button>
+                <span className="text-xs opacity-80">
+                  Page {pagination.currentPage} / {Math.max(1, pagination.totalPages)}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handlePageChange(pagination.currentPage + 1)}
+                  disabled={pagination.currentPage >= pagination.totalPages}
+                  className="rounded-lg border border-[#d7bf9b] px-3 py-1.5 disabled:opacity-50 dark:border-white/20"
+                >
+                  Next
+                </button>
+              </div>
             </div>
 
-            <div className="mt-4 flex items-center justify-end gap-2 text-sm">
-              <button
-                type="button"
-                onClick={() => handlePageChange(pagination.currentPage - 1)}
-                disabled={pagination.currentPage <= 1}
-                className="rounded-lg border border-[#d7bf9b] px-3 py-1.5 disabled:opacity-50 dark:border-white/20"
-              >
-                Prev
-              </button>
-              <span className="text-xs opacity-80">
-                Page {pagination.currentPage} of {Math.max(1, pagination.totalPages)}
-              </span>
-              <button
-                type="button"
-                onClick={() => handlePageChange(pagination.currentPage + 1)}
-                disabled={pagination.currentPage >= pagination.totalPages}
-                className="rounded-lg border border-[#d7bf9b] px-3 py-1.5 disabled:opacity-50 dark:border-white/20"
-              >
-                Next
-              </button>
-            </div>
-          </>
-        )}
-      </section>
+            <div className="rounded-2xl border border-[#d8c4a5] bg-white/55 p-4 dark:border-white/10 dark:bg-white/5">
+              {loadingOrderDetails ? (
+                <p className="rounded-xl bg-white/60 p-5 text-sm dark:bg-white/5">Loading details...</p>
+              ) : !selectedOrder ? (
+                <p className="rounded-xl bg-white/60 p-5 text-sm dark:bg-white/5">Select an order to view details.</p>
+              ) : (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-lg font-bold">Order #{String(selectedOrder._id).slice(-8)}</h4>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => openEdit(selectedOrder)}
+                        className="rounded-lg border border-[#d7bf9b] p-2 text-[#6f3945] hover:bg-[#8B1E3F]/10 dark:border-white/20 dark:text-[#f7e3c0]"
+                        title="Edit"
+                      >
+                        <FiEdit2 className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteOrder(selectedOrder)}
+                        disabled={deletingOrderId === selectedOrder._id}
+                        className="rounded-lg border border-red-300 p-2 text-red-600 hover:bg-red-50 disabled:opacity-60 dark:border-red-500/40 dark:text-red-200 dark:hover:bg-red-500/10"
+                        title="Delete"
+                      >
+                        <FiTrash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
 
-      {selectedOrder && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/45 p-4">
-          <div className="w-full max-w-3xl rounded-3xl border border-[#dbc7a8]/60 bg-[var(--admin-surface)] p-6 shadow-[0_24px_70px_rgba(59,13,20,0.24)] dark:border-white/10 dark:bg-[var(--admin-surface)]">
-            <div className="mb-5 flex items-center justify-between">
-              <h3 className="text-xl font-bold">Order Details</h3>
-              <button onClick={() => setSelectedOrder(null)} className="text-2xl leading-none">&times;</button>
-            </div>
+                  <div className="grid gap-2 text-sm sm:grid-cols-2">
+                    <div className="rounded-xl bg-white/65 px-3 py-2 dark:bg-white/5"><span className="block text-xs opacity-70">Customer</span><strong>{selectedOrder.user?.name || "-"}</strong></div>
+                    <div className="rounded-xl bg-white/65 px-3 py-2 dark:bg-white/5"><span className="block text-xs opacity-70">Phone</span><strong>{selectedOrder.user?.phone || "-"}</strong></div>
+                    <div className="rounded-xl bg-white/65 px-3 py-2 dark:bg-white/5"><span className="block text-xs opacity-70">Payment</span><strong>{selectedOrder.paymentMethod} / {selectedOrder.paymentStatus}</strong></div>
+                    <div className="rounded-xl bg-white/65 px-3 py-2 dark:bg-white/5"><span className="block text-xs opacity-70">Amount</span><strong>Rs {Number(selectedOrder.totalAmount || 0).toFixed(2)}</strong></div>
+                  </div>
 
-            {loadingOrderDetails ? (
-              <p className="rounded-xl bg-white/60 p-5 text-sm dark:bg-white/5">Loading details...</p>
-            ) : (
-              <div className="space-y-4">
-                <div className="grid gap-3 text-sm md:grid-cols-2">
-                  <div className="rounded-xl bg-white/60 px-4 py-3 dark:bg-white/5"><span className="block text-xs opacity-70">Order Id</span><strong>{selectedOrder._id}</strong></div>
-                  <div className="rounded-xl bg-white/60 px-4 py-3 dark:bg-white/5"><span className="block text-xs opacity-70">Customer</span><strong>{selectedOrder.user?.name || "-"}</strong></div>
-                  <div className="rounded-xl bg-white/60 px-4 py-3 dark:bg-white/5"><span className="block text-xs opacity-70">Phone</span><strong>{selectedOrder.user?.phone || "-"}</strong></div>
-                  <div className="rounded-xl bg-white/60 px-4 py-3 dark:bg-white/5"><span className="block text-xs opacity-70">Payment</span><strong>{selectedOrder.paymentMethod} / {selectedOrder.paymentStatus}</strong></div>
-                  <div className="rounded-xl bg-white/60 px-4 py-3 dark:bg-white/5"><span className="block text-xs opacity-70">Order Status</span><strong>{selectedOrder.orderStatus}</strong></div>
-                  <div className="rounded-xl bg-white/60 px-4 py-3 dark:bg-white/5"><span className="block text-xs opacity-70">Total</span><strong>Rs {Number(selectedOrder.totalAmount || 0).toFixed(2)}</strong></div>
-                  <div className="rounded-xl bg-white/60 px-4 py-3 dark:bg-white/5 md:col-span-2">
-                    <span className="block text-xs opacity-70">Address</span>
-                    <strong>
+                  <div className="rounded-xl border border-[#d8c4a5] p-3 dark:border-white/10">
+                    <p className="mb-2 text-xs uppercase tracking-[0.2em] text-[var(--admin-primary)]">Address</p>
+                    <p className="text-sm">
                       {[selectedOrder.address?.name, selectedOrder.address?.phone, selectedOrder.address?.fullAddress, selectedOrder.address?.city, selectedOrder.address?.state, selectedOrder.address?.pincode]
                         .filter(Boolean)
                         .join(", ") || "-"}
-                    </strong>
+                    </p>
                   </div>
-                </div>
 
-                <div className="rounded-2xl border border-[#d8c4a5] p-4 dark:border-white/10">
-                  <p className="mb-3 text-sm font-semibold uppercase tracking-[0.16em] text-[var(--admin-primary)]">Tracking Steps</p>
-                  <div className="grid gap-2 md:grid-cols-3">
-                    {(selectedOrder.tracking?.steps || []).map((step) => (
-                      <div
-                        key={step.label}
-                        className={`rounded-xl border px-3 py-2 text-sm ${
-                          step.active
-                            ? "border-[#8B1E3F] bg-[#8B1E3F]/10"
-                            : step.completed
-                              ? "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-200"
-                              : "border-[#d8c4a5] bg-white/60 dark:border-white/10 dark:bg-white/5"
-                        }`}
+                  <div className="rounded-xl border border-[#d8c4a5] p-3 dark:border-white/10">
+                    <p className="mb-2 text-xs uppercase tracking-[0.2em] text-[var(--admin-primary)]">Update Tracking</p>
+                    <div className="flex items-center gap-2">
+                      <select
+                        value={trackingUpdates[selectedOrder._id] || selectedOrder.orderStatus || "Placed"}
+                        onChange={(event) => handleChangeTrackingSelection(selectedOrder._id, event.target.value)}
+                        className="h-10 flex-1 rounded-lg border border-[#d7c3a3] bg-white/75 px-2 text-sm outline-none dark:border-white/10 dark:bg-white/5"
                       >
-                        {step.label}
-                      </div>
-                    ))}
+                        {ORDER_STATUSES.map((status) => (
+                          <option key={status} value={status}>{status}</option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        onClick={() => handleUpdateTracking(selectedOrder)}
+                        disabled={trackingLoadingId === selectedOrder._id}
+                        className="rounded-lg bg-[#8B1E3F] px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                      >
+                        {trackingLoadingId === selectedOrder._id ? "Updating..." : "Update"}
+                      </button>
+                    </div>
                   </div>
-                </div>
 
-                <div className="rounded-2xl border border-[#d8c4a5] p-4 dark:border-white/10">
-                  <p className="mb-3 text-sm font-semibold uppercase tracking-[0.16em] text-[var(--admin-primary)]">Items</p>
-                  <div className="space-y-2">
-                    {(selectedOrder.items || []).map((item, index) => (
-                      <div key={`${selectedOrder._id}-${index}`} className="rounded-xl bg-white/60 px-3 py-2 text-sm dark:bg-white/5">
-                        <div className="font-semibold">{item.product?.title || item.product?.name || item.productType}</div>
-                        <div className="text-xs opacity-70">Qty: {item.quantity} | Price: Rs {Number(item.price || 0).toFixed(2)}</div>
-                      </div>
-                    ))}
+                  <div className="rounded-xl border border-[#d8c4a5] p-3 dark:border-white/10">
+                    <p className="mb-2 text-xs uppercase tracking-[0.2em] text-[var(--admin-primary)]">Items</p>
+                    <div className="space-y-2">
+                      {(selectedOrder.items || []).map((item, index) => (
+                        <div key={`${selectedOrder._id}-${index}`} className="rounded-lg bg-white/70 px-3 py-2 text-sm dark:bg-white/5">
+                          <div className="font-semibold">{item.product?.title || item.product?.name || item.productType}</div>
+                          <div className="text-xs opacity-75">Qty: {item.quantity} | Price: Rs {Number(item.price || 0).toFixed(2)}</div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </section>
+
     </div>
   );
 }
