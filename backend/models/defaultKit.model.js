@@ -19,6 +19,11 @@ const defaultKitItemSchema = new mongoose.Schema(
 
 const defaultKitSchema = new mongoose.Schema(
   {
+    kitType: {
+      type: String,
+      enum: ["default", "special"],
+      default: "default",
+    },
     name: {
       type: String,
       required: true,

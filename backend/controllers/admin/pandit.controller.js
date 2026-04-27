@@ -1,6 +1,7 @@
 import Pandit from "../../models/pandit.model.js";
 import mongoose from "mongoose";
 import PanditBooking from "../../models/panditBooking.model.js";
+import { uploadFileToFirebase } from "../../utils/firebaseUpload.js";
 
 const parseJsonIfString = (value, fallback = undefined) => {
   if (value === undefined || value === null || value === "") {
@@ -298,6 +299,16 @@ export const getPanditDetailsForAdmin = async (req, res) => {
 export const createPanditByAdmin = async (req, res) => {
   try {
     const body = req.body || {};
+    const fileMap = req.files || {};
+    const uploadedProfileImage = fileMap.profileImageFile?.[0]
+      ? await uploadFileToFirebase(fileMap.profileImageFile[0], { folder: "pandits/profile" })
+      : "";
+    const uploadedAadhaarFrontImage = fileMap.aadhaarFrontImageFile?.[0]
+      ? await uploadFileToFirebase(fileMap.aadhaarFrontImageFile[0], { folder: "pandits/aadhaar" })
+      : "";
+    const uploadedAadhaarBackImage = fileMap.aadhaarBackImageFile?.[0]
+      ? await uploadFileToFirebase(fileMap.aadhaarBackImageFile[0], { folder: "pandits/aadhaar" })
+      : "";
 
     const {
       phone = "",
@@ -338,7 +349,7 @@ export const createPanditByAdmin = async (req, res) => {
     const pandit = await Pandit.create({
       phone: finalPhone,
       fullName: String(fullName || "").trim(),
-      profileImage: String(profileImage || "").trim(),
+      profileImage: uploadedProfileImage || String(profileImage || "").trim(),
       bio: String(bio || "").trim(),
       ratingAverage: toNumber(ratingAverage, 4.5),
       ratingCount: toNumber(ratingCount, 0),
@@ -351,7 +362,11 @@ export const createPanditByAdmin = async (req, res) => {
       isVerified: toBoolean(isVerified, false),
       isPhoneVerified: toBoolean(isPhoneVerified, false),
       address: normalizeAddress(address),
-      aadhaar: normalizeAadhaar(aadhaar),
+      aadhaar: {
+        ...normalizeAadhaar(aadhaar),
+        ...(uploadedAadhaarFrontImage ? { frontImage: uploadedAadhaarFrontImage } : {}),
+        ...(uploadedAadhaarBackImage ? { backImage: uploadedAadhaarBackImage } : {}),
+      },
       serviceTypes: normalizeServiceTypes(serviceTypes),
       poojaOfferings: normalizePoojaOfferings(poojaOfferings),
       isProfileComplete:
@@ -376,6 +391,16 @@ export const createPanditByAdmin = async (req, res) => {
 export const updatePanditByAdmin = async (req, res) => {
   try {
     const { id } = req.params;
+    const fileMap = req.files || {};
+    const uploadedProfileImage = fileMap.profileImageFile?.[0]
+      ? await uploadFileToFirebase(fileMap.profileImageFile[0], { folder: "pandits/profile" })
+      : "";
+    const uploadedAadhaarFrontImage = fileMap.aadhaarFrontImageFile?.[0]
+      ? await uploadFileToFirebase(fileMap.aadhaarFrontImageFile[0], { folder: "pandits/aadhaar" })
+      : "";
+    const uploadedAadhaarBackImage = fileMap.aadhaarBackImageFile?.[0]
+      ? await uploadFileToFirebase(fileMap.aadhaarBackImageFile[0], { folder: "pandits/aadhaar" })
+      : "";
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({
@@ -437,7 +462,11 @@ export const updatePanditByAdmin = async (req, res) => {
     }
 
     if (fullName !== undefined) pandit.fullName = String(fullName || "").trim();
-    if (profileImage !== undefined) pandit.profileImage = String(profileImage || "").trim();
+    if (uploadedProfileImage) {
+      pandit.profileImage = uploadedProfileImage;
+    } else if (profileImage !== undefined) {
+      pandit.profileImage = String(profileImage || "").trim();
+    }
     if (bio !== undefined) pandit.bio = String(bio || "").trim();
     if (ratingAverage !== undefined) pandit.ratingAverage = toNumber(ratingAverage, pandit.ratingAverage || 4.5);
     if (ratingCount !== undefined) pandit.ratingCount = toNumber(ratingCount, pandit.ratingCount || 0);
@@ -462,6 +491,14 @@ export const updatePanditByAdmin = async (req, res) => {
 
     if (aadhaar !== undefined) {
       pandit.aadhaar = normalizeAadhaar(aadhaar, pandit.aadhaar || {});
+    }
+
+    if (uploadedAadhaarFrontImage || uploadedAadhaarBackImage) {
+      pandit.aadhaar = {
+        ...(pandit.aadhaar?.toObject?.() || pandit.aadhaar || {}),
+        ...(uploadedAadhaarFrontImage ? { frontImage: uploadedAadhaarFrontImage } : {}),
+        ...(uploadedAadhaarBackImage ? { backImage: uploadedAadhaarBackImage } : {}),
+      };
     }
 
     if (serviceTypes !== undefined) {

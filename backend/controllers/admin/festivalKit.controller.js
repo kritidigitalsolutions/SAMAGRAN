@@ -1,5 +1,6 @@
 import FestivalKit from "../../models/festivalKit.model.js";
 import Item from "../../models/product.model.js";
+import { uploadFileToFirebase } from "../../utils/firebaseUpload.js";
 
 const parseKitItems = (items) => (typeof items === "string" ? JSON.parse(items) : items);
 
@@ -43,8 +44,10 @@ const buildKitItems = async (items) => {
 
 export const createKit = async (req, res) => {
   try {
-    const { name, description, kitPrice, festivalType } = req.body;
-    const image = req.file ? `/uploads/${req.file.filename}` : "";
+    const { name, description, kitPrice, festivalType, status = "active" } = req.body;
+    const image = req.file
+      ? await uploadFileToFirebase(req.file, { folder: "festival-kits" })
+      : "";
     const items = parseKitItems(req.body.items);
 
     if (!name || !items?.length || !kitPrice) {
@@ -66,7 +69,8 @@ export const createKit = async (req, res) => {
       totalPrice,
       kitPrice,
       savings,
-      festivalType
+      festivalType,
+      status
     });
 
     return res.status(201).json({
@@ -85,7 +89,7 @@ export const createKit = async (req, res) => {
 
 export const getAllKits = async (req, res) => {
   try {
-    const { search, festivalType } = req.query;
+    const { search, festivalType, status = "all" } = req.query;
 
     let filter = {};
 
@@ -95,6 +99,10 @@ export const getAllKits = async (req, res) => {
 
     if (festivalType && festivalType !== "All") {
       filter.festivalType = festivalType;
+    }
+
+    if (status !== "all") {
+      filter.status = status;
     }
 
     const kits = await FestivalKit.find(filter).sort({ createdAt: -1 });
@@ -192,7 +200,7 @@ export const updateKit = async (req, res) => {
       });
     }
 
-    const { name, description, kitPrice, festivalType } = req.body;
+    const { name, description, kitPrice, festivalType, status = kit.status || "active" } = req.body;
     const items = req.body.items ? parseKitItems(req.body.items) : null;
 
     if (!name || !items?.length || !kitPrice) {
@@ -207,13 +215,14 @@ export const updateKit = async (req, res) => {
     kit.name = name;
     kit.description = description;
     kit.festivalType = festivalType;
+    kit.status = status;
     kit.kitPrice = Number(kitPrice);
     kit.items = formattedItems;
     kit.totalPrice = totalPrice;
     kit.savings = totalPrice - Number(kitPrice);
 
     if (req.file) {
-      kit.image = `/uploads/${req.file.filename}`;
+      kit.image = await uploadFileToFirebase(req.file, { folder: "festival-kits" });
     }
 
     await kit.save();

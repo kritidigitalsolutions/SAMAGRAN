@@ -1,9 +1,43 @@
 import Item from "../../models/product.model.js";
+import { uploadFileToFirebase } from "../../utils/firebaseUpload.js";
 
 const escapeRegex = (value = "") => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 const generateSlug = (title) => {
   return title.toLowerCase().replace(/ /g, "-");
+};
+
+const toBoolean = (value, fallback = false) => {
+  if (value === undefined || value === null || value === "") return fallback;
+  if (typeof value === "boolean") return value;
+  return String(value).toLowerCase() === "true";
+};
+
+const toNumber = (value, fallback = 0) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+};
+
+const buildPricingPayload = ({ price, mrp, gstPercent, priceIncludesGst }) => {
+  const sellingPrice = toNumber(price, 0);
+  const gstRate = Math.max(toNumber(gstPercent, 0), 0);
+  const includesGst = toBoolean(priceIncludesGst, true);
+
+  const basePrice = includesGst
+    ? sellingPrice / (1 + gstRate / 100 || 1)
+    : sellingPrice;
+  const gstAmount = includesGst
+    ? sellingPrice - basePrice
+    : basePrice * (gstRate / 100);
+
+  return {
+    price: sellingPrice,
+    mrp: mrp !== undefined && mrp !== "" ? toNumber(mrp, sellingPrice) : undefined,
+    basePrice: Number(basePrice.toFixed(2)),
+    gstPercent: gstRate,
+    gstAmount: Number(gstAmount.toFixed(2)),
+    priceIncludesGst: includesGst,
+  };
 };
 
 export const addProduct = async (req, res) => {
@@ -12,7 +46,12 @@ export const addProduct = async (req, res) => {
       title,
       price,
       mrp,
+      gstPercent,
+      priceIncludesGst,
       categoryName,
+      city,
+      hsnCode,
+      status,
       quantity,
       tags,
       isRecommended,
@@ -29,18 +68,30 @@ export const addProduct = async (req, res) => {
       });
     }
 
+    const imageUrls = req.files?.length
+      ? await Promise.all(
+          req.files.map((file) => uploadFileToFirebase(file, { folder: "products" }))
+        )
+      : [];
+
     const item = await Item.create({
       title,
       slug: generateSlug(title),
       category: {
         name: categoryName,
       },
-      pricing: {
+      pricing: buildPricingPayload({
         price,
         mrp,
+        gstPercent,
+        priceIncludesGst,
+      }),
+      compliance: {
+        city: String(city || "").trim(),
+        hsnCode: String(hsnCode || "").trim(),
       },
       media: {
-        image: req.files ? req.files.map((file) => file.path) : [],
+        image: imageUrls,
       },
       stock: {
         quantity: quantity || 0,
@@ -53,6 +104,7 @@ export const addProduct = async (req, res) => {
         isEveryDayRitual: isEveryDayRitual === "true",
         isRitualItems: isRitualItems === "true",
       },
+      status: status || "active",
     });
 
     res.status(201).json({
@@ -70,12 +122,16 @@ export const addProduct = async (req, res) => {
 
 export const getProducts = async (req, res) => {
   try {
-    const { page = 1, limit = 10, search } = req.query;
+    const { page = 1, limit = 10, search, status = "active" } = req.query;
     const searchTerm = search?.trim();
 
     const skip = (page - 1) * limit;
 
-    let query = { status: "active" };
+    let query = {};
+
+    if (status !== "all") {
+      query.status = status;
+    }
 
     if (searchTerm) {
       const searchRegex = new RegExp(escapeRegex(searchTerm), "i");
@@ -95,7 +151,7 @@ export const getProducts = async (req, res) => {
       .sort({ createdAt: -1 });
 
     const products = items.map((item) => {
-      const { price, mrp, currency } = item.pricing;
+      const { price, mrp, currency, basePrice, gstPercent, gstAmount, priceIncludesGst } = item.pricing;
       const productImages = item.media?.image || item.media?.Images || [];
 
       const discountPercent =
@@ -113,8 +169,16 @@ export const getProducts = async (req, res) => {
         pricing: {
           price,
           mrp,
+          basePrice,
+          gstPercent,
+          gstAmount,
+          priceIncludesGst,
           discountPercent,
           currency,
+        },
+        compliance: {
+          hsnCode: item.compliance?.hsnCode || "",
+          city: item.compliance?.city || "",
         },
         price,
         oldPrice: mrp,
@@ -167,7 +231,7 @@ export const getSingleProduct = async (req, res) => {
       });
     }
 
-    const { price, mrp, currency } = item.pricing;
+    const { price, mrp, currency, basePrice, gstPercent, gstAmount, priceIncludesGst } = item.pricing;
 
     const discountPercent =
       mrp && mrp > price
@@ -188,9 +252,17 @@ export const getSingleProduct = async (req, res) => {
         pricing: {
           price,
           mrp,
+          basePrice,
+          gstPercent,
+          gstAmount,
+          priceIncludesGst,
           discountPercent,
           currency,
           savings,
+        },
+        compliance: {
+          hsnCode: item.compliance?.hsnCode || "",
+          city: item.compliance?.city || "",
         },
         media: {
           image: item.media?.image || item.media?.Images || [],
@@ -239,7 +311,12 @@ export const updateProduct = async (req, res) => {
       title,
       price,
       mrp,
+      gstPercent,
+      priceIncludesGst,
       categoryName,
+      city,
+      hsnCode,
+      status,
       quantity,
       tags,
       isRecommended,
@@ -256,8 +333,34 @@ export const updateProduct = async (req, res) => {
 
     if (categoryName) item.category.name = categoryName;
 
-    if (price !== undefined) item.pricing.price = price;
-    if (mrp !== undefined) item.pricing.mrp = mrp;
+    if (price !== undefined || mrp !== undefined || gstPercent !== undefined || priceIncludesGst !== undefined) {
+      const pricingPayload = buildPricingPayload({
+        price: price !== undefined ? price : item.pricing.price,
+        mrp: mrp !== undefined ? mrp : item.pricing.mrp,
+        gstPercent: gstPercent !== undefined ? gstPercent : item.pricing.gstPercent,
+        priceIncludesGst:
+          priceIncludesGst !== undefined
+            ? priceIncludesGst
+            : item.pricing.priceIncludesGst,
+      });
+
+      item.pricing.price = pricingPayload.price;
+      item.pricing.mrp = pricingPayload.mrp;
+      item.pricing.basePrice = pricingPayload.basePrice;
+      item.pricing.gstPercent = pricingPayload.gstPercent;
+      item.pricing.gstAmount = pricingPayload.gstAmount;
+      item.pricing.priceIncludesGst = pricingPayload.priceIncludesGst;
+    }
+
+    if (city !== undefined || hsnCode !== undefined) {
+      item.compliance = item.compliance || {};
+      if (city !== undefined) item.compliance.city = String(city || "").trim();
+      if (hsnCode !== undefined) item.compliance.hsnCode = String(hsnCode || "").trim();
+    }
+
+    if (status !== undefined) {
+      item.status = status;
+    }
 
     if (quantity !== undefined) item.stock.quantity = quantity;
 
@@ -283,9 +386,18 @@ export const updateProduct = async (req, res) => {
       item.flags.isRitualItems = isRitualItems === "true";
     }
 
+    if (req.files?.length) {
+      const imageUrls = await Promise.all(
+        req.files.map((file) => uploadFileToFirebase(file, { folder: "products" }))
+      );
+
+      item.media = item.media || {};
+      item.media.image = imageUrls;
+    }
+
     await item.save();
 
-    const { price: p, mrp: m, currency } = item.pricing;
+    const { price: p, mrp: m, currency, basePrice, gstPercent: gRate, gstAmount, priceIncludesGst: includesGst } = item.pricing;
 
     const discountPercent =
       m && m > p ? Math.round(((m - p) / m) * 100) : 0;
@@ -305,9 +417,17 @@ export const updateProduct = async (req, res) => {
         pricing: {
           price: p,
           mrp: m,
+          basePrice,
+          gstPercent: gRate,
+          gstAmount,
+          priceIncludesGst: includesGst,
           discountPercent,
           currency,
           savings,
+        },
+        compliance: {
+          hsnCode: item.compliance?.hsnCode || "",
+          city: item.compliance?.city || "",
         },
         media: {
           thumbnail: (item.media?.image || item.media?.Images || [])?.[0] || null,

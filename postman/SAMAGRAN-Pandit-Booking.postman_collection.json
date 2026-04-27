@@ -84,6 +84,12 @@
                   "var json = pm.response.json();",
                   "if (json && json.data && json.data._id) {",
                   "  pm.environment.set('bookingId', json.data._id);",
+                  "}",
+                  "if (json && json.bookingIntentToken) {",
+                  "  pm.environment.set('bookingIntentToken', json.bookingIntentToken);",
+                  "}",
+                  "if (json && json.paymentOrder && json.paymentOrder.razorpayOrder && json.paymentOrder.razorpayOrder.id) {",
+                  "  pm.environment.set('razorpayOrderId', json.paymentOrder.razorpayOrder.id);",
                   "}"
                 ]
               }
@@ -106,10 +112,24 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"transactionId\": \"TXN-10001\",\n  \"paymentMethod\": \"UPI\"\n}"
+              "raw": "{\n  \"bookingIntentToken\": \"{{bookingIntentToken}}\",\n  \"razorpayOrderId\": \"{{razorpayOrderId}}\",\n  \"razorpayPaymentId\": \"{{razorpayPaymentId}}\",\n  \"razorpaySignature\": \"{{razorpaySignature}}\"\n}"
             },
             "url": "{{baseUrl}}/api/pandit-bookings/{{bookingId}}/confirm-payment"
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var json = pm.response.json();",
+                  "if (json && json.data && json.data._id) {",
+                  "  pm.environment.set('bookingId', json.data._id);",
+                  "}"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "7. My Bookings",

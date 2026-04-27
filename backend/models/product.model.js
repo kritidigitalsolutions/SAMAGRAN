@@ -13,6 +13,15 @@ const itemSchema = new mongoose.Schema(
       price: { type: Number, required: true },
       mrp: { type: Number },
       currency: { type: String, default: "INR" },
+      basePrice: { type: Number, default: 0 },
+      gstPercent: { type: Number, default: 0 },
+      gstAmount: { type: Number, default: 0 },
+      priceIncludesGst: { type: Boolean, default: true },
+    },
+
+    compliance: {
+      hsnCode: { type: String, trim: true, default: "" },
+      city: { type: String, trim: true, default: "" },
     },
 
     media: {

@@ -1,5 +1,6 @@
 import DefaultKit from "../../models/defaultKit.model.js";
 import Item from "../../models/product.model.js";
+import { uploadFileToFirebase } from "../../utils/firebaseUpload.js";
 
 const parseItems = (items) => {
   if (!items) {
@@ -75,10 +76,14 @@ export const createDefaultKit = async (req, res) => {
     const { formattedItems, totalPrice } = await buildKitItems(items);
     const normalizedKitPrice = Number(kitPrice);
 
+    const imageUrl = req.file
+      ? await uploadFileToFirebase(req.file, { folder: "default-kits" })
+      : "";
+
     const created = await DefaultKit.create({
       name: name.trim(),
       description: description.trim(),
-      image: req.file ? `/uploads/${req.file.filename}` : "",
+      image: imageUrl,
       items: formattedItems,
       totalPrice,
       kitPrice: normalizedKitPrice,
@@ -195,7 +200,7 @@ export const updateDefaultKit = async (req, res) => {
     kit.savings = Math.max(nextTotalPrice - normalizedKitPrice, 0);
 
     if (req.file) {
-      kit.image = `/uploads/${req.file.filename}`;
+      kit.image = await uploadFileToFirebase(req.file, { folder: "default-kits" });
     }
 
     await kit.save();

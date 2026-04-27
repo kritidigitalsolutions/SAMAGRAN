@@ -1,8 +1,10 @@
 import express from "express";
 import protect from "../../middleware/auth.middleware.js";
 import {
+  createPanditBookingRazorpayOrder,
   confirmPanditBookingPayment,
   createPanditBooking,
+  gettemplesForBooking,
   getMyPanditBookings,
   getPanditAvailableSlots,
   getPanditBookingById,
@@ -14,11 +16,13 @@ import {
 const router = express.Router();
 
 router.get("/rituals", getRitualsForBooking);
+router.get("/temples", gettemplesForBooking);
 router.get("/pandits", getPanditsForBooking);
 router.get("/pandits/:panditId", getPanditBookingProfile);
 router.get("/slots", getPanditAvailableSlots);
 
 router.post("/", protect, createPanditBooking);
+router.post("/:bookingId/payment/razorpay/order", protect, createPanditBookingRazorpayOrder);
 router.get("/my", protect, getMyPanditBookings);
 router.get("/:bookingId", protect, getPanditBookingById);
 router.post("/:bookingId/confirm-payment", protect, confirmPanditBookingPayment);

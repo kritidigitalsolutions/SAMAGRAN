@@ -1,7 +1,12 @@
+import crypto from "crypto";
+import Razorpay from "razorpay";
 import Pandit from "../models/pandit.model.js";
 import PanditBooking from "../models/panditBooking.model.js";
+import PanditBookingIntent from "../models/panditBookingIntent.model.js";
 import DefaultKit from "../models/defaultKit.model.js";
 import Ritual from "../models/ritual.model.js";
+import temple from "../models/temple.model.js";
+import BookingPricing from "../models/bookingPrice.js";
 import mongoose from "mongoose";
 
 const STATIC_SLOT_TEMPLATE = [
@@ -49,6 +54,150 @@ const buildPanditAvailableFor = (pandit) => {
 };
 
 const buildRitualDescription = (ritualName) => `Book ${ritualName} with trusted pandits.`;
+
+const getRazorpayCredentials = () => {
+  const keyId = String(process.env.RAZORPAY_KEY_ID || process.env.key_id || "").trim();
+  const keySecret = String(process.env.RAZORPAY_KEY_SECRET || process.env.key_secret || "").trim();
+
+  if (!keyId || !keySecret) {
+    throw new Error("Razorpay keys are not configured in environment");
+  }
+
+  return { keyId, keySecret };
+};
+
+const getBookingIntentSecret = () => {
+  const secret = String(process.env.JWT_SECRET || process.env.RAZORPAY_KEY_SECRET || process.env.key_secret || "").trim();
+
+  if (!secret) {
+    throw new Error("Booking intent secret is not configured in environment");
+  }
+
+  return secret;
+};
+
+const encodeBase64Url = (value) => Buffer.from(value).toString("base64url");
+
+const decodeBase64Url = (value) => Buffer.from(value, "base64url").toString("utf8");
+
+const signBookingIntentPayload = (payloadText) => {
+  const secret = getBookingIntentSecret();
+  return crypto.createHmac("sha256", secret).update(payloadText).digest("hex");
+};
+
+const createBookingIntentToken = (payloadObject) => {
+  const payloadText = encodeBase64Url(JSON.stringify(payloadObject));
+  const signature = signBookingIntentPayload(payloadText);
+  return `${payloadText}.${signature}`;
+};
+
+const verifyBookingIntentToken = (token = "") => {
+  try {
+    const [payloadText, signature] = String(token || "").split(".");
+
+    if (!payloadText || !signature) {
+      return null;
+    }
+
+    const expectedSignature = signBookingIntentPayload(payloadText);
+    if (expectedSignature !== signature) {
+      return null;
+    }
+
+    const decoded = JSON.parse(decodeBase64Url(payloadText));
+    return decoded;
+  } catch {
+    return null;
+  }
+};
+
+const verifyRazorpaySignature = ({ razorpayOrderId, razorpayPaymentId, razorpaySignature }) => {
+  const { keySecret } = getRazorpayCredentials();
+  const expectedSignature = crypto
+    .createHmac("sha256", keySecret)
+    .update(`${razorpayOrderId}|${razorpayPaymentId}`)
+    .digest("hex");
+
+  return expectedSignature === razorpaySignature;
+};
+
+const normalizeBookingPaymentMethod = (value = "UPI") => {
+  const normalized = String(value || "UPI").trim().toUpperCase();
+
+  if (["ONLINE", "UPI", "RAZORPAY", "PREPAID"].includes(normalized)) {
+    return "ONLINE";
+  }
+
+  return normalized || "UPI";
+};
+
+const getActiveBookingPrice = async () => {
+  const pricing = await BookingPricing.findOne({ isActive: true }).sort({ updatedAt: -1 }).lean();
+  const price = Number(pricing?.price || 0);
+
+  if (!Number.isFinite(price) || price <= 0) {
+    throw new Error("Active pandit booking price is not configured");
+  }
+
+  return Number(price.toFixed(2));
+};
+
+const normalizeBookingAddress = (addressInput = {}) => {
+  const fullAddressFromParts = [
+    String(addressInput?.line1 || "").trim(),
+    String(addressInput?.line2 || "").trim(),
+    String(addressInput?.landmark || "").trim(),
+  ]
+    .filter(Boolean)
+    .join(", ");
+
+  return {
+    name: String(addressInput?.name || "").trim(),
+    phone: String(addressInput?.phone || "").trim(),
+    fullAddress: String(addressInput?.fullAddress || fullAddressFromParts || "").trim(),
+    addressType: String(addressInput?.addressType || "others").trim() || "others",
+    city: String(addressInput?.city || "").trim(),
+    state: String(addressInput?.state || "").trim(),
+    pincode: String(addressInput?.pincode || addressInput?.pinCode || "").trim(),
+  };
+};
+
+const normalizeDateAndTimePayload = (value, fallbackDate = "") => {
+  if (!value) return [];
+
+  const rows = Array.isArray(value)
+    ? value
+    : Array.isArray(value?.dateAndTime)
+      ? value.dateAndTime
+      : [value];
+
+  const normalized = rows
+    .map((row) => ({
+      date: String(row?.date || fallbackDate || "").trim(),
+      time: String(row?.time || row?.label || "").trim(),
+    }))
+    .filter((row) => row.date && row.time);
+
+  return normalized;
+};
+
+const getPrimaryBookingTime = (dateAndTime = {}) => {
+  const rows = Array.isArray(dateAndTime?.dateAndTime) ? dateAndTime.dateAndTime : [];
+  return rows[0]?.time || "";
+};
+
+const getBookedSlotConflictQuery = ({ panditId, bookingDate, slotDate, slotTime }) => ({
+  pandit: panditId,
+  bookingDate,
+  "dateAndTime.dateAndTime": {
+    $elemMatch: {
+      date: slotDate,
+      time: slotTime,
+    },
+  },
+  bookingStatus: { $in: ["requested", "confirmed"] },
+  "payment.status": "paid",
+});
 
 const buildPanditFilter = ({ ritual, search, city, state, mode }) => {
   const filter = {
@@ -150,6 +299,46 @@ export const getRitualsForBooking = async (req, res) => {
   }
 };
 
+export const gettemplesForBooking = async (req, res) => {
+  try {
+    const { search = "", city = "", state = "" } = req.query;
+    const filter = { status: "active" };
+
+    if (city?.trim()) {
+      filter["address.city"] = { $regex: city.trim(), $options: "i" };
+    }
+
+    if (state?.trim()) {
+      filter["address.state"] = { $regex: state.trim(), $options: "i" };
+    }
+
+    if (search?.trim()) {
+      const regex = { $regex: search.trim(), $options: "i" };
+      filter.$or = [
+        { name: regex },
+        { description: regex },
+        { "address.city": regex },
+        { "address.state": regex },
+        { "address.line1": regex },
+        { "address.landmark": regex },
+      ];
+    }
+
+    const temples = await temple.find(filter).sort({ createdAt: -1 });
+
+    return res.json({
+      success: true,
+      count: temples.length,
+      data: temples,
+    });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      message: err.message || "Unable to load temples",
+    });
+  }
+};
+
 export const getPanditsForBooking = async (req, res) => {
   try {
     const { ritual = "", search = "", city = "", state = "", mode = "" } = req.query;
@@ -238,12 +427,16 @@ export const getPanditAvailableSlots = async (req, res) => {
         pandit: panditId,
         bookingDate: { $in: dateKeys },
         bookingStatus: { $in: ["requested", "confirmed"] },
-      }).select("bookingDate timeSlot");
+        "payment.status": "paid",
+      }).select("bookingDate dateAndTime");
 
       bookedSlotsMap = bookings.reduce((map, booking) => {
         const key = booking.bookingDate;
         const current = map.get(key) || new Set();
-        current.add(booking.timeSlot?.label);
+        const bookedTime = getPrimaryBookingTime(booking.dateAndTime);
+        if (bookedTime) {
+          current.add(bookedTime);
+        }
         map.set(key, current);
         return map;
       }, new Map());
@@ -256,7 +449,7 @@ export const getPanditAvailableSlots = async (req, res) => {
         date: dateKey,
         slots: STATIC_SLOT_TEMPLATE.map((slot) => ({
           ...slot,
-          available: !blocked.has(slot.label),
+          available: !blocked.has(slot.label) && !blocked.has(slot.startTime),
         })),
       };
     });
@@ -277,35 +470,121 @@ export const getPanditAvailableSlots = async (req, res) => {
 export const createPanditBooking = async (req, res) => {
   try {
     const {
+      ritualId = "",
       ritualName,
       ritualDescription = "",
       ritualImage = "",
       bookingMode,
-      assignType = "bestAvailable",
       panditId,
       bookingDate,
+      dateAndTime,
       timeSlot,
       address = {},
-      dakshinaAmount = 0,
+      templeId = "",
+      price = null,
       recommendedKitId = null,
-      paymentMethod = "UPI",
-      notes = "",
     } = req.body;
 
-    if (!ritualName?.trim() || !bookingMode || !bookingDate || !timeSlot?.label) {
+    const fallbackFromTimeSlot = timeSlot
+      ? [
+          {
+            date: bookingDate || "",
+            time: timeSlot?.time || timeSlot?.label || timeSlot?.startTime || "",
+          },
+        ]
+      : [];
+
+    const normalizedDateAndTime = normalizeDateAndTimePayload(
+      dateAndTime || fallbackFromTimeSlot,
+      bookingDate,
+    );
+
+    if (!bookingMode || !normalizedDateAndTime.length) {
       return res.status(400).json({
         success: false,
-        message: "ritualName, bookingMode, bookingDate and timeSlot.label are required",
+        message: "bookingMode and dateAndTime are required",
       });
+    }
+
+    const primaryDateAndTime = normalizedDateAndTime[0];
+    const resolvedBookingDate = String(bookingDate || primaryDateAndTime?.date || "").trim();
+
+    if (!resolvedBookingDate) {
+      return res.status(400).json({
+        success: false,
+        message: "dateAndTime[0].date is required when bookingDate is not provided",
+      });
+    }
+
+    const resolvedAssignType = panditId ? "choosePandit" : "bestAvailable";
+
+    let selectedRitual = null;
+
+    if (ritualId) {
+      if (!mongoose.Types.ObjectId.isValid(ritualId)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid ritualId",
+        });
+      }
+
+      selectedRitual = await Ritual.findOne({
+        _id: ritualId,
+        status: "active",
+      });
+
+      if (!selectedRitual) {
+        return res.status(404).json({
+          success: false,
+          message: "Ritual not found or inactive",
+        });
+      }
+    }
+
+    if (bookingMode === "templeRitual" && !selectedRitual) {
+      return res.status(400).json({
+        success: false,
+        message: "ritualId is required when bookingMode is templeRitual",
+      });
+    }
+
+    if (!selectedRitual && !ritualName?.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "ritualName or ritualId is required",
+      });
+    }
+
+    let selectedtemple = null;
+
+    if (bookingMode === "templeRitual") {
+      if (!templeId || !mongoose.Types.ObjectId.isValid(templeId)) {
+        return res.status(400).json({
+          success: false,
+          message: "Valid templeId is required when bookingMode is templeRitual",
+        });
+      }
+
+      selectedtemple = await temple.findOne({
+        _id: templeId,
+        status: "active",
+      });
+
+      if (!selectedtemple) {
+        return res.status(404).json({
+          success: false,
+          message: "temple not found or inactive",
+        });
+      }
     }
 
     let selectedPandit = null;
 
-    if (assignType === "choosePandit") {
-      if (!panditId) {
+    if (resolvedAssignType === "choosePandit") {
+      if (!mongoose.Types.ObjectId.isValid(panditId)) {
         return res.status(400).json({
           success: false,
-          message: "panditId is required when assignType is choosePandit",
+          message: "Valid panditId is required",
         });
       }
 
@@ -316,7 +595,7 @@ export const createPanditBooking = async (req, res) => {
       });
     } else {
       const filter = buildPanditFilter({
-        ritual: ritualName,
+        ritual: selectedRitual?.title || ritualName,
         mode: bookingMode,
       });
 
@@ -330,12 +609,14 @@ export const createPanditBooking = async (req, res) => {
       });
     }
 
-    const conflicting = await PanditBooking.findOne({
-      pandit: selectedPandit._id,
-      bookingDate,
-      "timeSlot.label": timeSlot.label,
-      bookingStatus: { $in: ["requested", "confirmed"] },
-    });
+    const conflicting = await PanditBooking.findOne(
+      getBookedSlotConflictQuery({
+        panditId: selectedPandit._id,
+        bookingDate: resolvedBookingDate,
+        slotDate: primaryDateAndTime.date,
+        slotTime: primaryDateAndTime.time,
+      }),
+    );
 
     if (conflicting) {
       return res.status(409).json({
@@ -344,48 +625,195 @@ export const createPanditBooking = async (req, res) => {
       });
     }
 
-    const booking = await PanditBooking.create({
-      user: req.user._id,
-      pandit: selectedPandit._id,
-      assignType,
-      ritual: {
-        name: ritualName.trim(),
-        description: ritualDescription,
-        image: ritualImage,
+    const resolvedBookingAddress = selectedtemple
+      ? {
+          name: selectedtemple.name || "",
+          phone: selectedtemple.contactPhone || "",
+          fullAddress: [
+            String(selectedtemple.address?.line1 || "").trim(),
+            String(selectedtemple.address?.line2 || "").trim(),
+            String(selectedtemple.address?.landmark || "").trim(),
+          ]
+            .filter(Boolean)
+            .join(", "),
+          addressType: "temple",
+          city: selectedtemple.address?.city || "",
+          state: selectedtemple.address?.state || "",
+          pincode: selectedtemple.address?.pinCode || "",
+        }
+      : normalizeBookingAddress(address);
+
+    if (bookingMode === "homeVisit") {
+      if (!resolvedBookingAddress.name || !resolvedBookingAddress.phone || !resolvedBookingAddress.fullAddress) {
+        return res.status(400).json({
+          success: false,
+          message: "For homeVisit, address.name, address.phone and address.fullAddress are required",
+        });
+      }
+    }
+
+    const bookingPrice = await getActiveBookingPrice();
+    const requestedPrice = price === null || price === undefined ? null : Number(price);
+
+    if (requestedPrice !== null) {
+      if (!Number.isFinite(requestedPrice) || requestedPrice <= 0) {
+        return res.status(400).json({
+          success: false,
+          message: "price must be a valid number greater than zero",
+        });
+      }
+
+      const normalizedRequestedPrice = Number(requestedPrice.toFixed(2));
+      const normalizedActivePrice = Number(bookingPrice.toFixed(2));
+
+      if (normalizedRequestedPrice !== normalizedActivePrice) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid booking price. Please use current booking price from booking price API",
+          expectedPrice: normalizedActivePrice,
+        });
+      }
+    }
+
+    const { keyId, keySecret } = getRazorpayCredentials();
+    const razorpay = new Razorpay({ key_id: keyId, key_secret: keySecret });
+
+    const razorpayOrder = await razorpay.orders.create({
+      amount: Math.round(bookingPrice * 100),
+      currency: "INR",
+      receipt: `pandit_booking_${String(req.user._id).slice(-8)}_${Date.now()}`,
+      notes: {
+        bookingId: "",
+        userId: String(req.user._id),
       },
-      bookingMode,
-      bookingDate,
-      timeSlot: {
-        label: timeSlot.label,
-        startTime: timeSlot.startTime || "",
-        endTime: timeSlot.endTime || "",
-      },
-      address: {
-        line1: address.line1 || "",
-        line2: address.line2 || "",
-        city: address.city || "",
-        state: address.state || "",
-        pinCode: address.pinCode || "",
-        landmark: address.landmark || "",
-      },
-      dakshinaAmount: Number(dakshinaAmount || 0),
-      recommendedKit: recommendedKitId || null,
-      payment: {
-        status: "pending",
-        method: paymentMethod,
-      },
-      bookingStatus: "requested",
-      notes,
     });
 
-    const populated = await PanditBooking.findById(booking._id)
-      .populate("pandit", "fullName phone profileImage ratingAverage yearsOfExperience languagesSpoken")
-      .populate("recommendedKit", "name image kitPrice");
+    const now = Date.now();
+    const intentPayload = {
+      v: 1,
+      createdAt: now,
+      expiresAt: now + 45 * 60 * 1000,
+      razorpayOrderId: razorpayOrder.id,
+      userId: String(req.user._id),
+      booking: {
+        panditId: String(selectedPandit._id),
+        ritualRef: selectedRitual?._id ? String(selectedRitual._id) : null,
+        ritual: {
+          name: selectedRitual?.title || ritualName.trim(),
+          description: selectedRitual?.description || ritualDescription,
+          image: selectedRitual?.image || ritualImage,
+        },
+        bookingMode,
+        bookingDate: resolvedBookingDate,
+        dateAndTime: {
+          dateAndTime: normalizedDateAndTime,
+        },
+        address: resolvedBookingAddress,
+        temple: selectedtemple?._id ? String(selectedtemple._id) : null,
+        templeSnapshot: selectedtemple
+          ? {
+              name: selectedtemple.name || "",
+              image: selectedtemple.image || "",
+              city: selectedtemple.address?.city || "",
+              state: selectedtemple.address?.state || "",
+              line1: selectedtemple.address?.line1 || "",
+              landmark: selectedtemple.address?.landmark || "",
+            }
+          : {},
+        dakshinaAmount: bookingPrice,
+        recommendedKit: recommendedKitId && mongoose.Types.ObjectId.isValid(recommendedKitId)
+          ? String(recommendedKitId)
+          : null,
+      },
+    };
+
+    const bookingIntentToken = createBookingIntentToken(intentPayload);
+
+    await PanditBookingIntent.findOneAndUpdate(
+      { razorpayOrderId: razorpayOrder.id },
+      {
+        user: req.user._id,
+        razorpayOrderId: razorpayOrder.id,
+        payload: intentPayload,
+        status: "pending",
+        expiresAt: new Date(intentPayload.expiresAt),
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true },
+    );
 
     res.status(201).json({
       success: true,
-      message: "Booking request created",
-      data: populated,
+      message: "Payment order created. Complete payment to finalize booking",
+      data: {
+        _id: razorpayOrder.id,
+        bookingStatus: "payment_pending",
+        payment: {
+          status: "pending",
+          method: "ONLINE",
+          gateway: "Razorpay",
+          razorpayOrderId: razorpayOrder.id,
+        },
+        pandit: {
+          _id: selectedPandit._id,
+          fullName: selectedPandit.fullName,
+          phone: selectedPandit.phone,
+          profileImage: selectedPandit.profileImage,
+          ratingAverage: selectedPandit.ratingAverage,
+          yearsOfExperience: selectedPandit.yearsOfExperience,
+          languagesSpoken: selectedPandit.languagesSpoken,
+        },
+        ritual: {
+          name: selectedRitual?.title || ritualName.trim(),
+          description: selectedRitual?.description || ritualDescription,
+          image: selectedRitual?.image || ritualImage,
+        },
+        ritualRef: selectedRitual
+          ? {
+              _id: selectedRitual._id,
+              title: selectedRitual.title,
+              description: selectedRitual.description,
+              image: selectedRitual.image,
+              durationHours: Number(selectedRitual.durationHours || 2),
+              status: selectedRitual.status,
+            }
+          : null,
+        bookingMode,
+        bookingDate: resolvedBookingDate,
+        dateAndTime: {
+          dateAndTime: normalizedDateAndTime,
+        },
+        address: resolvedBookingAddress,
+        temple: selectedtemple?._id || null,
+        templeSnapshot: selectedtemple
+          ? {
+              name: selectedtemple.name || "",
+              image: selectedtemple.image || "",
+              city: selectedtemple.address?.city || "",
+              state: selectedtemple.address?.state || "",
+              line1: selectedtemple.address?.line1 || "",
+              landmark: selectedtemple.address?.landmark || "",
+            }
+          : {
+              name: "",
+              image: "",
+              city: "",
+              state: "",
+              line1: "",
+              landmark: "",
+            },
+        dakshinaAmount: bookingPrice,
+        recommendedKit: null,
+      },
+      bookingIntentToken,
+      paymentOrder: {
+        keyId,
+        amount: bookingPrice,
+        currency: "INR",
+        razorpayOrder,
+      },
+      pricing: {
+        price: bookingPrice,
+      },
     });
   } catch (err) {
     res.status(500).json({
@@ -395,16 +823,260 @@ export const createPanditBooking = async (req, res) => {
   }
 };
 
+export const createPanditBookingRazorpayOrder = async (req, res) => {
+  try {
+    const { bookingId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(bookingId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid booking id",
+      });
+    }
+
+    const booking = await PanditBooking.findOne({
+      _id: bookingId,
+      user: req.user._id,
+    });
+
+    if (!booking) {
+      return res.status(404).json({
+        success: false,
+        message: "Booking not found",
+      });
+    }
+
+    if (booking.payment?.status === "paid") {
+      return res.status(400).json({
+        success: false,
+        message: "Booking is already paid",
+      });
+    }
+
+    const amount = Number(booking.dakshinaAmount || 0);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Booking amount must be greater than zero",
+      });
+    }
+
+    const { keyId, keySecret } = getRazorpayCredentials();
+    const razorpay = new Razorpay({ key_id: keyId, key_secret: keySecret });
+
+    const razorpayOrder = await razorpay.orders.create({
+      amount: Math.round(amount * 100),
+      currency: "INR",
+      receipt: `pandit_booking_${String(booking._id).slice(-8)}_${Date.now()}`,
+      notes: {
+        bookingId: String(booking._id),
+        userId: String(req.user._id),
+      },
+    });
+
+    booking.payment.method = "ONLINE";
+    booking.payment.gateway = "Razorpay";
+    booking.payment.razorpayOrderId = razorpayOrder.id;
+    booking.payment.razorpayPaymentId = "";
+    booking.payment.razorpaySignature = "";
+    await booking.save();
+
+    return res.json({
+      success: true,
+      message: "Razorpay order created for pandit booking",
+      data: {
+        bookingId: booking._id,
+        keyId,
+        amount,
+        currency: "INR",
+        razorpayOrder,
+      },
+    });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      message: err.message || "Unable to create Razorpay order for booking",
+    });
+  }
+};
+
 export const confirmPanditBookingPayment = async (req, res) => {
   try {
     const { bookingId } = req.params;
-    const { transactionId = "", paymentMethod = "UPI" } = req.body;
+    const {
+      razorpayOrderId = "",
+      razorpayPaymentId = "",
+      razorpaySignature = "",
+      bookingIntentToken = "",
+    } = req.body;
+
+    if (!razorpayOrderId || !razorpayPaymentId || !razorpaySignature) {
+      return res.status(400).json({
+        success: false,
+        message: "razorpayOrderId, razorpayPaymentId and razorpaySignature are required",
+      });
+    }
+
+    const isValidSignature = verifyRazorpaySignature({
+      razorpayOrderId,
+      razorpayPaymentId,
+      razorpaySignature,
+    });
+
+    if (!isValidSignature) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid Razorpay payment signature",
+      });
+    }
+
+    let intentPayload = verifyBookingIntentToken(bookingIntentToken);
+
+    if (!intentPayload) {
+      const storedIntent = await PanditBookingIntent.findOne({
+        razorpayOrderId: String(razorpayOrderId || "").trim(),
+        user: req.user._id,
+        status: "pending",
+      }).lean();
+
+      if (storedIntent?.payload) {
+        intentPayload = storedIntent.payload;
+      }
+    }
+
+    if (intentPayload) {
+      if (String(intentPayload.userId) !== String(req.user._id)) {
+        return res.status(403).json({
+          success: false,
+          message: "Invalid booking intent for current user",
+        });
+      }
+
+      if (Number(intentPayload.expiresAt || 0) < Date.now()) {
+        return res.status(400).json({
+          success: false,
+          message: "Booking intent expired. Please start booking again",
+        });
+      }
+
+      const expectedOrderId = String(intentPayload.razorpayOrderId || "").trim();
+      if (expectedOrderId !== String(razorpayOrderId || "").trim()) {
+        return res.status(400).json({
+          success: false,
+          message: "Razorpay order id mismatch for booking intent",
+        });
+      }
+
+      if (bookingId && String(bookingId).trim() && String(bookingId).trim() !== expectedOrderId) {
+        return res.status(400).json({
+          success: false,
+          message: "URL bookingId must match razorpay order id for payment-first flow",
+        });
+      }
+
+      const bookingInput = intentPayload.booking || {};
+      const slotRows = Array.isArray(bookingInput?.dateAndTime?.dateAndTime)
+        ? bookingInput.dateAndTime.dateAndTime
+        : [];
+      const primaryDateAndTime = slotRows[0] || {};
+
+      if (!bookingInput.panditId || !bookingInput.bookingDate || !primaryDateAndTime?.date || !primaryDateAndTime?.time) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid booking intent payload",
+        });
+      }
+
+      const duplicatePaidByTxn = await PanditBooking.findOne({
+        "payment.transactionId": String(razorpayPaymentId || "").trim(),
+      });
+
+      if (duplicatePaidByTxn) {
+        return res.status(400).json({
+          success: false,
+          message: "Booking payment is already confirmed",
+          data: duplicatePaidByTxn,
+        });
+      }
+
+      const conflicting = await PanditBooking.findOne(
+        getBookedSlotConflictQuery({
+          panditId: bookingInput.panditId,
+          bookingDate: bookingInput.bookingDate,
+          slotDate: primaryDateAndTime.date,
+          slotTime: primaryDateAndTime.time,
+        }),
+      );
+
+      if (conflicting) {
+        return res.status(409).json({
+          success: false,
+          message: "Selected slot has already been booked by another paid booking",
+        });
+      }
+
+      const createdBooking = await PanditBooking.create({
+        user: req.user._id,
+        pandit: bookingInput.panditId,
+        ritual: {
+          name: bookingInput?.ritual?.name || "",
+          description: bookingInput?.ritual?.description || "",
+          image: bookingInput?.ritual?.image || "",
+        },
+        ritualRef: bookingInput.ritualRef || null,
+        bookingMode: bookingInput.bookingMode,
+        bookingDate: bookingInput.bookingDate,
+        dateAndTime: bookingInput.dateAndTime,
+        address: bookingInput.address || {},
+        temple: bookingInput.temple || null,
+        templeSnapshot: bookingInput.templeSnapshot || {},
+        dakshinaAmount: Number(bookingInput.dakshinaAmount || 0),
+        recommendedKit: bookingInput.recommendedKit || null,
+        payment: {
+          status: "paid",
+          method: "ONLINE",
+          gateway: "Razorpay",
+          transactionId: String(razorpayPaymentId || "").trim(),
+          razorpayOrderId: String(razorpayOrderId || "").trim(),
+          razorpayPaymentId: String(razorpayPaymentId || "").trim(),
+          razorpaySignature: String(razorpaySignature || "").trim(),
+          paidAt: new Date(),
+        },
+        bookingStatus: "confirmed",
+      });
+
+      const booking = await PanditBooking.findById(createdBooking._id)
+        .populate("pandit", "fullName phone profileImage ratingAverage yearsOfExperience languagesSpoken")
+        .populate("temple", "name image description address contactPhone contactPerson")
+        .populate("ritualRef", "title description image durationHours status")
+        .populate("recommendedKit", "name image kitPrice");
+
+      await PanditBookingIntent.deleteMany({
+        razorpayOrderId: String(razorpayOrderId || "").trim(),
+        user: req.user._id,
+      });
+
+      return res.json({
+        success: true,
+        message: "Payment successful and booking confirmed",
+        data: booking,
+      });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(bookingId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid booking id. Missing booking intent for this order. Please retry booking creation.",
+      });
+    }
 
     const booking = await PanditBooking.findOne({
       _id: bookingId,
       user: req.user._id,
     })
       .populate("pandit", "fullName phone profileImage ratingAverage yearsOfExperience languagesSpoken")
+      .populate("temple", "name image description address contactPhone contactPerson")
+      .populate("ritualRef", "title description image durationHours status")
       .populate("recommendedKit", "name image kitPrice");
 
     if (!booking) {
@@ -414,9 +1086,30 @@ export const confirmPanditBookingPayment = async (req, res) => {
       });
     }
 
+    if (booking.payment?.status === "paid") {
+      return res.status(400).json({
+        success: false,
+        message: "Booking payment is already confirmed",
+      });
+    }
+
+    if (
+      booking.payment?.razorpayOrderId &&
+      String(booking.payment.razorpayOrderId) !== String(razorpayOrderId)
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Razorpay order id does not match booking payment order",
+      });
+    }
+
     booking.payment.status = "paid";
-    booking.payment.method = paymentMethod;
-    booking.payment.transactionId = transactionId;
+    booking.payment.method = "ONLINE";
+    booking.payment.gateway = "Razorpay";
+    booking.payment.transactionId = String(razorpayPaymentId || "").trim();
+    booking.payment.razorpayOrderId = String(razorpayOrderId || "").trim();
+    booking.payment.razorpayPaymentId = String(razorpayPaymentId || "").trim();
+    booking.payment.razorpaySignature = String(razorpaySignature || "").trim();
     booking.payment.paidAt = new Date();
     booking.bookingStatus = "confirmed";
 
@@ -437,8 +1130,10 @@ export const confirmPanditBookingPayment = async (req, res) => {
 
 export const getMyPanditBookings = async (req, res) => {
   try {
-    const bookings = await PanditBooking.find({ user: req.user._id })
+    const bookings = await PanditBooking.find({ user: req.user._id, "payment.status": "paid" })
       .populate("pandit", "fullName phone profileImage ratingAverage yearsOfExperience languagesSpoken")
+      .populate("temple", "name image description address contactPhone contactPerson")
+      .populate("ritualRef", "title description image durationHours status")
       .populate("recommendedKit", "name image kitPrice")
       .sort({ createdAt: -1 });
 
@@ -460,8 +1155,11 @@ export const getPanditBookingById = async (req, res) => {
     const booking = await PanditBooking.findOne({
       _id: req.params.bookingId,
       user: req.user._id,
+      "payment.status": "paid",
     })
       .populate("pandit", "fullName phone profileImage ratingAverage yearsOfExperience languagesSpoken templeAssociated")
+      .populate("temple", "name image description address contactPhone contactPerson")
+      .populate("ritualRef", "title description image durationHours status")
       .populate("recommendedKit", "name image kitPrice description");
 
     if (!booking) {
@@ -568,6 +1266,8 @@ export const getPanditAssignedBookings = async (req, res) => {
 
     const bookings = await PanditBooking.find(filter)
       .populate("user", "name phone email profileImage")
+      .populate("ritualRef", "title description image durationHours status")
+      .populate("temple", "name image address")
       .populate("recommendedKit", "name image kitPrice")
       .sort({ createdAt: -1 });
 
@@ -613,6 +1313,8 @@ export const approvePanditBooking = async (req, res) => {
       pandit: req.pandit._id,
     })
       .populate("user", "name phone email profileImage")
+      .populate("ritualRef", "title description image durationHours status")
+      .populate("temple", "name image address")
       .populate("recommendedKit", "name image kitPrice");
 
     if (!booking) {
@@ -715,6 +1417,8 @@ export const rejectPanditBooking = async (req, res) => {
       pandit: req.pandit._id,
     })
       .populate("user", "name phone email profileImage")
+      .populate("ritualRef", "title description image durationHours status")
+      .populate("temple", "name image address")
       .populate("recommendedKit", "name image kitPrice");
 
     if (!booking) {

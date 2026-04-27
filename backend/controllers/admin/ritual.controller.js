@@ -1,4 +1,5 @@
 import Ritual from "../../models/ritual.model.js";
+import { uploadFileToFirebase } from "../../utils/firebaseUpload.js";
 
 export const createRitual = async (req, res) => {
   try {
@@ -31,10 +32,14 @@ export const createRitual = async (req, res) => {
       });
     }
 
+    const uploadedImage = req.file
+      ? await uploadFileToFirebase(req.file, { folder: "rituals" })
+      : "";
+
     const ritual = await Ritual.create({
       title: title.trim(),
       description: String(description || "").trim(),
-      image: String(image || "").trim(),
+      image: uploadedImage || String(image || "").trim(),
       durationHours: Number(durationHours) > 0 ? Number(durationHours) : 2,
       travelForSpecialPooja: Boolean(travelForSpecialPooja),
       standardSamagri: Boolean(standardSamagri),
@@ -87,6 +92,10 @@ export const getAllRitualsForAdmin = async (req, res) => {
 
 export const updateRitual = async (req, res) => {
   try {
+        const uploadedImage = req.file
+          ? await uploadFileToFirebase(req.file, { folder: "rituals" })
+          : "";
+
     const { id } = req.params;
     const {
       title,
@@ -127,7 +136,9 @@ export const updateRitual = async (req, res) => {
       ritual.description = description.trim();
     }
 
-    if (typeof image === "string") {
+    if (uploadedImage) {
+      ritual.image = uploadedImage;
+    } else if (typeof image === "string") {
       ritual.image = image.trim();
     }
 

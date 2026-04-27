@@ -60,12 +60,15 @@ import adminUserKitRoutes from "./routes/admin/userKit.routes.js";
 import adminPanditRoutes from "./routes/admin/pandit.routes.js";
 import adminPanditBookingRoutes from "./routes/admin/panditBooking.routes.js";
 import adminRitualRoutes from "./routes/admin/ritual.routes.js";
+import admintempleRoutes from "./routes/admin/temple.routes.js";
 import adminOrderRoutes from "./routes/admin/order.routes.js";
 import adminWishlistRoutes from "./routes/admin/wishlist.routes.js";
 import adminAuthRoutes from "./routes/admin/auth.routes.js";
 import adminRoutes from "./routes/admin/admin.routes.js";
+import bookingPricingAdmin from "./routes/admin/bookingPricing.routes.js"
+import userFromAdmin from "./routes/admin/user.routes.js";
 
-import userRoutes from "./routes/user/user.routes.js";
+
 import authRoutes from "./routes/user/auth.routes.js";
 import panditAuthRoutes from "./routes/pandit/pandit.auth.routes.js";
 
@@ -84,6 +87,11 @@ import bookingDetails from "./routes/pandit/bookingDetails.routes.js";
 import ritual from "./routes/pandit/ritual.routes.js";
 import legal from "./routes/admin/legal.routes.js";
 import aboutUs from "./routes/admin/aboutUs.routes.js";
+import bookingPricingUser from "./routes/user/bookingPricing.routes.js"
+import userTemples from "./routes/user/temple.routes.js"
+import userRoutes from "./routes/user/user.routes.js"
+
+
 
 app.use("/api/user/items", userProductRoutes);
 // Ensure default admin exists after DB connection is established in server.js
@@ -150,8 +158,11 @@ app.use("/api/admin/user-kits", adminUserKitRoutes);
 app.use("/api/admin/pandits", adminPanditRoutes);
 app.use("/api/admin/pandit-bookings", adminPanditBookingRoutes);
 app.use("/api/admin/rituals", adminRitualRoutes);
+app.use("/api/admin/temples", admintempleRoutes);
 app.use("/api/admin/orders", adminOrderRoutes);
 app.use("/api/admin/wishlists", adminWishlistRoutes);
+app.use("/api/admin/booking-price", bookingPricingAdmin);
+app.use("/api/admin/user", userFromAdmin);
 app.use("/api/legal", legal)
 app.use("/api/aboutus", aboutUs)
 
@@ -166,6 +177,7 @@ app.use("/api/kits", festivalKitRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/pandit/auth", panditAuthRoutes);
 
+// user routs for user side
 app.use("/api/user", userRoutes);
 
 // user festive kit for user
@@ -189,6 +201,9 @@ app.use("/api/user-kits", userKit);
 app.use("/api/pandit-bookings", panditBooking);
 app.use("/api/booking-details", bookingDetails)
 app.use("/api/ritual", ritual)
+app.use("/api/booking-price", bookingPricingUser);
+app.use("/api/temples", userTemples);
+
 
 
 app.use((err, req, res, next) => {

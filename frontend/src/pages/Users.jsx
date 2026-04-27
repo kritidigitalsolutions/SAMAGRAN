@@ -125,7 +125,7 @@ export default function Users() {
       setLoading(true);
       setError("");
 
-      const res = await API.get("/user/all", {
+      const res = await API.get("admin/user/all", {
         params: searchValue.trim() ? { search: searchValue.trim() } : {},
       });
 
@@ -148,7 +148,7 @@ export default function Users() {
   const handleDelete = async (id) => {
     try {
       if (!window.confirm("Delete this user?")) return;
-      await API.delete(`/user/${id}`);
+      await API.delete(`admin/user/${id}`);
       setUsers((prev) => prev.filter((u) => u._id !== id));
       setSuccess("User deleted successfully.");
       setError("");
@@ -159,7 +159,7 @@ export default function Users() {
 
   const handleView = async (userId) => {
     try {
-      const res = await API.get(`/user/${userId}/details`);
+      const res = await API.get(`admin/user/${userId}/details`);
       setSelectedUser(res.data?.data?.user || null);
       setSelectedUserOrders(res.data?.data?.orders || []);
       setSelectedUserCart(res.data?.data?.cart || []);
@@ -215,7 +215,7 @@ export default function Users() {
         formData.append("profileImageFile", editProfileImageFile);
       }
 
-      const res = await API.patch(`/user/${editingUser._id}`, formData, {
+      const res = await API.patch(`admin/user/${editingUser._id}`, formData, {
         headers: {
           "Content-Type": "multipart/form-data",
         },
@@ -245,7 +245,7 @@ export default function Users() {
 
     try {
       setTogglingBlockId(user._id);
-      const res = await API.patch(`/user/${user._id}/block`, {
+      const res = await API.patch(`admin/user/${user._id}/block`, {
         isBlocked: !Boolean(user.isBlocked),
       });
 
@@ -275,7 +275,7 @@ export default function Users() {
 
     try {
       setLoadingOrders(true);
-      const res = await API.get(`/user/${user._id}/orders`);
+      const res = await API.get(`admin/user/${user._id}/orders`);
       setSelectedUserOrders(res.data?.data || []);
       setOrdersModalUser(user);
       setError("");
@@ -291,7 +291,7 @@ export default function Users() {
 
     try {
       setLoadingCart(true);
-      const res = await API.get(`/user/${user._id}/cart`);
+      const res = await API.get(`admin/user/${user._id}/cart`);
       setSelectedUserCart(res.data?.data || []);
       setCartModalUser(user);
       setError("");

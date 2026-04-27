@@ -1,5 +1,6 @@
 import express from "express";
 import { protectAdmin } from "../../middleware/admin.middleware.js";
+import { upload } from "../../middleware/upload.js";
 import {
   createRitual,
   deleteRitual,
@@ -10,8 +11,8 @@ import {
 const router = express.Router();
 
 router.get("/", protectAdmin, getAllRitualsForAdmin);
-router.post("/", protectAdmin, createRitual);
-router.put("/:id", protectAdmin, updateRitual);
+router.post("/", protectAdmin, upload.single("imageFile"), createRitual);
+router.put("/:id", protectAdmin, upload.single("imageFile"), updateRitual);
 router.delete("/:id", protectAdmin, deleteRitual);
 
 export default router;

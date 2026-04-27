@@ -15,6 +15,7 @@ export const getAllPanditBookingsForAdmin = async (req, res) => {
       const regex = { $regex: search.trim(), $options: "i" };
       filter.$or = [
         { "ritual.name": regex },
+        { "templeSnapshot.name": regex },
         { "address.city": regex },
         { "address.state": regex },
         { bookingDate: regex },
@@ -23,6 +24,8 @@ export const getAllPanditBookingsForAdmin = async (req, res) => {
 
     const bookings = await PanditBooking.find(filter)
       .populate("pandit", "fullName phone")
+      .populate("ritualRef", "title description image durationHours status")
+      .populate("temple", "name image address")
       .sort({ createdAt: -1 });
 
     res.json({
@@ -61,7 +64,7 @@ export const updatePanditBookingByAdmin = async (req, res) => {
     const {
       bookingStatus,
       bookingDate,
-      timeSlot,
+      dateAndTime,
       dakshinaAmount,
       notes,
       payment,
@@ -77,10 +80,10 @@ export const updatePanditBookingByAdmin = async (req, res) => {
       booking.bookingDate = String(bookingDate || "").trim();
     }
 
-    if (timeSlot && typeof timeSlot === "object") {
-      booking.timeSlot = {
-        ...booking.timeSlot,
-        ...timeSlot,
+    if (dateAndTime && typeof dateAndTime === "object") {
+      booking.dateAndTime = {
+        ...booking.dateAndTime,
+        ...dateAndTime,
       };
     }
 
@@ -114,6 +117,8 @@ export const updatePanditBookingByAdmin = async (req, res) => {
 
     const populated = await PanditBooking.findById(booking._id)
       .populate("pandit", "fullName phone")
+      .populate("ritualRef", "title description image durationHours status")
+      .populate("temple", "name image address")
       .populate("user", "name phone email");
 
     return res.json({

@@ -15,6 +15,11 @@ const kitItemSchema = new mongoose.Schema({
 
 const festivalKitSchema = new mongoose.Schema(
   {
+    kitType: {
+      type: String,
+      enum: ["default", "special"],
+      default: "special",
+    },
     name: {
       type: String,
       required: true,
@@ -38,6 +43,11 @@ const festivalKitSchema = new mongoose.Schema(
     savings: Number,
 
     festivalType: String,
+    status: {
+      type: String,
+      enum: ["active", "inactive"],
+      default: "active",
+    },
   },
   { timestamps: true }
 );

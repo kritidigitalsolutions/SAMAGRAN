@@ -129,7 +129,7 @@
                 },
                 "body": {
                     "mode": "raw",
-                    "raw": "{\n "paymentMethod": "ONLINE",\n "paymentStatus": "pending",\n "address": {\n "name": "Ravi Sharma",\n "phone": "9876543210",\n "fullAddress": "Sector 21, Near Mandir",\n "city": "Noida",\n "state": "UP",\n "pincode": "201301"\n }\n}"
+                    "raw": "{\n "paymentMethod": "ONLINE",\n "paymentStatus": "pending",\n "address": {\n "name": "Ravi Sharma",\n "phone": "9876543210",\n "fullAddress": "Sector 21, Near temple",\n "city": "Noida",\n "state": "UP",\n "pincode": "201301"\n }\n}"
                 }
             }
         },
@@ -161,7 +161,7 @@
                 },
                 "body": {
                     "mode": "raw",
-                    "raw": "{\n "paymentMethod": "ONLINE",\n "paymentStatus": "paid",\n "address": {\n "name": "Ravi Sharma",\n "phone": "9876543210",\n "fullAddress": "Sector 21, Near Mandir",\n "city": "Noida",\n "state": "UP",\n "pincode": "201301"\n }\n}"
+                    "raw": "{\n "paymentMethod": "ONLINE",\n "paymentStatus": "paid",\n "address": {\n "name": "Ravi Sharma",\n "phone": "9876543210",\n "fullAddress": "Sector 21, Near temple",\n "city": "Noida",\n "state": "UP",\n "pincode": "201301"\n }\n}"
                 }
             }
         }
