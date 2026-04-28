@@ -4,7 +4,10 @@ import "./Items.css";
 import "./AddItem.css";
 import { FiEye, FiEdit, FiPlus, FiSearch, FiTrash2, FiX } from "react-icons/fi";
 
-const apiOrigin = (API.defaults.baseURL || "http://localhost:8000/api").replace(/\/api\/?$/, "");
+const apiOrigin = (API.defaults.baseURL || "http://localhost:8000/api").replace(
+  /\/api\/?$/,
+  "",
+);
 
 const buildItemForm = () => ({
   title: "",
@@ -72,7 +75,11 @@ const normalizeItem = (item = {}, fallback = {}) => {
     },
     oldPrice: pricing.mrp ?? fallback.oldPrice,
     products,
-    thumbnail: item.thumbnail || item.media?.thumbnail || products[0] || fallback.thumbnail,
+    thumbnail:
+      item.thumbnail ||
+      item.media?.thumbnail ||
+      products[0] ||
+      fallback.thumbnail,
     stock: {
       quantity: stock.quantity ?? fallback.stock?.quantity,
       status: stock.status || fallback.stock?.status,
@@ -80,8 +87,8 @@ const normalizeItem = (item = {}, fallback = {}) => {
         stock.available !== undefined
           ? stock.available
           : stock.quantity !== undefined
-          ? Number(stock.quantity) > 0
-          : fallback.stock?.available,
+            ? Number(stock.quantity) > 0
+            : fallback.stock?.available,
     },
     compliance: {
       hsnCode: compliance.hsnCode ?? "",
@@ -116,7 +123,8 @@ const normalizeItem = (item = {}, fallback = {}) => {
         fallback.flags?.isRitualItems ??
         false,
     },
-    ratings: item.ratings || fallback.ratings || { average: 0, totalReviews: 0 },
+    ratings: item.ratings ||
+      fallback.ratings || { average: 0, totalReviews: 0 },
   };
 };
 
@@ -143,7 +151,7 @@ function ImageSlider({ images = [], title }) {
   const [activeIndex, setActiveIndex] = useState(0);
   const imageUrls = useMemo(
     () => images.map(formatImageUrl).filter(Boolean),
-    [images]
+    [images],
   );
 
   if (!imageUrls.length) {
@@ -163,8 +171,8 @@ function ImageSlider({ images = [], title }) {
             type="button"
             className="image-nav image-nav--prev"
             onClick={() =>
-              setActiveIndex((index) =>
-                (index - 1 + imageUrls.length) % imageUrls.length
+              setActiveIndex(
+                (index) => (index - 1 + imageUrls.length) % imageUrls.length,
               )
             }
             aria-label={`Previous image for ${title}`}
@@ -174,7 +182,9 @@ function ImageSlider({ images = [], title }) {
           <button
             type="button"
             className="image-nav image-nav--next"
-            onClick={() => setActiveIndex((index) => (index + 1) % imageUrls.length)}
+            onClick={() =>
+              setActiveIndex((index) => (index + 1) % imageUrls.length)
+            }
             aria-label={`Next image for ${title}`}
           >
             &gt;
@@ -204,28 +214,32 @@ export default function Items() {
   const [viewItem, setViewItem] = useState(null);
   const [editItem, setEditItem] = useState(null);
   const [editForm, setEditForm] = useState(buildEditForm());
+  const [editExistingImages, setEditExistingImages] = useState([]);
+  const [editImages, setEditImages] = useState([]);
+  const [editPreview, setEditPreview] = useState([]);
 
-  const fetchItems = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError("");
+const fetchItems = useCallback(async () => {
+  try {
+    setLoading(true);
+    setError("");
 
-      const res = await API.get("/items", {
-        params: {
-          limit: 100,
-          ...(searchTerm.trim() ? { search: searchTerm.trim() } : {}),
-        },
-      });
+    const res = await API.get("/items", {
+      params: {
+        limit: 100,
+        ...(searchTerm.trim() ? { search: searchTerm.trim() } : {}),
+      },
+    });
 
-      const list = res.data?.data?.products || [];
-      setItems(list.map((item) => normalizeItem(item)));
-    } catch (err) {
-      setError(err.response?.data?.message || "Unable to load items right now.");
-    } finally {
-      setLoading(false);
-    }
-  }, [searchTerm]);
-
+    const list = res.data?.data?.products || [];
+    setItems(list.map((item) => normalizeItem(item)));
+  } catch (err) {
+    setError(
+      err.response?.data?.message || "Unable to load items right now."
+    );
+  } finally {
+    setLoading(false);
+  }
+}, [searchTerm]);
   useEffect(() => {
     const timer = setTimeout(fetchItems, 300);
     return () => clearTimeout(timer);
@@ -234,7 +248,9 @@ export default function Items() {
   const cityOptions = useMemo(() => {
     return [
       "all",
-      ...Array.from(new Set(items.map((item) => item.compliance?.city).filter(Boolean))).sort(),
+      ...Array.from(
+        new Set(items.map((item) => item.compliance?.city).filter(Boolean)),
+      ).sort(),
     ];
   }, [items]);
 
@@ -258,6 +274,17 @@ export default function Items() {
       ...current,
       [name]: type === "checkbox" ? checked : value,
     }));
+  };
+
+  const handleEditImageChange = (event) => {
+    const files = Array.from(event.target.files || []);
+    setEditImages(files);
+    setEditPreview(files.map((file) => URL.createObjectURL(file)));
+  };
+
+  const removeEditImage = (index) => {
+    setEditImages((prev) => prev.filter((_, i) => i !== index));
+    setEditPreview((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleCreateImageChange = (event) => {
@@ -315,7 +342,9 @@ export default function Items() {
       setViewItem(normalizeItem(res.data?.data || {}, item));
     } catch (err) {
       setViewItem(item);
-      setActionError(err.response?.data?.message || "Unable to fetch latest item details.");
+      setActionError(
+        err.response?.data?.message || "Unable to fetch latest item details.",
+      );
     } finally {
       setActionLoading("");
     }
@@ -329,10 +358,18 @@ export default function Items() {
       const fullItem = normalizeItem(res.data?.data || {}, item);
       setEditItem(fullItem);
       setEditForm(buildEditForm(fullItem));
+      const existingImages = Array.isArray(fullItem.products)
+        ? fullItem.products.filter(Boolean)
+        : [];
+      setEditExistingImages(existingImages);
+      setEditImages([]);
+      setEditPreview([]);
     } catch (err) {
       setEditItem(item);
       setEditForm(buildEditForm(item));
-      setActionError(err.response?.data?.message || "Unable to load full item for edit.");
+      setActionError(
+        err.response?.data?.message || "Unable to load full item for edit.",
+      );
     } finally {
       setActionLoading("");
     }
@@ -354,34 +391,64 @@ export default function Items() {
       setActionLoading("update");
       setActionError("");
 
-      const payload = {
-        title: editForm.title.trim(),
-        price: Number(editForm.price),
-        mrp: editForm.mrp === "" ? undefined : Number(editForm.mrp),
-        gstPercent:
-          editForm.gstPercent === "" ? undefined : Number(editForm.gstPercent),
-        priceIncludesGst: String(editForm.priceIncludesGst),
-        categoryName: editForm.categoryName,
-        hsnCode: editForm.hsnCode,
-        city: editForm.city,
-        status: editForm.status,
-        quantity: editForm.quantity === "" ? undefined : Number(editForm.quantity),
-        tags: editForm.tags,
-        isRecommended: String(editForm.isRecommended),
-        isMostPoojaEssentials: String(editForm.isMostPoojaEssentials),
-        isMostUsed: String(editForm.isMostUsed),
-        isEveryDayRitual: String(editForm.isEveryDayRitual),
-        isRitualItems: String(editForm.isRitualItems),
-      };
+      const formData = new FormData();
 
-      const res = await API.put(`/items/${editItem._id}`, payload);
+      formData.append("title", editForm.title.trim());
+
+      if (editForm.price !== "") {
+        formData.append("price", String(Number(editForm.price)));
+      }
+      if (editForm.mrp !== "") {
+        formData.append("mrp", String(Number(editForm.mrp)));
+      }
+      if (editForm.gstPercent !== "") {
+        formData.append("gstPercent", String(Number(editForm.gstPercent)));
+      }
+
+      formData.append("priceIncludesGst", String(editForm.priceIncludesGst));
+      formData.append("categoryName", editForm.categoryName || "");
+      formData.append("hsnCode", editForm.hsnCode || "");
+      formData.append("city", editForm.city || "");
+      formData.append("status", editForm.status || "active");
+      if (editForm.quantity !== "") {
+        formData.append("quantity", String(Number(editForm.quantity)));
+      }
+      formData.append("tags", editForm.tags || "");
+      formData.append("isRecommended", String(editForm.isRecommended));
+      formData.append(
+        "isMostPoojaEssentials",
+        String(editForm.isMostPoojaEssentials),
+      );
+      formData.append("isMostUsed", String(editForm.isMostUsed));
+      formData.append("isEveryDayRitual", String(editForm.isEveryDayRitual));
+      formData.append("isRitualItems", String(editForm.isRitualItems));
+
+      formData.append(
+        "existingImages",
+        JSON.stringify(editExistingImages || []),
+      );
+
+      editImages.forEach((file) => {
+        formData.append("images", file);
+      });
+
+      const res = await API.put(`/items/${editItem._id}`, formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
       const updated = normalizeItem(res.data?.data || {}, editItem);
 
       setItems((current) =>
-        current.map((item) => (item._id === editItem._id ? normalizeItem(updated, item) : item))
+        current.map((item) =>
+          item._id === editItem._id ? normalizeItem(updated, item) : item,
+        ),
       );
       setEditItem(null);
       setEditForm(buildEditForm());
+      setEditExistingImages([]);
+      setEditImages([]);
+      setEditPreview([]);
     } catch (err) {
       setActionError(err.response?.data?.message || "Unable to update item.");
     } finally {
@@ -419,170 +486,199 @@ export default function Items() {
             onClick={() => setShowCreateForm((current) => !current)}
             className="product-btn flex flex-row justify-center items-center"
           >
-            <FiPlus />{showCreateForm ? "Hide Form" : "Create Product"}
+            <FiPlus />
+            {showCreateForm ? "Hide Form" : "Create Product"}
           </button>
         </div>
       </div>
 
       {showCreateForm && (
-      <section className="items-create-panel">
-        <h3>Add New Item</h3>
-        <form className="add-item-form" onSubmit={handleCreateSubmit}>
-          <div className="form-group">
-            <label>Title</label>
-            <input name="title" value={createForm.title} onChange={handleCreateChange} required />
-          </div>
-
-          <div className="form-group">
-            <label>Category</label>
-            <input
-              name="categoryName"
-              value={createForm.categoryName}
-              onChange={handleCreateChange}
-            />
-          </div>
-
-          <div className="form-group">
-            <label>Price</label>
-            <input
-              type="number"
-              name="price"
-              value={createForm.price}
-              onChange={handleCreateChange}
-              required
-            />
-          </div>
-
-          <div className="form-group">
-            <label>MRP</label>
-            <input type="number" name="mrp" value={createForm.mrp} onChange={handleCreateChange} />
-          </div>
-
-          <div className="form-group">
-            <label>GST %</label>
-            <input
-              type="number"
-              name="gstPercent"
-              value={createForm.gstPercent}
-              onChange={handleCreateChange}
-            />
-          </div>
-
-          <div className="form-group">
-            <label>HSN Code</label>
-            <input name="hsnCode" value={createForm.hsnCode} onChange={handleCreateChange} />
-          </div>
-
-          <div className="form-group">
-            <label>City</label>
-            <input name="city" value={createForm.city} onChange={handleCreateChange} />
-          </div>
-
-          <div className="form-group">
-            <label>Status</label>
-            <select name="status" value={createForm.status} onChange={handleCreateChange}>
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-            </select>
-          </div>
-
-          <div className="form-group">
-            <label>Stock</label>
-            <input
-              type="number"
-              name="quantity"
-              value={createForm.quantity}
-              onChange={handleCreateChange}
-            />
-          </div>
-
-          <div className="form-group">
-            <label>Tags (comma separated)</label>
-            <input name="tags" value={createForm.tags} onChange={handleCreateChange} />
-          </div>
-
-          <div className="form-group full-width">
-            <label>Product Images</label>
-            <input type="file" multiple onChange={handleCreateImageChange} />
-          </div>
-
-          <div className="preview-container full-width">
-            {createPreview.map((image, index) => (
-              <div className="preview-box" key={image}>
-                <img src={image} alt="Preview" className="preview-image" />
-                <button
-                  type="button"
-                  className="remove-btn"
-                  onClick={() => removeCreateImage(index)}
-                >
-                  x
-                </button>
-              </div>
-            ))}
-          </div>
-
-          <div className="items-flags-grid full-width">
-            <label className="item-edit-checkbox">
+        <section className="items-create-panel">
+          <h3>Add New Item</h3>
+          <form className="add-item-form" onSubmit={handleCreateSubmit}>
+            <div className="form-group">
+              <label>Title</label>
               <input
-                type="checkbox"
-                name="priceIncludesGst"
-                checked={createForm.priceIncludesGst}
+                name="title"
+                value={createForm.title}
+                onChange={handleCreateChange}
+                required
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Category</label>
+              <input
+                name="categoryName"
+                value={createForm.categoryName}
                 onChange={handleCreateChange}
               />
-              Price Includes GST
-            </label>
-            <label className="item-edit-checkbox">
-              <input
-                type="checkbox"
-                name="isRecommended"
-                checked={createForm.isRecommended}
-                onChange={handleCreateChange}
-              />
-              Recommended
-            </label>
-            <label className="item-edit-checkbox">
-              <input
-                type="checkbox"
-                name="isMostPoojaEssentials"
-                checked={createForm.isMostPoojaEssentials}
-                onChange={handleCreateChange}
-              />
-              Most Pooja Essentials
-            </label>
-            <label className="item-edit-checkbox">
-              <input
-                type="checkbox"
-                name="isMostUsed"
-                checked={createForm.isMostUsed}
-                onChange={handleCreateChange}
-              />
-              Most Used
-            </label>
-            <label className="item-edit-checkbox">
-              <input
-                type="checkbox"
-                name="isEveryDayRitual"
-                checked={createForm.isEveryDayRitual}
-                onChange={handleCreateChange}
-              />
-              Every Day Ritual
-            </label>
-            <label className="item-edit-checkbox">
-              <input
-                type="checkbox"
-                name="isRitualItems"
-                checked={createForm.isRitualItems}
-                onChange={handleCreateChange}
-              />
-              Ritual Item
-            </label>
-          </div>
+            </div>
 
-          <button className="add-btn full-width" disabled={actionLoading === "create"}>
-            {actionLoading === "create" ? "Adding..." : "Add Item"}
-          </button>
-        </form>
-      </section>
+            <div className="form-group">
+              <label>Price</label>
+              <input
+                type="number"
+                name="price"
+                value={createForm.price}
+                onChange={handleCreateChange}
+                required
+              />
+            </div>
+
+            <div className="form-group">
+              <label>MRP</label>
+              <input
+                type="number"
+                name="mrp"
+                value={createForm.mrp}
+                onChange={handleCreateChange}
+              />
+            </div>
+
+            <div className="form-group">
+              <label>GST %</label>
+              <input
+                type="number"
+                name="gstPercent"
+                value={createForm.gstPercent}
+                onChange={handleCreateChange}
+              />
+            </div>
+
+            <div className="form-group">
+              <label>HSN Code</label>
+              <input
+                name="hsnCode"
+                value={createForm.hsnCode}
+                onChange={handleCreateChange}
+              />
+            </div>
+
+            <div className="form-group">
+              <label>City</label>
+              <input
+                name="city"
+                value={createForm.city}
+                onChange={handleCreateChange}
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Status</label>
+              <select
+                name="status"
+                value={createForm.status}
+                onChange={handleCreateChange}
+              >
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            </div>
+
+            <div className="form-group">
+              <label>Stock</label>
+              <input
+                type="number"
+                name="quantity"
+                value={createForm.quantity}
+                onChange={handleCreateChange}
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Tags (comma separated)</label>
+              <input
+                name="tags"
+                value={createForm.tags}
+                onChange={handleCreateChange}
+              />
+            </div>
+
+            <div className="form-group full-width">
+              <label>Product Images</label>
+              <input type="file" multiple onChange={handleCreateImageChange} />
+            </div>
+            <div className="preview-container full-width">
+              {createPreview.map((image, index) => (
+                <div className="preview-box" key={image}>
+                  <img src={image} alt="Preview" className="preview-image" />
+                  <button
+                    type="button"
+                    className="remove-btn"
+                    onClick={() => removeCreateImage(index)}
+                  >
+                    x
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            <div className="items-flags-grid full-width">
+              <label className="item-edit-checkbox">
+                <input
+                  type="checkbox"
+                  name="priceIncludesGst"
+                  checked={createForm.priceIncludesGst}
+                  onChange={handleCreateChange}
+                />
+                Price Includes GST
+              </label>
+              <label className="item-edit-checkbox">
+                <input
+                  type="checkbox"
+                  name="isRecommended"
+                  checked={createForm.isRecommended}
+                  onChange={handleCreateChange}
+                />
+                Recommended
+              </label>
+              <label className="item-edit-checkbox">
+                <input
+                  type="checkbox"
+                  name="isMostPoojaEssentials"
+                  checked={createForm.isMostPoojaEssentials}
+                  onChange={handleCreateChange}
+                />
+                Most Pooja Essentials
+              </label>
+              <label className="item-edit-checkbox">
+                <input
+                  type="checkbox"
+                  name="isMostUsed"
+                  checked={createForm.isMostUsed}
+                  onChange={handleCreateChange}
+                />
+                Most Used
+              </label>
+              <label className="item-edit-checkbox">
+                <input
+                  type="checkbox"
+                  name="isEveryDayRitual"
+                  checked={createForm.isEveryDayRitual}
+                  onChange={handleCreateChange}
+                />
+                Every Day Ritual
+              </label>
+              <label className="item-edit-checkbox">
+                <input
+                  type="checkbox"
+                  name="isRitualItems"
+                  checked={createForm.isRitualItems}
+                  onChange={handleCreateChange}
+                />
+                Ritual Item
+              </label>
+            </div>
+
+            <button
+              className="add-btn full-width"
+              disabled={actionLoading === "create"}
+            >
+              {actionLoading === "create" ? "Adding..." : "Add Item"}
+            </button>
+          </form>
+        </section>
       )}
 
       <div className="items-search-bar">
@@ -595,7 +691,11 @@ export default function Items() {
           aria-label="Search items"
         />
         {searchTerm && (
-          <button type="button" onClick={() => setSearchTerm("")} aria-label="Clear item search">
+          <button
+            type="button"
+            onClick={() => setSearchTerm("")}
+            aria-label="Clear item search"
+          >
             <FiX />
           </button>
         )}
@@ -619,7 +719,9 @@ export default function Items() {
            dark:bg-[#1e1e1e] dark:text-white dark:border-white/20"
         >
           {cityOptions.map((city) => (
-            <option key={city} value={city}>{city === "all" ? "All Cities" : city}</option>
+            <option key={city} value={city}>
+              {city === "all" ? "All Cities" : city}
+            </option>
           ))}
         </select>
         <select
@@ -634,9 +736,13 @@ export default function Items() {
         </select>
       </div>
 
-      {actionError && !viewItem && !editItem && <div className="items-action-error">{actionError}</div>}
+      {actionError && !viewItem && !editItem && (
+        <div className="items-action-error">{actionError}</div>
+      )}
       {loading && <div className="items-state">Loading items...</div>}
-      {!loading && error && <div className="items-state items-state--error">{error}</div>}
+      {!loading && error && (
+        <div className="items-state items-state--error">{error}</div>
+      )}
       {!loading && !error && !filteredItems.length && (
         <div className="items-state">No active items found.</div>
       )}
@@ -662,45 +768,86 @@ export default function Items() {
             </thead>
             <tbody>
               {filteredItems.map((item) => (
-                <tr key={item._id} className="border-t-[1px] dark:border-[#53535398] text-black dark:text-white">
+                <tr
+                  key={item._id}
+                  className="border-t-[1px] dark:border-[#53535398] text-black dark:text-white"
+                >
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
                       {formatImageUrl(item.thumbnail) ? (
-                        <img src={formatImageUrl(item.thumbnail)} alt={item.title} className="h-10 w-10 rounded-lg object-cover" />
+                        <img
+                          src={formatImageUrl(item.thumbnail)}
+                          alt={item.title}
+                          className="h-10 w-10 rounded-lg object-cover"
+                        />
                       ) : (
                         <div className="h-10 w-10 rounded-lg bg-[#8B1E3F]/10" />
                       )}
                       <div>
                         <p className="font-semibold">{item.title}</p>
-                        <p className="text-xs opacity-70">{item.pricing?.priceIncludesGst ? "Incl GST" : "Excl GST"}</p>
+                        <p className="text-xs opacity-70">
+                          {item.pricing?.priceIncludesGst
+                            ? "Incl GST"
+                            : "Excl GST"}
+                        </p>
                       </div>
                     </div>
                   </td>
-                  <td className="px-4 py-3">{item.category?.name || "Uncategorized"}</td>
-                  <td className="px-4 py-3">{formatCurrency(item.pricing?.mrp)}</td>
-                  <td className="px-4 py-3">{formatCurrency(item.pricing?.basePrice)}</td>
-                  <td className="px-4 py-3">{Number(item.pricing?.gstPercent || 0)}%</td>
-                  <td className="px-4 py-3">{formatCurrency(item.pricing?.gstAmount)}</td>
-                  <td className="px-4 py-3 font-semibold">{formatCurrency(item.pricing?.price)}</td>
-                  <td className="px-4 py-3">{item.compliance?.hsnCode || "-"}</td>
+                  <td className="px-4 py-3">
+                    {item.category?.name || "Uncategorized"}
+                  </td>
+                  <td className="px-4 py-3">
+                    {formatCurrency(item.pricing?.mrp)}
+                  </td>
+                  <td className="px-4 py-3">
+                    {formatCurrency(item.pricing?.basePrice)}
+                  </td>
+                  <td className="px-4 py-3">
+                    {Number(item.pricing?.gstPercent || 0)}%
+                  </td>
+                  <td className="px-4 py-3">
+                    {formatCurrency(item.pricing?.gstAmount)}
+                  </td>
+                  <td className="px-4 py-3 font-semibold">
+                    {formatCurrency(item.pricing?.price)}
+                  </td>
+                  <td className="px-4 py-3">
+                    {item.compliance?.hsnCode || "-"}
+                  </td>
                   <td className="px-4 py-3">{item.stock?.quantity ?? "-"}</td>
                   <td className="px-4 py-3">{item.compliance?.city || "-"}</td>
                   <td className="px-4 py-3">
-                    <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-                      item.status === "active" ? "bg-emerald-100 text-emerald-700" : "bg-slate-200 text-slate-700"
-                    }`}>
+                    <span
+                      className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
+                        item.status === "active"
+                          ? "bg-emerald-100 text-emerald-700"
+                          : "bg-slate-200 text-slate-700"
+                      }`}
+                    >
                       {item.status || "active"}
                     </span>
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
-                      <button type="button" onClick={() => openViewModal(item)} title="View item">
+                      <button
+                        type="button"
+                        onClick={() => openViewModal(item)}
+                        title="View item"
+                      >
                         <FiEye />
                       </button>
-                      <button type="button" onClick={() => openEditModal(item)} title="Edit item">
+                      <button
+                        type="button"
+                        onClick={() => openEditModal(item)}
+                        title="Edit item"
+                      >
                         <FiEdit />
                       </button>
-                      <button type="button" onClick={() => handleDeleteItem(item)} title="Delete item">
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteItem(item)}
+                        title="Delete item"
+                      >
                         <FiTrash2 />
                       </button>
                     </div>
@@ -714,10 +861,18 @@ export default function Items() {
 
       {viewItem && (
         <div className="item-modal-backdrop" role="presentation">
-          <section className="item-view-modal" aria-label={`${viewItem.title} details`}>
+          <section
+            className="item-view-modal"
+            aria-label={`${viewItem.title} details`}
+          >
             <div className="item-view-hero">
-              <ImageSlider images={viewItem.products || []} title={viewItem.title} />
-              {viewItem.flags?.isRecommended && <span className="item-view-badge">Recommended</span>}
+              <ImageSlider
+                images={viewItem.products || []}
+                title={viewItem.title}
+              />
+              {viewItem.flags?.isRecommended && (
+                <span className="item-view-badge">Recommended</span>
+              )}
             </div>
 
             <div className="item-view-content">
@@ -738,7 +893,9 @@ export default function Items() {
 
               <div className="item-view-price-row">
                 <span>{formatCurrency(viewItem.pricing?.price)}</span>
-                {viewItem.pricing?.mrp ? <del>{formatCurrency(viewItem.pricing?.mrp)}</del> : null}
+                {viewItem.pricing?.mrp ? (
+                  <del>{formatCurrency(viewItem.pricing?.mrp)}</del>
+                ) : null}
               </div>
 
               <div className="item-view-details-grid">
@@ -776,17 +933,25 @@ export default function Items() {
                 </div>
                 <div>
                   <span>Status</span>
-                  <strong className="uppercase">{viewItem.status || "active"}</strong>
+                  <strong className="uppercase">
+                    {viewItem.status || "active"}
+                  </strong>
                 </div>
               </div>
 
               <div className="item-view-tags">
                 <span>Flags</span>
                 <div>
-                  {viewItem.flags?.isMostPoojaEssentials && <strong>Most Pooja Essentials</strong>}
+                  {viewItem.flags?.isMostPoojaEssentials && (
+                    <strong>Most Pooja Essentials</strong>
+                  )}
                   {viewItem.flags?.isMostUsed && <strong>Most Used</strong>}
-                  {viewItem.flags?.isEveryDayRitual && <strong>Every Day Ritual</strong>}
-                  {viewItem.flags?.isRitualItems && <strong>Ritual Item</strong>}
+                  {viewItem.flags?.isEveryDayRitual && (
+                    <strong>Every Day Ritual</strong>
+                  )}
+                  {viewItem.flags?.isRitualItems && (
+                    <strong>Ritual Item</strong>
+                  )}
                   {!viewItem.flags?.isMostPoojaEssentials &&
                     !viewItem.flags?.isMostUsed &&
                     !viewItem.flags?.isEveryDayRitual &&
@@ -809,7 +974,12 @@ export default function Items() {
               <button
                 type="button"
                 className="item-modal-close"
-                onClick={() => setEditItem(null)}
+                onClick={() => {
+                  setEditItem(null);
+                  setEditExistingImages([]);
+                  setEditImages([]);
+                  setEditPreview([]);
+                }}
                 disabled={actionLoading === "update"}
                 aria-label="Close edit item dialog"
               >
@@ -820,7 +990,12 @@ export default function Items() {
             <div className="item-edit-grid">
               <label>
                 Title
-                <input name="title" value={editForm.title} onChange={handleEditChange} required />
+                <input
+                  name="title"
+                  value={editForm.title}
+                  onChange={handleEditChange}
+                  required
+                />
               </label>
               <label>
                 Price
@@ -834,7 +1009,12 @@ export default function Items() {
               </label>
               <label>
                 MRP
-                <input type="number" name="mrp" value={editForm.mrp} onChange={handleEditChange} />
+                <input
+                  type="number"
+                  name="mrp"
+                  value={editForm.mrp}
+                  onChange={handleEditChange}
+                />
               </label>
               <label>
                 GST %
@@ -855,15 +1035,27 @@ export default function Items() {
               </label>
               <label>
                 HSN Code
-                <input name="hsnCode" value={editForm.hsnCode} onChange={handleEditChange} />
+                <input
+                  name="hsnCode"
+                  value={editForm.hsnCode}
+                  onChange={handleEditChange}
+                />
               </label>
               <label>
                 City
-                <input name="city" value={editForm.city} onChange={handleEditChange} />
+                <input
+                  name="city"
+                  value={editForm.city}
+                  onChange={handleEditChange}
+                />
               </label>
               <label>
                 Status
-                <select name="status" value={editForm.status} onChange={handleEditChange}>
+                <select
+                  name="status"
+                  value={editForm.status}
+                  onChange={handleEditChange}
+                >
                   <option value="active">Active</option>
                   <option value="inactive">Inactive</option>
                 </select>
@@ -879,11 +1071,54 @@ export default function Items() {
               </label>
               <label>
                 Tags
-                <input name="tags" value={editForm.tags} onChange={handleEditChange} />
+                <input
+                  name="tags"
+                  value={editForm.tags}
+                  onChange={handleEditChange}
+                />
               </label>
             </div>
+            <div className="form-group full-width mt-4">
+              <label>Product Images</label>
+              <input type="file" multiple onChange={handleEditImageChange} />
+            </div>
 
-            <div className="items-flags-grid">
+            <div className="preview-container full-width">
+              {editExistingImages.map((image, index) => (
+                <div className="preview-box" key={`existing-${image}-${index}`}>
+                  <img
+                    src={formatImageUrl(image)}
+                    alt="Existing"
+                    className="preview-image"
+                  />
+                  <button
+                    type="button"
+                    className="remove-btn"
+                    onClick={() =>
+                      setEditExistingImages((current) =>
+                        current.filter((_, imgIndex) => imgIndex !== index),
+                      )
+                    }
+                  >
+                    x
+                  </button>
+                </div>
+              ))}
+              {editPreview.map((image, index) => (
+                <div className="preview-box" key={`new-${image}-${index}`}>
+                  <img src={image} alt="Preview" className="preview-image" />
+                  <button
+                    type="button"
+                    className="remove-btn"
+                    onClick={() => removeEditImage(index)}
+                  >
+                    x
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            <div className="items-flags-grid mt-4">
               <label className="item-edit-checkbox">
                 <input
                   type="checkbox"
@@ -940,13 +1175,22 @@ export default function Items() {
               </label>
             </div>
 
-            {actionError && <div className="items-action-error items-action-error--modal">{actionError}</div>}
+            {actionError && (
+              <div className="items-action-error items-action-error--modal">
+                {actionError}
+              </div>
+            )}
 
             <div className="item-edit-actions">
               <button
                 type="button"
                 className="item-edit-secondary"
-                onClick={() => setEditItem(null)}
+                onClick={() => {
+                  setEditItem(null);
+                  setEditExistingImages([]);
+                  setEditImages([]);
+                  setEditPreview([]);
+                }}
                 disabled={actionLoading === "update"}
               >
                 Cancel
@@ -965,4 +1209,3 @@ export default function Items() {
     </div>
   );
 }
-

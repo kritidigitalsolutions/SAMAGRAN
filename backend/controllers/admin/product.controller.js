@@ -40,6 +40,27 @@ const buildPricingPayload = ({ price, mrp, gstPercent, priceIncludesGst }) => {
   };
 };
 
+const parseExistingImages = (value) => {
+  if (value === undefined || value === null || value === "") {
+    return [];
+  }
+
+  if (Array.isArray(value)) {
+    return value.filter(Boolean);
+  }
+
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed.filter(Boolean) : [];
+    } catch {
+      return value.trim() ? [value.trim()] : [];
+    }
+  }
+
+  return [];
+};
+
 export const addProduct = async (req, res) => {
   try {
     const {
@@ -386,13 +407,21 @@ export const updateProduct = async (req, res) => {
       item.flags.isRitualItems = isRitualItems === "true";
     }
 
-    if (req.files?.length) {
-      const imageUrls = await Promise.all(
-        req.files.map((file) => uploadFileToFirebase(file, { folder: "products" }))
-      );
+    const hasExistingImages = req.body.existingImages !== undefined;
+    const hasNewUploads = Boolean(req.files?.length);
+
+    if (hasExistingImages || hasNewUploads) {
+      const existingImages = parseExistingImages(req.body.existingImages);
+      const uploadedImages = hasNewUploads
+        ? await Promise.all(
+            req.files.map((file) =>
+              uploadFileToFirebase(file, { folder: "products" })
+            )
+          )
+        : [];
 
       item.media = item.media || {};
-      item.media.image = imageUrls;
+      item.media.image = [...existingImages, ...uploadedImages];
     }
 
     await item.save();
