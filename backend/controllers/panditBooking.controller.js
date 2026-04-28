@@ -9,17 +9,17 @@ import temple from "../models/temple.model.js";
 import BookingPricing from "../models/bookingPrice.js";
 import mongoose from "mongoose";
 
-const STATIC_SLOT_TEMPLATE = [
-  { label: "6:00 AM - 8:00 AM", startTime: "06:00", endTime: "08:00" },
-  { label: "10:00 AM - 12:00 PM", startTime: "10:00", endTime: "12:00" },
-  { label: "12:00 PM - 2:00 PM", startTime: "12:00", endTime: "14:00" },
-  { label: "6:00 PM - 8:00 PM", startTime: "18:00", endTime: "20:00" },
-];
+// const STATIC_SLOT_TEMPLATE = [
+//   { label: "6:00 AM - 8:00 AM", startTime: "06:00", endTime: "08:00" },
+//   { label: "10:00 AM - 12:00 PM", startTime: "10:00", endTime: "12:00" },
+//   { label: "12:00 PM - 2:00 PM", startTime: "12:00", endTime: "14:00" },
+//   { label: "6:00 PM - 8:00 PM", startTime: "18:00", endTime: "20:00" },
+// ];
 
 const modeMap = {
-  homeVisit: "homeVisit",
-  onlinePooja: "onlinePooja",
-  templeRitual: "atTemple",
+  home: "home",
+  online: "online",
+  temple: "atTemple",
 };
 
 const toDateKey = (dateObj) => {
@@ -45,8 +45,8 @@ const getNextDateKeys = (days = 7) => {
 const buildPanditAvailableFor = (pandit) => {
   const availableFor = [];
 
-  if (pandit?.serviceTypes?.homeVisit) availableFor.push("Home Puja");
-  if (pandit?.serviceTypes?.onlinePooja) availableFor.push("Online Puja");
+  if (pandit?.serviceTypes?.home) availableFor.push("Home Puja");
+  if (pandit?.serviceTypes?.online) availableFor.push("Online Puja");
   if (pandit?.serviceTypes?.atTemple) availableFor.push("Temple Ritual");
   if (pandit?.serviceTypes?.travelForSpecialPoojas) availableFor.push("Travel for Special Pooja");
 
@@ -154,6 +154,8 @@ const normalizeBookingAddress = (addressInput = {}) => {
   return {
     name: String(addressInput?.name || "").trim(),
     phone: String(addressInput?.phone || "").trim(),
+    secondPhone:String(addressInput?.phone || "").trim(),
+    email:String(addressInput?.email || "").trim(),
     fullAddress: String(addressInput?.fullAddress || fullAddressFromParts || "").trim(),
     addressType: String(addressInput?.addressType || "others").trim() || "others",
     city: String(addressInput?.city || "").trim(),
@@ -541,10 +543,10 @@ export const createPanditBooking = async (req, res) => {
       }
     }
 
-    if (bookingMode === "templeRitual" && !selectedRitual) {
+    if (bookingMode === "temple" && !selectedRitual) {
       return res.status(400).json({
         success: false,
-        message: "ritualId is required when bookingMode is templeRitual",
+        message: "ritualId is required when bookingMode is temple",
       });
     }
 
@@ -557,11 +559,11 @@ export const createPanditBooking = async (req, res) => {
 
     let selectedtemple = null;
 
-    if (bookingMode === "templeRitual") {
+    if (bookingMode === "temple") {
       if (!templeId || !mongoose.Types.ObjectId.isValid(templeId)) {
         return res.status(400).json({
           success: false,
-          message: "Valid templeId is required when bookingMode is templeRitual",
+          message: "Valid templeId is required when bookingMode is temple",
         });
       }
 
@@ -629,6 +631,8 @@ export const createPanditBooking = async (req, res) => {
       ? {
           name: selectedtemple.name || "",
           phone: selectedtemple.contactPhone || "",
+          secondPhone: selectedtemple.phone || "", 
+          email: selectedtemple.email || "", 
           fullAddress: [
             String(selectedtemple.address?.line1 || "").trim(),
             String(selectedtemple.address?.line2 || "").trim(),
@@ -640,14 +644,15 @@ export const createPanditBooking = async (req, res) => {
           city: selectedtemple.address?.city || "",
           state: selectedtemple.address?.state || "",
           pincode: selectedtemple.address?.pinCode || "",
+
         }
       : normalizeBookingAddress(address);
 
-    if (bookingMode === "homeVisit") {
+    if (bookingMode === "home") {
       if (!resolvedBookingAddress.name || !resolvedBookingAddress.phone || !resolvedBookingAddress.fullAddress) {
         return res.status(400).json({
           success: false,
-          message: "For homeVisit, address.name, address.phone and address.fullAddress are required",
+          message: "For home, address.name, address.phone and address.fullAddress are required",
         });
       }
     }
@@ -783,7 +788,7 @@ export const createPanditBooking = async (req, res) => {
           dateAndTime: normalizedDateAndTime,
         },
         address: resolvedBookingAddress,
-        temple: selectedtemple?._id || null,
+        temple: temple,
         templeSnapshot: selectedtemple
           ? {
               name: selectedtemple.name || "",
@@ -1135,6 +1140,7 @@ export const getMyPanditBookings = async (req, res) => {
       .populate("temple", "name image description address contactPhone contactPerson")
       .populate("ritualRef", "title description image durationHours status")
       .populate("recommendedKit", "name image kitPrice")
+      .select("-__V")
       .sort({ createdAt: -1 });
 
     res.json({

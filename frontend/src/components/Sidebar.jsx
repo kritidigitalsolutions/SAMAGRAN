@@ -11,6 +11,7 @@ const navItems = [
   { label: "Rituals", path: "/dashboard/rituals", icon: "rituals" },
   { label: "Temples", path: "/dashboard/temples", icon: "temples" },
   { label: "Pandit Bookings", path: "/dashboard/pandit-bookings", icon: "pandit-bookings" },
+  { label: "Banners", path: "/dashboard/Banners", icon: "Banners" },
 ];
 
 function SidebarIcon({ icon }) {

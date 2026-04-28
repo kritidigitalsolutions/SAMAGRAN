@@ -450,6 +450,7 @@ export default function Temples() {
             <table className="min-w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-[#e6d8c5] text-xs uppercase tracking-[0.18em] text-[#7f5a4f] dark:border-white/10 dark:text-[#e7c98b]">
+                  <th className="px-3 py-3">Images</th>
                   <th className="px-3 py-3">Name</th>
                   <th className="px-3 py-3">City</th>
                   <th className="px-3 py-3">Phone</th>
@@ -460,6 +461,7 @@ export default function Temples() {
               <tbody>
                 {temples.map((temple) => (
                   <tr key={temple._id} className="border-b border-[#f0e3d1] align-top last:border-none dark:border-white/10">
+                    <td className="px-3 py-4 "><img src={temple.image} className="rounded" width={80} height={30} alt="" /></td>
                     <td className="px-3 py-4">
                       <p className="font-semibold">{temple.name}</p>
                       <p className="text-xs text-[#6e4b40] dark:text-[#f7e3c0]/80">{temple.address?.line1 || temple.address?.landmark || "-"}</p>

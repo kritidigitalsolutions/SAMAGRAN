@@ -217,7 +217,8 @@ export default function PanditBookings() {
             <select
               value={statusFilter}
               onChange={(event) => setStatusFilter(event.target.value)}
-              className="h-11 rounded-xl border border-[#d7c3a3] bg-white/70 px-3 text-sm outline-none dark:border-white/10 dark:bg-white/5"
+              className="h-11 rounded-xl border border-[#d7c3a3] bg-white text-black px-3 text-sm outline-none 
+           dark:bg-[#1e1e1e] dark:text-white dark:border-white/20"
             >
               <option value="all">All status</option>
               <option value="requested">Requested</option>

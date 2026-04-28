@@ -67,7 +67,7 @@ import adminAuthRoutes from "./routes/admin/auth.routes.js";
 import adminRoutes from "./routes/admin/admin.routes.js";
 import bookingPricingAdmin from "./routes/admin/bookingPricing.routes.js"
 import userFromAdmin from "./routes/admin/user.routes.js";
-
+import banner from "./routes/admin/banner.routes.js"
 
 import authRoutes from "./routes/user/auth.routes.js";
 import panditAuthRoutes from "./routes/pandit/pandit.auth.routes.js";
@@ -90,7 +90,7 @@ import aboutUs from "./routes/admin/aboutUs.routes.js";
 import bookingPricingUser from "./routes/user/bookingPricing.routes.js"
 import userTemples from "./routes/user/temple.routes.js"
 import userRoutes from "./routes/user/user.routes.js"
-
+import userBanners from "./routes/user/banner.routes.js"
 
 
 app.use("/api/user/items", userProductRoutes);
@@ -165,7 +165,8 @@ app.use("/api/admin/booking-price", bookingPricingAdmin);
 app.use("/api/admin/user", userFromAdmin);
 app.use("/api/legal", legal)
 app.use("/api/aboutus", aboutUs)
-
+app.use("/api/admin/banners", banner)
+app
 // Backward-compatible alias for existing frontend calls.
 app.use("/api/kits", festivalKitRoutes);
 
@@ -203,7 +204,7 @@ app.use("/api/booking-details", bookingDetails)
 app.use("/api/ritual", ritual)
 app.use("/api/booking-price", bookingPricingUser);
 app.use("/api/temples", userTemples);
-
+app.use("/api/banners", userBanners);
 
 
 app.use((err, req, res, next) => {

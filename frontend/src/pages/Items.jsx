@@ -662,7 +662,7 @@ export default function Items() {
             </thead>
             <tbody>
               {filteredItems.map((item) => (
-                <tr key={item._id} className="border-t border-[#e8d7bf]">
+                <tr key={item._id} className="border-t-[1px] dark:border-[#53535398] text-black dark:text-white">
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
                       {formatImageUrl(item.thumbnail) ? (

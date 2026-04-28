@@ -8,8 +8,8 @@ const initialForm = {
   status: "active",
 };
 
-export default function Rituals() {
-  const [rituals, setRituals] = useState([]);
+export default function Banner() {
+  const [banners, setbanners] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState("");
@@ -20,20 +20,20 @@ export default function Rituals() {
   const [success, setSuccess] = useState("");
   const [imageFile, setImageFile] = useState(null);
 
-  const fetchRituals = async () => {
+  const fetchbanners = async () => {
     try {
       setLoading(true);
-      const res = await API.get("/admin/rituals", { params: { status: "all" } });
-      setRituals(res.data?.data || []);
+      const res = await API.get("/admin/banners", { params: { status: "all" } });
+      setbanners(res.data?.data || []);
     } catch (err) {
-      setError(err.response?.data?.message || "Unable to load rituals.");
+      setError(err.response?.data?.message || "Unable to load banners.");
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchRituals();
+    fetchbanners();
   }, []);
 
   const resetForm = () => {
@@ -54,13 +54,15 @@ export default function Rituals() {
     setShowForm(true);
   };
 
-  const openEdit = (ritual) => {
+  const openEdit = (banner) => {
     setForm({
-      title: ritual?.title || "",
-      description: ritual?.description || "",
-      status: ritual?.status || "active",
+      title: banner?.title || "",
+      subTitle: banner?.subTitle || "",
+      description: banner?.description || "",
+      priceOff: banner?.priceOff || "",
+      status: banner?.status || "active",
     });
-    setEditingId(ritual?._id || "");
+    setEditingId(banner?._id || "");
     setImageFile(null);
     setError("");
     setSuccess("");
@@ -76,7 +78,7 @@ export default function Rituals() {
     event.preventDefault();
 
     if (!form.title.trim()) {
-      setError("Ritual title is required.");
+      setError("banner title is required.");
       setSuccess("");
       return;
     }
@@ -89,7 +91,9 @@ export default function Rituals() {
       // const payload = {
       const payload = new FormData();
       payload.append("title", form.title.trim());
+      payload.append("subTitle", form.title.trim());
       payload.append("description", form.description.trim());
+      payload.append("priceOff", form.priceOff.trim());
       payload.append("status", form.status);
 
       if (imageFile) {
@@ -97,43 +101,43 @@ export default function Rituals() {
       }
 
       if (editingId) {
-        await API.put(`/admin/rituals/${editingId}`, payload, {
+        await API.put(`/admin/banners/${editingId}`, payload, {
           headers: { "Content-Type": "multipart/form-data" },
         });
       } else {
-        await API.post("/admin/rituals", payload, {
+        await API.post("/admin/banners", payload, {
           headers: { "Content-Type": "multipart/form-data" },
         });
       }
 
-      await fetchRituals();
-      setSuccess(editingId ? "Ritual updated successfully." : "Ritual created successfully.");
+      await fetchbanners();
+      setSuccess(editingId ? "banner updated successfully." : "banner created successfully.");
       closeForm();
     } catch (err) {
-      setError(err.response?.data?.message || "Unable to save ritual.");
+      setError(err.response?.data?.message || "Unable to save banner.");
       setSuccess("");
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleDelete = async (ritual) => {
-    if (!ritual?._id) return;
-    if (!window.confirm(`Delete ritual "${ritual.title}"?`)) return;
-    // if (!window.confirm(`Delete ritual \"${ritual.title}\"?`)) return;
+  const handleDelete = async (banner) => {
+    if (!banner?._id) return;
+    if (!window.confirm(`Delete banner "${banner.title}"?`)) return;
+    // if (!window.confirm(`Delete banner \"${banner.title}\"?`)) return;
 
     try {
-      setDeletingId(ritual._id);
+      setDeletingId(banner._id);
       setError("");
       setSuccess("");
-      await API.delete(`/admin/rituals/${ritual._id}`);
-      setRituals((current) => current.filter((entry) => entry._id !== ritual._id));
-      setSuccess("Ritual deleted successfully.");
-      if (editingId === ritual._id) {
+      await API.delete(`/admin/banners/${banner._id}`);
+      setbanners((current) => current.filter((entry) => entry._id !== banner._id));
+      setSuccess("banner deleted successfully.");
+      if (editingId === banner._id) {
         closeForm();
       }
     } catch (err) {
-      setError(err.response?.data?.message || "Unable to delete ritual.");
+      setError(err.response?.data?.message || "Unable to delete banner.");
     } finally {
       setDeletingId("");
     }
@@ -144,10 +148,10 @@ export default function Rituals() {
       <section className="rounded-3xl border border-[var(--admin-border)] bg-[var(--admin-surface)] p-6 shadow-[var(--admin-shadow)]">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.26em] text-[var(--admin-primary)]">Admin Rituals</p>
-            <h2 className="mt-2 text-2xl font-bold">Manage rituals for pandit booking</h2>
+            <p className="text-xs font-semibold uppercase tracking-[0.26em] text-[var(--admin-primary)]">Admin banners</p>
+            <h2 className="mt-2 text-2xl font-bold">Manage banners for pandit booking</h2>
             <p className="mt-2 text-sm text-[#6e4b40] dark:text-[#f7e3c0]/75">
-              Add ritual title and description. Active rituals will be visible in user app.
+              Add banner title and description. Active banners will be visible in user app.
             </p>
           </div>
 
@@ -162,7 +166,7 @@ export default function Rituals() {
             }}
             className="admin-btn-primary rounded-2xl px-4 py-2 text-sm font-semibold shadow"
           >
-            {showForm ? "Hide Form" : "Create Ritual"}
+            {showForm ? "Hide Form" : "Create banner"}
           </button>
         </div>
       </section>
@@ -182,7 +186,7 @@ export default function Rituals() {
       {showForm && (
         <form onSubmit={handleSubmit} className="rounded-3xl border border-[#dcc7ab]/60 bg-white/80 p-5 dark:border-white/10 dark:bg-white/5">
           <div className="mb-4 flex items-center justify-between">
-            <h3 className="text-lg font-bold">{editingId ? "Edit Ritual" : "Add New Ritual"}</h3>
+            <h3 className="text-lg font-bold">{editingId ? "Edit banner" : "Add New banner"}</h3>
             <button
               type="button"
               onClick={closeForm}
@@ -195,13 +199,25 @@ export default function Rituals() {
 
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2 md:col-span-2">
-              <label className="text-sm font-medium">Ritual Title</label>
+              <label className="text-sm font-medium">banner Title</label>
               <input
                 type="text"
                 name="title"
                 value={form.title}
                 onChange={handleChange}
                 placeholder="e.g. Satyanarayan Pooja"
+                className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20"
+                required
+              />
+            </div>
+            <div className="space-y-2 md:col-span-2">
+              <label className="text-sm font-medium">banner SubTitle</label>
+              <input
+                type="text"
+                name="subTitle"
+                value={form.subTitle}
+                onChange={handleChange}
+                placeholder="e.g. up to 30%"
                 className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20"
                 required
               />
@@ -214,13 +230,25 @@ export default function Rituals() {
                 value={form.description}
                 onChange={handleChange}
                 rows={4}
-                placeholder="Short ritual description"
+                placeholder="Short banner description"
                 className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20"
+              />
+            </div>
+            <div className="space-y-2 md:col-span-2">
+              <label className="text-sm font-medium">banner PriceOff</label>
+              <input
+                type="text"
+                name="priceOff"
+                value={form.priceOff}
+                onChange={handleChange}
+                placeholder="e.g. 20%"
+                className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20"
+                required
               />
             </div>
 
             <div className="space-y-2 md:col-span-2">
-              <label className="text-sm font-medium">Ritual Image</label>
+              <label className="text-sm font-medium">banner Image</label>
               <input
                 type="file"
                 accept="image/*"
@@ -249,7 +277,7 @@ export default function Rituals() {
               disabled={submitting}
               className="admin-btn-primary rounded-xl px-4 py-2 text-sm font-semibold shadow disabled:opacity-60"
             >
-              {submitting ? "Saving..." : editingId ? "Save Changes" : "Create Ritual"}
+              {submitting ? "Saving..." : editingId ? "Save Changes" : "Create banner"}
             </button>
             <button
               type="button"
@@ -263,15 +291,15 @@ export default function Rituals() {
       )}
 
       <section className="rounded-3xl border border-[#dcc7ab]/60 bg-white/75 p-5 dark:border-white/10 dark:bg-white/5">
-        <h3 className="mb-4 text-lg font-bold">Ritual List</h3>
+        <h3 className="mb-4 text-lg font-bold">banner List</h3>
 
         {loading ? (
           <div className="rounded-2xl border border-dashed border-[#d7bf9b] px-4 py-6 text-sm text-[#7b5a4b] dark:border-white/15 dark:text-[#f7e3c0]/75">
-            Loading rituals...
+            Loading banners...
           </div>
-        ) : rituals.length === 0 ? (
+        ) : banners.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-[#d7bf9b] px-4 py-6 text-sm text-[#7b5a4b] dark:border-white/15 dark:text-[#f7e3c0]/75">
-            No rituals added yet.
+            No banners added yet.
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -280,34 +308,38 @@ export default function Rituals() {
                 <tr className="border-b border-[#e6d8c5] text-xs uppercase tracking-[0.18em] text-[#7f5a4f] dark:border-white/10 dark:text-[#e7c98b]">
                   <th className="px-3 py-3">Image</th>
                   <th className="px-3 py-3">Title</th>
+                  <th className="px-3 py-3">SubTitle</th>
                   <th className="px-3 py-3">Description</th>
+                  <th className="px-3 py-3">PriceOff</th>
                   <th className="px-3 py-3">Status</th>
                   <th className="px-3 py-3 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {rituals.map((ritual) => (
-                  <tr key={ritual._id} className="border-b border-[#f0e3d1] align-top last:border-none dark:border-white/10">
-                    <td className="px-3 py-4 font-semibold">
-                      <img src={ritual.image} className="rounded" height={30} width={80} alt="" /></td>
-                    <td className="px-3 py-4 font-semibold">{ritual.title}</td>
-                    <td className="px-3 py-4 text-[#6e4b40] dark:text-[#f7e3c0]/80">{ritual.description || "-"}</td>
+                {banners.map((banner) => (
+                  <tr key={banner._id} className="border-b border-[#f0e3d1] align-top last:border-none dark:border-white/10">
+                    <td className="px-3 py-4 font-semibold ">
+                      <img src={banner.image} className="rounded border border-[#f0e3d1]" height={30} width={70} alt="" /></td>
+                    <td className="px-3 py-4 font-semibold">{banner.title}</td>
+                    <td className="px-3 py-4 font-semibold">{banner.subTitle}</td>
+                    <td className="px-3 py-4 text-[#6e4b40] dark:text-[#f7e3c0]/80">{banner.description || "-"}</td>
+                    <td className="px-3 py-4 font-semibold">{banner.priceOff}</td>
                     <td className="px-3 py-4">
                       <span
                         className={`rounded-full px-2 py-1 text-xs font-semibold ${
-                          ritual.status === "active"
+                          banner.status === "active"
                             ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-200"
                             : "bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-200"
                         }`}
                       >
-                        {ritual.status}
+                        {banner.status}
                       </span>
                     </td>
                     <td className="px-3 py-4">
                       <div className="flex items-center justify-end gap-2">
                         <button
                           type="button"
-                          onClick={() => openEdit(ritual)}
+                          onClick={() => openEdit(banner)}
                           className="rounded-lg border border-[#d7bf9b] p-2 text-[#6f3945] hover:bg-[#8B1E3F]/10 dark:border-white/20 dark:text-[#f7e3c0]"
                           title="Edit"
                         >
@@ -315,8 +347,8 @@ export default function Rituals() {
                         </button>
                         <button
                           type="button"
-                          onClick={() => handleDelete(ritual)}
-                          disabled={deletingId === ritual._id}
+                          onClick={() => handleDelete(banner)}
+                          disabled={deletingId === banner._id}
                           className="rounded-lg border border-red-300 p-2 text-red-600 hover:bg-red-50 disabled:opacity-60 dark:border-red-500/40 dark:text-red-200 dark:hover:bg-red-500/10"
                           title="Delete"
                         >

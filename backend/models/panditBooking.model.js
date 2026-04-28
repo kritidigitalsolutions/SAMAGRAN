@@ -4,7 +4,9 @@ const bookingAddressSchema = new mongoose.Schema(
   {
     name: { type: String, trim: true, default: "" },
     phone: { type: String, trim: true, default: "" },
+    secondPhone: {type: String, trim: true, default: "" },
     fullAddress: { type: String, trim: true, default: "" },
+    email: {type: String, default: "" },
     addressType: { type: String, trim: true, default: "others" },
     city: { type: String, trim: true, default: "" },
     state: { type: String, trim: true, default: "" },

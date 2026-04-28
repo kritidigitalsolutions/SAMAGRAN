@@ -14,6 +14,7 @@ import Pandits from "./pages/Pandits";
 import PanditBookings from "./pages/PanditBookings";
 import Rituals from "./pages/Rituals";
 import Temples from "./pages/Temples";
+import Banner from "./pages/Banner";
 
 
 function App() {
@@ -41,6 +42,7 @@ function App() {
         <Route path="rituals" element={<Rituals />} />
         <Route path="Temples" element={<Temples />} />
         <Route path="pandit-bookings" element={<PanditBookings />} />
+        <Route path="banners" element={<Banner />} />
       </Route>
     </Routes>
   );
