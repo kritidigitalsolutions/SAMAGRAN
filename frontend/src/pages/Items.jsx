@@ -570,6 +570,7 @@ const fetchItems = useCallback(async () => {
                 name="status"
                 value={createForm.status}
                 onChange={handleCreateChange}
+                className="h-11 rounded-xl border border-[#d7c3a3] bg-white px-3 text-sm text-black outline-none dark:border-white/20 dark:bg-[#1e1e1e] dark:text-white"
               >
                 <option value="active">Active</option>
                 <option value="inactive">Inactive</option>
@@ -1055,6 +1056,7 @@ const fetchItems = useCallback(async () => {
                   name="status"
                   value={editForm.status}
                   onChange={handleEditChange}
+                  className="h-11 rounded-xl border border-[#d7c3a3] bg-white px-3 text-sm text-black outline-none dark:border-white/20 dark:bg-[#1e1e1e] dark:text-white"
                 >
                   <option value="active">Active</option>
                   <option value="inactive">Inactive</option>

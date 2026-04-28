@@ -22,7 +22,15 @@ router.get("/all", protectAdmin, getAllUsers);
 router.get("/:id/details", protectAdmin, getUserDetailsByAdmin);
 router.get("/:id/orders", protectAdmin, getUserOrdersByAdmin);
 router.get("/:id/cart", protectAdmin, getUserCartByAdmin);
-router.patch("/:id", protectAdmin, upload.single("profileImageFile"), updateUserByAdmin);
+router.patch(
+	"/:id",
+	protectAdmin,
+	upload.fields([
+		{ name: "profileImageFile", maxCount: 1 },
+		{ name: "profileImage", maxCount: 1 },
+	]),
+	updateUserByAdmin,
+);
 router.patch("/:id/block", protectAdmin, toggleUserBlockByAdmin);
 router.delete("/:id", protectAdmin, deleteUser);
 export default router;

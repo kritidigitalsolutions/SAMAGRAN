@@ -12,6 +12,14 @@ import { protectAdmin } from "../../middleware/admin.middleware.js";
 
 // 🔐 Protected route
 router.get("/profile", protect, getProfile);
-router.patch("/:id", protect, upload.single("profileImageFile"), updateUser);
+router.patch(
+	"/:id",
+	protect,
+	upload.fields([
+		{ name: "profileImageFile", maxCount: 1 },
+		{ name: "profileImage", maxCount: 1 },
+	]),
+	updateUser,
+);
 
 export default router;

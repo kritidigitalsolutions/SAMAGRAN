@@ -21,19 +21,28 @@ const allowedOrigins = [
   "https://samagran-admin.vercel.app",
 ].flatMap((value) => parseOriginList(value));
 
+const isOriginAllowed = (origin) => {
+  if (!origin) {
+    return true;
+  }
+
+  const isLocalhostOrigin = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin);
+  const isLanOrigin = /^https?:\/\/192\.168\.\d+\.\d+(?::\d+)?$/i.test(origin);
+  const isVercelAppOrigin = /^https:\/\/samagran(?:-[a-z0-9-]+)?\.vercel\.app$/i.test(origin);
+
+  return (
+    allowedOrigins.includes(origin) ||
+    isLocalhostOrigin ||
+    isLanOrigin ||
+    isVercelAppOrigin
+  );
+};
+
 // Middleware
 app.use(
   cors({
     origin: (origin, callback) => {
-      if (!origin) {
-        return callback(null, true);
-      }
-
-      const isLocalhostOrigin = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin);
-      const isLanOrigin = /^https?:\/\/192\.168\.\d+\.\d+(?::\d+)?$/i.test(origin);
-      const isVercelAppOrigin = /^https:\/\/samagran(?:-[a-z0-9-]+)?\.vercel\.app$/i.test(origin);
-
-      if (allowedOrigins.includes(origin) || isLocalhostOrigin || isLanOrigin || isVercelAppOrigin) {
+      if (isOriginAllowed(origin)) {
         return callback(null, true);
       }
 
@@ -44,6 +53,23 @@ app.use(
     allowedHeaders: ["Content-Type", "Authorization"],
   }),
 );
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+
+  if (origin && isOriginAllowed(origin)) {
+    res.header("Access-Control-Allow-Origin", origin);
+    res.header("Vary", "Origin");
+    res.header("Access-Control-Allow-Credentials", "true");
+    res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS");
+
+    if (req.method === "OPTIONS") {
+      return res.sendStatus(204);
+    }
+  }
+
+  return next();
+});
 app.use(express.json());
 app.use("/uploads", express.static("uploads"));
 

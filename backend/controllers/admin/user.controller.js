@@ -213,9 +213,13 @@ export const updateUserByAdmin = async (req, res) => {
         message: "User not found",
       });
     }
+    const uploadCandidate =
+      req.file ||
+      req.files?.profileImageFile?.[0] ||
+      req.files?.profileImage?.[0];
     let uploadedProfileImage = "";
-    if (req.file) {
-      uploadedProfileImage = await uploadFileToFirebase(req.file, { folder: "users/profile" });
+    if (uploadCandidate) {
+      uploadedProfileImage = await uploadFileToFirebase(uploadCandidate, { folder: "users/profile" });
     }
 
     const {
