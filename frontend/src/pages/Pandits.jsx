@@ -74,6 +74,7 @@ export default function Pandits() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [activeTab, setActiveTab] = useState("all");
+  const [refreshKey, setRefreshKey] = useState(0);
   const [selectedPandit, setSelectedPandit] = useState(null);
   const [panditBookings, setPanditBookings] = useState([]);
   const [bookingsModalPandit, setBookingsModalPandit] = useState(null);
@@ -117,7 +118,13 @@ export default function Pandits() {
     }, 350);
 
     return () => clearTimeout(timer);
-  }, [fetchPandits, searchTerm, statusFilter]);
+  }, [fetchPandits, searchTerm, statusFilter, refreshKey]);
+
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+    setStatusFilter(tab === "requests" ? "pending" : "all");
+    setRefreshKey((current) => current + 1);
+  };
 
   const summary = useMemo(() => {
     const active = pandits.filter(
@@ -1053,7 +1060,7 @@ export default function Pandits() {
             <div className="inline-flex rounded-full border border-[#d8c4a5] bg-white/70 p-1 dark:border-white/10 dark:bg-white/5">
               <button
                 type="button"
-                onClick={() => setActiveTab("all")}
+                onClick={() => handleTabChange("all")}
                 className={`rounded-full px-4 py-1.5 text-xs font-semibold ${
                   activeTab === "all"
                     ? "bg-[#8B1E3F] text-white"
@@ -1065,8 +1072,7 @@ export default function Pandits() {
               <button
                 type="button"
                 onClick={() => {
-                  setActiveTab("requests");
-                  setStatusFilter("pending");
+                  handleTabChange("requests");
                 }}
                 className={`rounded-full px-4 py-1.5 text-xs font-semibold ${
                   activeTab === "requests"

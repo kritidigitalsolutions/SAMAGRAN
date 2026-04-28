@@ -184,18 +184,28 @@ export default function Orders() {
     pagination.currentPage,
   ]);
 
-  useEffect(() => {
-    if (!orders.length) {
+useEffect(() => {
+  if (!orders.length) {
+    if (selectedOrder !== null) {
       setSelectedOrder(null);
-      return;
     }
+    return;
+  }
 
-    const stillPresent = selectedOrder && orders.some((order) => order._id === selectedOrder._id);
-    if (!stillPresent) {
-      setSelectedOrder(orders[0]);
-      handleViewOrder(orders[0]._id);
+  const stillPresent =
+    selectedOrder &&
+    orders.some((order) => order._id === selectedOrder._id);
+
+  if (!stillPresent) {
+    const firstOrder = orders[0];
+
+    if (selectedOrder?._id !== firstOrder._id) {
+      setSelectedOrder(firstOrder);
+      handleViewOrder(firstOrder._id);
     }
-  }, [orders]);
+  }
+}, [orders, selectedOrder]);
+
 
   const summary = useMemo(() => {
     const totalRevenue = orders.reduce((sum, order) => sum + Number(order.totalAmount || 0), 0);
