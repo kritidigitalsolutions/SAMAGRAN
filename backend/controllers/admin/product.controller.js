@@ -61,6 +61,32 @@ const parseExistingImages = (value) => {
   return [];
 };
 
+const buildDetailsPayload = (body = {}) => ({
+  brand: String(body.brand || "").trim(),
+  sku: String(body.sku || "").trim(),
+  unit: String(body.unit || "").trim(),
+  weight: String(body.weight || "").trim(),
+  dimensions: String(body.dimensions || "").trim(),
+  material: String(body.material || "").trim(),
+  color: String(body.color || "").trim(),
+  manufacturer: String(body.manufacturer || "").trim(),
+  countryOfOrigin: String(body.countryOfOrigin || "").trim(),
+  packageContents: String(body.packageContents || "").trim(),
+  usageInstructions: String(body.usageInstructions || "").trim(),
+  careInstructions: String(body.careInstructions || "").trim(),
+  expiryInfo: String(body.expiryInfo || "").trim(),
+});
+
+const assignDetailsPayload = (item, body = {}) => {
+  item.details = item.details || {};
+
+  Object.entries(buildDetailsPayload(body)).forEach(([key, value]) => {
+    if (body[key] !== undefined) {
+      item.details[key] = value;
+    }
+  });
+};
+
 export const addProduct = async (req, res) => {
   try {
     const {
@@ -70,6 +96,7 @@ export const addProduct = async (req, res) => {
       gstPercent,
       priceIncludesGst,
       categoryName,
+      description,
       city,
       hsnCode,
       status,
@@ -101,6 +128,8 @@ export const addProduct = async (req, res) => {
       category: {
         name: categoryName,
       },
+      description: String(description || "").trim(),
+      details: buildDetailsPayload(req.body),
       pricing: buildPricingPayload({
         price,
         mrp,
@@ -160,6 +189,10 @@ export const getProducts = async (req, res) => {
       query.$or = [
         { title: searchRegex },
         { "category.name": searchRegex },
+        { description: searchRegex },
+        { "details.brand": searchRegex },
+        { "details.sku": searchRegex },
+        { "details.manufacturer": searchRegex },
         { tags: searchRegex },
       ];
     }
@@ -187,6 +220,8 @@ export const getProducts = async (req, res) => {
         category: {
           name: item.category?.name,
         },
+        description: item.description || "",
+        details: item.details || {},
         pricing: {
           price,
           mrp,
@@ -211,7 +246,9 @@ export const getProducts = async (req, res) => {
         },
         stock: {
           available: item.stock.quantity > 0,
+          quantity: item.stock.quantity,
         },
+        status: item.status,
         tags: item.tags || [],
         isRecommended: item.flags.isRecommended,
         isMostPoojaEssentials: item.flags.isMostPoojaEssentials,
@@ -270,6 +307,8 @@ export const getSingleProduct = async (req, res) => {
         category: {
           name: item.category?.name,
         },
+        description: item.description || "",
+        details: item.details || {},
         pricing: {
           price,
           mrp,
@@ -335,6 +374,7 @@ export const updateProduct = async (req, res) => {
       gstPercent,
       priceIncludesGst,
       categoryName,
+      description,
       city,
       hsnCode,
       status,
@@ -353,6 +393,12 @@ export const updateProduct = async (req, res) => {
     }
 
     if (categoryName) item.category.name = categoryName;
+
+    if (description !== undefined) {
+      item.description = String(description || "").trim();
+    }
+
+    assignDetailsPayload(item, req.body);
 
     if (price !== undefined || mrp !== undefined || gstPercent !== undefined || priceIncludesGst !== undefined) {
       const pricingPayload = buildPricingPayload({
@@ -443,6 +489,8 @@ export const updateProduct = async (req, res) => {
         category: {
           name: item.category?.name,
         },
+        description: item.description || "",
+        details: item.details || {},
         pricing: {
           price: p,
           mrp: m,

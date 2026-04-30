@@ -4,6 +4,8 @@ import {
   createPanditBookingRazorpayOrder,
   confirmPanditBookingPayment,
   createPanditBooking,
+  cancelPanditBookingByUser,
+  reschedulePanditBookingByUser,
   gettemplesForBooking,
   getMyPanditBookings,
   getPanditAvailableSlots,
@@ -23,6 +25,8 @@ router.get("/slots", getPanditAvailableSlots);
 
 router.post("/", protect, createPanditBooking);
 router.post("/:bookingId/payment/razorpay/order", protect, createPanditBookingRazorpayOrder);
+router.patch("/:bookingId/cancel", protect, cancelPanditBookingByUser);
+router.patch("/:bookingId/reschedule", protect, reschedulePanditBookingByUser);
 router.get("/my", protect, getMyPanditBookings);
 router.get("/:bookingId", protect, getPanditBookingById);
 router.post("/:bookingId/confirm-payment", protect, confirmPanditBookingPayment);

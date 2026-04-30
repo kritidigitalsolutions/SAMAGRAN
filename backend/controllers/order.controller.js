@@ -69,6 +69,9 @@ const normalizeOrderStatus = (value = "Placed") => {
   }
   if (normalized === "delivered") return "Delivered";
   if (normalized === "cancelled" || normalized === "canceled") return "Cancelled";
+  if (normalized === "reschedule requested" || normalized === "reschedule_requested") {
+    return "Reschedule Requested";
+  }
 
   return "Placed";
 };
@@ -829,6 +832,144 @@ export const getOrderTracking = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: err.message,
+    });
+  }
+};
+
+export const cancelOrderByUser = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { reason = "", notes = "" } = req.body || {};
+
+    if (!mongoose.Types.ObjectId.isValid(orderId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid order id",
+      });
+    }
+
+    const resolvedReason = String(reason || "").trim();
+    if (!resolvedReason) {
+      return res.status(400).json({
+        success: false,
+        message: "reason is required",
+      });
+    }
+
+    const order = await Order.findOne({ _id: orderId, user: req.user._id });
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found",
+      });
+    }
+
+    const currentStatus = normalizeOrderStatus(order.orderStatus);
+    if (currentStatus === "Cancelled") {
+      return res.status(400).json({
+        success: false,
+        message: "Order already cancelled",
+      });
+    }
+
+    if (currentStatus === "Delivered") {
+      return res.status(400).json({
+        success: false,
+        message: "Delivered order cannot be cancelled",
+      });
+    }
+
+    order.orderStatus = "Cancelled";
+    order.cancellationRequests = order.cancellationRequests || [];
+    order.cancellationRequests.push({
+      reason: resolvedReason,
+      notes: String(notes || "").trim(),
+      requestedBy: "user",
+      requestedAt: new Date(),
+    });
+
+    await order.save();
+
+    return res.json({
+      success: true,
+      message: "Order cancelled successfully",
+      data: order,
+    });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      message: err.message || "Unable to cancel order",
+    });
+  }
+};
+
+export const rescheduleOrderByUser = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { reason = "", notes = "" } = req.body || {};
+
+    if (!mongoose.Types.ObjectId.isValid(orderId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid order id",
+      });
+    }
+
+    // const resolvedReason = String(reason || "").trim();
+    // if (!resolvedReason) {
+    //   return res.status(400).json({
+    //     success: false,
+    //     message: "reason is required",
+    //   });
+    // }
+
+    const order = await Order.findOne({ _id: orderId, user: req.user._id });
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found",
+      });
+    }
+
+    const currentStatus = normalizeOrderStatus(order.orderStatus);
+    if (currentStatus === "Cancelled") {
+      return res.status(400).json({
+        success: false,
+        message: "Cancelled order cannot be rescheduled",
+      });
+    }
+
+    if (currentStatus === "Delivered") {
+      return res.status(400).json({
+        success: false,
+        message: "Delivered order cannot be rescheduled",
+      });
+    }
+
+    order.orderStatus = "Reschedule Requested";
+    order.rescheduleRequests = order.rescheduleRequests || [];
+    const resolvedReason = String(reason || "").trim();
+
+    order.rescheduleRequests.push({
+      reason: resolvedReason,
+      notes: String(notes || "").trim(),
+      requestedBy: "user",
+      requestedAt: new Date(),
+    });
+
+    await order.save();
+
+    return res.json({
+      success: true,
+      message: "Reschedule request submitted",
+      data: order,
+    });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      message: err.message || "Unable to reschedule order",
     });
   }
 };

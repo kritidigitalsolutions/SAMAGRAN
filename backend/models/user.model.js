@@ -92,6 +92,28 @@ const userSchema = new mongoose.Schema(
       default: false,
     },
 
+    isDeleted: {
+      type: Boolean,
+      default: false,
+    },
+
+    deletedAt: {
+      type: Date,
+      default: null,
+    },
+
+    deleteReason: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+
+    deleteReasonNotes: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+
     // 🔐 OTP fields (core of your auth)
     otp: String,
     otpExpires: Date,

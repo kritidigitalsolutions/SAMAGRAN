@@ -150,6 +150,28 @@ const panditBookingSchema = new mongoose.Schema(
       // enum: ["requested", "confirmed", "cancelled", "completed"],
       default: "requested",
     },
+    cancellationRequests: {
+      type: [
+        {
+          reason: { type: String, trim: true, default: "" },
+          notes: { type: String, trim: true, default: "" },
+          requestedBy: { type: String, trim: true, default: "user" },
+          requestedAt: { type: Date, default: Date.now },
+        },
+      ],
+      default: [],
+    },
+    rescheduleRequests: {
+      type: [
+        {
+          reason: { type: String, trim: true, default: "" },
+          notes: { type: String, trim: true, default: "" },
+          requestedBy: { type: String, trim: true, default: "user" },
+          requestedAt: { type: Date, default: Date.now },
+        },
+      ],
+      default: [],
+    },
     notes: {
       type: String,
       trim: true,

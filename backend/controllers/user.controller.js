@@ -3,6 +3,14 @@ import mongoose from "mongoose";
 import { uploadFileToFirebase } from "../utils/firebaseUpload.js";
 
 const escapeRegex = (value = "") => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const DELETE_REASONS = [
+  "not_using",
+  "privacy_concerns",
+  "better_alternative",
+  "too_many_notifications",
+  "technical_issues",
+  "other",
+];
 
 // GET PROFILE (protected)
 export const getProfile = async (req, res) => {
@@ -63,6 +71,60 @@ export const updateUser = async (req, res) => {
       success: true,
       message: "User updated successfully",
       data: user,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+export const deleteAccount = async (req, res) => {
+  try {
+    const { reason = "", notes = "", acknowledge = false } = req.body || {};
+
+    const normalizedReason = String(reason || "").trim();
+    if (!normalizedReason) {
+      return res.status(400).json({
+        success: false,
+        message: "reason is required",
+      });
+    }
+
+    if (!DELETE_REASONS.includes(normalizedReason)) {
+      return res.status(400).json({
+        success: false,
+        message: "reason must be a supported value",
+      });
+    }
+
+    if (!Boolean(acknowledge)) {
+      return res.status(400).json({
+        success: false,
+        message: "acknowledge is required",
+      });
+    }
+
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    user.isDeleted = true;
+    user.isBlocked = true;
+    user.deletedAt = new Date();
+    user.deleteReason = normalizedReason;
+    user.deleteReasonNotes = String(notes || "").trim();
+
+    await user.save();
+
+    return res.json({
+      success: true,
+      message: "Account deleted successfully",
     });
   } catch (error) {
     return res.status(500).json({

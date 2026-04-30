@@ -2,6 +2,7 @@ import express from "express";
 import protect from "../../middleware/auth.middleware.js";
 import {
 	getProfile,
+	deleteAccount,
 	updateUser,
 } from "../../controllers/user.controller.js";
 import { upload } from "../../middleware/upload.js";
@@ -12,6 +13,7 @@ import { protectAdmin } from "../../middleware/admin.middleware.js";
 
 // 🔐 Protected route
 router.get("/profile", protect, getProfile);
+router.post("/delete-account", protect, deleteAccount);
 router.patch(
 	"/:id",
 	protect,

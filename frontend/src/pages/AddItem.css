@@ -42,7 +42,8 @@
 
 /* INPUT STYLE */
 .form-group input,
-.form-group select {
+.form-group select,
+.form-group textarea {
   padding: 12px 14px;
   border-radius: 14px;
   border: 1px solid rgba(255,255,255,0.08);
@@ -52,8 +53,14 @@
   transition: all 0.25s ease;
 }
 
+.form-group textarea {
+  min-height: 86px;
+  resize: vertical;
+}
+
 /* FOCUS EFFECT */
-.form-group input:focus {
+.form-group input:focus,
+.form-group textarea:focus {
   border-color: #d4af37;
   background: rgba(255,255,255,0.06);
   box-shadow: 0 0 0 2px rgba(212, 175, 55, 0.15);
@@ -126,7 +133,8 @@
   background: #D4AF37;
 }
 
-.form-group input {
+.form-group input,
+.form-group textarea {
   padding: 12px 14px;
   border-radius: 10px;
   border: 1px solid rgba(255,255,255,0.08);
@@ -153,7 +161,8 @@
 
 /* INPUTS */
 :root:not(.dark) .form-group input,
-:root:not(.dark) .form-group select {
+:root:not(.dark) .form-group select,
+:root:not(.dark) .form-group textarea {
   background: #ffffff;
   border: 1px solid #e2d3bd;
   color: #2f1618;
@@ -166,7 +175,8 @@
 
 /* FOCUS */
 :root:not(.dark) .form-group input:focus,
-:root:not(.dark) .form-group select:focus {
+:root:not(.dark) .form-group select:focus,
+:root:not(.dark) .form-group textarea:focus {
   border-color: #d4af37;
   box-shadow: 0 0 0 2px rgba(212, 175, 55, 0.2);
 }

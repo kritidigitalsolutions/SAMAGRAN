@@ -11,11 +11,25 @@ const apiOrigin = (API.defaults.baseURL || "http://localhost:8000/api").replace(
 
 const buildItemForm = () => ({
   title: "",
+  description: "",
   price: "",
   mrp: "",
   gstPercent: "",
   priceIncludesGst: true,
   categoryName: "",
+  brand: "",
+  sku: "",
+  unit: "",
+  weight: "",
+  dimensions: "",
+  material: "",
+  color: "",
+  manufacturer: "",
+  countryOfOrigin: "",
+  packageContents: "",
+  usageInstructions: "",
+  careInstructions: "",
+  expiryInfo: "",
   hsnCode: "",
   city: "",
   status: "active",
@@ -41,10 +55,27 @@ const formatCurrency = (value, currency = "INR") =>
     maximumFractionDigits: 0,
   }).format(Number(value || 0));
 
+const productDetailFields = [
+  { name: "brand", label: "Brand" },
+  { name: "sku", label: "SKU / Product Code" },
+  { name: "unit", label: "Unit / Pack Size" },
+  { name: "weight", label: "Weight" },
+  { name: "dimensions", label: "Dimensions" },
+  { name: "material", label: "Material" },
+  { name: "color", label: "Color" },
+  { name: "manufacturer", label: "Manufacturer" },
+  { name: "countryOfOrigin", label: "Country of Origin" },
+  { name: "packageContents", label: "Package Contents", multiline: true },
+  { name: "usageInstructions", label: "How to Use", multiline: true },
+  { name: "careInstructions", label: "Care Instructions", multiline: true },
+  { name: "expiryInfo", label: "Expiry / Shelf Life" },
+];
+
 const normalizeItem = (item = {}, fallback = {}) => {
   const pricing = item.pricing || fallback.pricing || {};
   const stock = item.stock || fallback.stock || {};
   const compliance = item.compliance || fallback.compliance || {};
+  const details = item.details || fallback.details || {};
   const flagSource = item.flags || fallback.flags || {};
   const products =
     item.products ||
@@ -58,8 +89,16 @@ const normalizeItem = (item = {}, fallback = {}) => {
     ...fallback,
     _id: item._id || item.id || fallback._id,
     title: item.title ?? fallback.title ?? "",
+    description: item.description ?? fallback.description ?? "",
     slug: item.slug ?? fallback.slug,
     category: item.category || fallback.category || { name: "" },
+    details: productDetailFields.reduce(
+      (next, field) => ({
+        ...next,
+        [field.name]: details[field.name] ?? "",
+      }),
+      {},
+    ),
     pricing: {
       price: pricing.price ?? fallback.pricing?.price ?? 0,
       mrp: pricing.mrp ?? fallback.pricing?.mrp ?? 0,
@@ -130,11 +169,25 @@ const normalizeItem = (item = {}, fallback = {}) => {
 
 const buildEditForm = (item = {}) => ({
   title: item.title || "",
+  description: item.description || "",
   price: item.pricing?.price ?? "",
   mrp: item.pricing?.mrp ?? "",
   gstPercent: item.pricing?.gstPercent ?? "",
   priceIncludesGst: item.pricing?.priceIncludesGst ?? true,
   categoryName: item.category?.name || "",
+  brand: item.details?.brand || "",
+  sku: item.details?.sku || "",
+  unit: item.details?.unit || "",
+  weight: item.details?.weight || "",
+  dimensions: item.details?.dimensions || "",
+  material: item.details?.material || "",
+  color: item.details?.color || "",
+  manufacturer: item.details?.manufacturer || "",
+  countryOfOrigin: item.details?.countryOfOrigin || "",
+  packageContents: item.details?.packageContents || "",
+  usageInstructions: item.details?.usageInstructions || "",
+  careInstructions: item.details?.careInstructions || "",
+  expiryInfo: item.details?.expiryInfo || "",
   hsnCode: item.compliance?.hsnCode || "",
   city: item.compliance?.city || "",
   status: item.status || "active",
@@ -163,7 +216,7 @@ function ImageSlider({ images = [], title }) {
   }
 
   return (
-    <div className="item-image">
+    <div className="item-image"> 
       <img src={imageUrls[activeIndex]} alt={title} />
       {imageUrls.length > 1 && (
         <>
@@ -226,6 +279,7 @@ const fetchItems = useCallback(async () => {
     const res = await API.get("/items", {
       params: {
         limit: 100,
+        status: "all",
         ...(searchTerm.trim() ? { search: searchTerm.trim() } : {}),
       },
     });
@@ -394,6 +448,7 @@ const fetchItems = useCallback(async () => {
       const formData = new FormData();
 
       formData.append("title", editForm.title.trim());
+      formData.append("description", editForm.description || "");
 
       if (editForm.price !== "") {
         formData.append("price", String(Number(editForm.price)));
@@ -407,6 +462,9 @@ const fetchItems = useCallback(async () => {
 
       formData.append("priceIncludesGst", String(editForm.priceIncludesGst));
       formData.append("categoryName", editForm.categoryName || "");
+      productDetailFields.forEach((field) => {
+        formData.append(field.name, editForm[field.name] || "");
+      });
       formData.append("hsnCode", editForm.hsnCode || "");
       formData.append("city", editForm.city || "");
       formData.append("status", editForm.status || "active");
@@ -506,6 +564,17 @@ const fetchItems = useCallback(async () => {
               />
             </div>
 
+            <div className="form-group full-width">
+              <label>Description</label>
+              <textarea
+                name="description"
+                value={createForm.description}
+                onChange={handleCreateChange}
+                rows={3}
+                placeholder="Short product description"
+              />
+            </div>
+
             <div className="form-group">
               <label>Category</label>
               <input
@@ -514,6 +583,29 @@ const fetchItems = useCallback(async () => {
                 onChange={handleCreateChange}
               />
             </div>
+
+            {productDetailFields.map((field) => (
+              <div
+                className={`form-group ${field.multiline ? "full-width" : ""}`}
+                key={field.name}
+              >
+                <label>{field.label}</label>
+                {field.multiline ? (
+                  <textarea
+                    name={field.name}
+                    value={createForm[field.name]}
+                    onChange={handleCreateChange}
+                    rows={2}
+                  />
+                ) : (
+                  <input
+                    name={field.name}
+                    value={createForm[field.name]}
+                    onChange={handleCreateChange}
+                  />
+                )}
+              </div>
+            ))}
 
             <div className="form-group">
               <label>Price</label>
@@ -688,7 +780,7 @@ const fetchItems = useCallback(async () => {
           type="search"
           value={searchTerm}
           onChange={(event) => setSearchTerm(event.target.value)}
-          placeholder="Search items, categories, tags"
+          placeholder="Search items, brand, SKU, category, tags"
           aria-label="Search items"
         />
         {searchTerm && (
@@ -755,6 +847,8 @@ const fetchItems = useCallback(async () => {
               <tr>
                 <th className="px-4 py-3 font-semibold">Product</th>
                 <th className="px-4 py-3 font-semibold">Category</th>
+                <th className="px-4 py-3 font-semibold">Brand</th>
+                <th className="px-4 py-3 font-semibold">SKU</th>
                 <th className="px-4 py-3 font-semibold">MRP</th>
                 <th className="px-4 py-3 font-semibold">Base</th>
                 <th className="px-4 py-3 font-semibold">GST %</th>
@@ -797,6 +891,8 @@ const fetchItems = useCallback(async () => {
                   <td className="px-4 py-3">
                     {item.category?.name || "Uncategorized"}
                   </td>
+                  <td className="px-4 py-3">{item.details?.brand || "-"}</td>
+                  <td className="px-4 py-3">{item.details?.sku || "-"}</td>
                   <td className="px-4 py-3">
                     {formatCurrency(item.pricing?.mrp)}
                   </td>
@@ -899,11 +995,21 @@ const fetchItems = useCallback(async () => {
                 ) : null}
               </div>
 
+              {viewItem.description ? (
+                <p className="item-view-description">{viewItem.description}</p>
+              ) : null}
+
               <div className="item-view-details-grid">
                 <div>
                   <span>Category</span>
                   <strong>{viewItem.category?.name || "Uncategorized"}</strong>
                 </div>
+                {productDetailFields.map((field) => (
+                  <div key={field.name}>
+                    <span>{field.label}</span>
+                    <strong>{viewItem.details?.[field.name] || "-"}</strong>
+                  </div>
+                ))}
                 <div>
                   <span>Stock</span>
                   <strong>
@@ -998,6 +1104,15 @@ const fetchItems = useCallback(async () => {
                   required
                 />
               </label>
+              <label className="item-edit-field-wide">
+                Description
+                <textarea
+                  name="description"
+                  value={editForm.description}
+                  onChange={handleEditChange}
+                  rows={3}
+                />
+              </label>
               <label>
                 Price
                 <input
@@ -1034,6 +1149,28 @@ const fetchItems = useCallback(async () => {
                   onChange={handleEditChange}
                 />
               </label>
+              {productDetailFields.map((field) => (
+                <label
+                  className={field.multiline ? "item-edit-field-wide" : ""}
+                  key={field.name}
+                >
+                  {field.label}
+                  {field.multiline ? (
+                    <textarea
+                      name={field.name}
+                      value={editForm[field.name]}
+                      onChange={handleEditChange}
+                      rows={2}
+                    />
+                  ) : (
+                    <input
+                      name={field.name}
+                      value={editForm[field.name]}
+                      onChange={handleEditChange}
+                    />
+                  )}
+                </label>
+              ))}
               <label>
                 HSN Code
                 <input

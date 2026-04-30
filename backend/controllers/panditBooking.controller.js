@@ -164,6 +164,9 @@ const normalizeBookingAddress = (addressInput = {}) => {
   };
 };
 
+const normalizeRequestReason = (value = "") => String(value || "").trim();
+const normalizeRequestNotes = (value = "") => String(value || "").trim();
+
 const normalizeDateAndTimePayload = (value, fallbackDate = "") => {
   if (!value) return [];
 
@@ -1471,6 +1474,140 @@ export const rejectPanditBooking = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: err.message || "Unable to reject booking",
+    });
+  }
+};
+
+export const cancelPanditBookingByUser = async (req, res) => {
+  try {
+    const { bookingId } = req.params;
+    const { reason = "", notes = "" } = req.body || {};
+
+    if (!isValidObjectId(bookingId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid booking id",
+      });
+    }
+
+    const resolvedReason = normalizeRequestReason(reason);
+
+    const booking = await PanditBooking.findOne({
+      _id: bookingId,
+      user: req.user._id,
+    });
+
+    if (!booking) {
+      return res.status(404).json({
+        success: false,
+        message: "Booking not found",
+      });
+    }
+
+    if (booking.bookingStatus === "cancelled") {
+      return res.status(400).json({
+        success: false,
+        message: "Booking already cancelled",
+      });
+    }
+
+    if (booking.bookingStatus === "completed") {
+      return res.status(400).json({
+        success: false,
+        message: "Completed booking cannot be cancelled",
+      });
+    }
+
+    booking.bookingStatus = "cancelled";
+    booking.cancellationRequests = booking.cancellationRequests || [];
+    booking.cancellationRequests.push({
+      reason: resolvedReason,
+      notes: normalizeRequestNotes(notes),
+      requestedBy: "user",
+      requestedAt: new Date(),
+    });
+
+    await booking.save();
+
+    return res.json({
+      success: true,
+      message: "Booking cancelled successfully",
+      data: booking,
+    });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      message: err.message || "Unable to cancel booking",
+    });
+  }
+};
+
+export const reschedulePanditBookingByUser = async (req, res) => {
+  try {
+    const { bookingId } = req.params;
+    const { reason = "", notes = "" } = req.body || {};
+
+    if (!isValidObjectId(bookingId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid booking id",
+      });
+    }
+
+    const resolvedReason = normalizeRequestReason(reason);
+    if (!resolvedReason) {
+      return res.status(400).json({
+        success: false,
+        message: "reason is required",
+      });
+    }
+
+    const booking = await PanditBooking.findOne({
+      _id: bookingId,
+      user: req.user._id,
+    });
+
+    if (!booking) {
+      return res.status(404).json({
+        success: false,
+        message: "Booking not found",
+      });
+    }
+
+    if (booking.bookingStatus === "cancelled") {
+      return res.status(400).json({
+        success: false,
+        message: "Cancelled booking cannot be rescheduled",
+      });
+    }
+
+    if (booking.bookingStatus === "completed") {
+      return res.status(400).json({
+        success: false,
+        message: "Completed booking cannot be rescheduled",
+      });
+    }
+
+    booking.bookingStatus = "reschedule_requested";
+    booking.rescheduleRequests = booking.rescheduleRequests || [];
+    booking.rescheduleRequests.push({
+      reason: resolvedReason,
+      notes: normalizeRequestNotes(notes),
+      requestedBy: "user",
+      requestedAt: new Date(),
+    });
+
+    await booking.save();
+
+    return res.json({
+      success: true,
+      message: "Reschedule request submitted",
+      data: booking,
+    });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      message: err.message || "Unable to reschedule booking",
     });
   }
 };

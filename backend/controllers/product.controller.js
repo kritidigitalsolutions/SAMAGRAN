@@ -1,7 +1,58 @@
+import mongoose from "mongoose";
 import Item from "../models/product.model.js";
+import ProductReview from "../models/productReview.model.js";
 
 const escapeRegex = (value = "") =>
   value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const updateProductRatingStats = async (productId) => {
+  const ratings = await ProductReview.aggregate([
+    { $match: { product: new mongoose.Types.ObjectId(productId) } },
+    {
+      $group: {
+        _id: "$rating",
+        count: { $sum: 1 },
+        average: { $avg: "$rating" },
+      },
+    },
+  ]);
+
+  const counts = {
+    rating1: 0,
+    rating2: 0,
+    rating3: 0,
+    rating4: 0,
+    rating5: 0,
+  };
+
+  let totalReviews = 0;
+  let averageSum = 0;
+
+  ratings.forEach((row) => {
+    const ratingValue = Number(row._id);
+    if (ratingValue >= 1 && ratingValue <= 5) {
+      const key = `rating${ratingValue}`;
+      const count = Number(row.count || 0);
+      counts[key] = count;
+      totalReviews += count;
+      averageSum += ratingValue * count;
+    }
+  });
+
+  const nextAverage = totalReviews ? averageSum / totalReviews : 0;
+
+  await Item.findByIdAndUpdate(productId, {
+    "ratings.average": Number(nextAverage.toFixed(2)),
+    "ratings.totalReviews": totalReviews,
+    "ratings.counts": counts,
+  });
+
+  return {
+    average: Number(nextAverage.toFixed(2)),
+    totalReviews,
+    counts,
+  };
+};
 
 // Get all products (User)
 export const getProductsUser = async (req, res) => {
@@ -18,6 +69,10 @@ export const getProductsUser = async (req, res) => {
       query.$or = [
         { title: searchRegex },
         { "category.name": searchRegex },
+        { description: searchRegex },
+        { "details.brand": searchRegex },
+        { "details.sku": searchRegex },
+        { "details.manufacturer": searchRegex },
         { tags: searchRegex },
       ];
     }
@@ -41,6 +96,8 @@ export const getProductsUser = async (req, res) => {
       return {
         id: item._id,
         title: item.title,
+        description: item.description || "",
+        details: item.details || {},
         price,
         oldPrice: mrp,
         discountPercent,
@@ -51,6 +108,17 @@ export const getProductsUser = async (req, res) => {
           ) || [],
         category: item.category?.name,
         inStock: item.stock.quantity > 0,
+        ratings: item.ratings || {
+          average: 0,
+          totalReviews: 0,
+          counts: {
+            rating1: 0,
+            rating2: 0,
+            rating3: 0,
+            rating4: 0,
+            rating5: 0,
+          },
+        },
         isRecommended: item.flags.isRecommended,
         isMostPoojaEssentials: item.flags.isMostPoojaEssentials,
         isMostUsed: item.flags.isMostUsed,
@@ -104,6 +172,8 @@ export const getSingleProductUser = async (req, res) => {
       data: {
         id: item._id,
         title: item.title,
+        description: item.description || "",
+        details: item.details || {},
         category: item.category?.name,
         pricing: {
           price,
@@ -116,6 +186,17 @@ export const getSingleProductUser = async (req, res) => {
         stock: {
           status: item.stock.quantity > 0 ? "in_stock" : "out_of_stock",
         },
+        ratings: item.ratings || {
+          average: 0,
+          totalReviews: 0,
+          counts: {
+            rating1: 0,
+            rating2: 0,
+            rating3: 0,
+            rating4: 0,
+            rating5: 0,
+          },
+        },
         tags: item.tags || [],
         isRecommended: item.flags.isRecommended,
         isMostPoojaEssentials: item.flags.isMostPoojaEssentials,
@@ -126,6 +207,65 @@ export const getSingleProductUser = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+// Add or update product rating (User)
+export const addProductRating = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { rating, comment = "" } = req.body || {};
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid product id",
+      });
+    }
+
+    const normalizedRating = Number(rating);
+    if (!Number.isFinite(normalizedRating) || normalizedRating < 1 || normalizedRating > 5) {
+      return res.status(400).json({
+        success: false,
+        message: "rating must be between 1 and 5",
+      });
+    }
+
+    const product = await Item.findById(id);
+    if (!product || product.status !== "active") {
+      return res.status(404).json({
+        success: false,
+        message: "Item not found",
+      });
+    }
+
+    const filter = { product: id, user: req.user._id };
+    const update = {
+      rating: normalizedRating,
+      comment: String(comment || "").trim(),
+    };
+
+    const review = await ProductReview.findOneAndUpdate(filter, update, {
+      new: true,
+      upsert: true,
+      setDefaultsOnInsert: true,
+    });
+
+    const stats = await updateProductRatingStats(id);
+
+    return res.json({
+      success: true,
+      message: "Rating saved successfully",
+      data: {
+        review,
+        ratings: stats,
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({
       success: false,
       message: error.message,
     });

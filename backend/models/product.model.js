@@ -9,6 +9,24 @@ const itemSchema = new mongoose.Schema(
       name: String,
     },
 
+    description: { type: String, trim: true, default: "" },
+
+    details: {
+      brand: { type: String, trim: true, default: "" },
+      sku: { type: String, trim: true, default: "" },
+      unit: { type: String, trim: true, default: "" },
+      weight: { type: String, trim: true, default: "" },
+      dimensions: { type: String, trim: true, default: "" },
+      material: { type: String, trim: true, default: "" },
+      color: { type: String, trim: true, default: "" },
+      manufacturer: { type: String, trim: true, default: "" },
+      countryOfOrigin: { type: String, trim: true, default: "" },
+      packageContents: { type: String, trim: true, default: "" },
+      usageInstructions: { type: String, trim: true, default: "" },
+      careInstructions: { type: String, trim: true, default: "" },
+      expiryInfo: { type: String, trim: true, default: "" },
+    },
+
     pricing: {
       price: { type: Number, required: true },
       mrp: { type: Number },
@@ -31,6 +49,13 @@ const itemSchema = new mongoose.Schema(
     ratings: {
       average: { type: Number, default: 0 },
       totalReviews: { type: Number, default: 0 },
+      counts: {
+        rating1: { type: Number, default: 0 },
+        rating2: { type: Number, default: 0 },
+        rating3: { type: Number, default: 0 },
+        rating4: { type: Number, default: 0 },
+        rating5: { type: Number, default: 0 },
+      },
     },
 
     stock: {

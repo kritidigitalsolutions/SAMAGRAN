@@ -93,6 +93,28 @@ const orderSchema = new mongoose.Schema(
       type: String,
       default: "Placed",
     },
+    cancellationRequests: {
+      type: [
+        {
+          reason: { type: String, trim: true, default: "" },
+          notes: { type: String, trim: true, default: "" },
+          requestedBy: { type: String, trim: true, default: "user" },
+          requestedAt: { type: Date, default: Date.now },
+        },
+      ],
+      default: [],
+    },
+    rescheduleRequests: {
+      type: [
+        {
+          reason: { type: String, trim: true, default: "" },
+          notes: { type: String, trim: true, default: "" },
+          requestedBy: { type: String, trim: true, default: "user" },
+          requestedAt: { type: Date, default: Date.now },
+        },
+      ],
+      default: [],
+    },
   },
   { timestamps: true }
 );
