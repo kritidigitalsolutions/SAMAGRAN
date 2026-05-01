@@ -108,6 +108,12 @@ export const getProductsUser = async (req, res) => {
           ) || [],
         category: item.category?.name,
         inStock: item.stock.quantity > 0,
+        review: item.review || {
+          "review": {     
+            "comment": "",
+            "rating": 0,
+        },
+      },
         ratings: item.ratings || {
           average: 0,
           totalReviews: 0,
@@ -185,6 +191,12 @@ export const getSingleProductUser = async (req, res) => {
         image: item.media?.image || item.media?.Images || [],
         stock: {
           status: item.stock.quantity > 0 ? "in_stock" : "out_of_stock",
+        },
+        review: item.review || {
+          "review": {     
+            "comment": "",
+            "rating": 0,
+        },
         },
         ratings: item.ratings || {
           average: 0,
