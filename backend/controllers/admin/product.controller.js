@@ -163,9 +163,10 @@ export const addProduct = async (req, res) => {
       item,
     });
   } catch (error) {
+    console.error("ADD PRODUCT ERROR:", error);
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: error.message || "Failed to add product",
     });
   }
 };

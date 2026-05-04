@@ -71,6 +71,7 @@ export default function AdminLogin() {
             placeholder="Password"
             value={form.password}
             onChange={handleChange}
+            autoComplete="current-password"
             className="h-12 w-full rounded-xl border border-[#d8c4a5] bg-white/80 px-4 text-[#2f1618] outline-none ring-[#D4AF37] placeholder:text-[#8c7461] focus:ring-2 dark:border-white/10 dark:bg-white/5 dark:text-[#f8edd7]"
             required
           />
