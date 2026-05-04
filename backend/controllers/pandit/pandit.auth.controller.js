@@ -2,6 +2,7 @@ import jwt from "jsonwebtoken";
 import Pandit from "../../models/pandit.model.js";
 import PanditOTP from "../../models/panditOtp.model.js";
 import { login } from "../auth.controller.js";
+import { notifyAdmins, updateDeviceToken } from "../../utils/notification.service.js";
 
 const validatePhone = (phone) => /^[6-9]\d{9}$/.test(phone);
 
@@ -280,6 +281,22 @@ export const verifyPanditOtp = async (req, res) => {
     await PanditOTP.deleteMany({ phone, type: otpDoc.type });
 
     if (!pandit) {
+      const createdPandit = await Pandit.create({
+        phone,
+        fullName: otpDoc.fullName || "",
+        isPhoneVerified: true,
+      });
+
+      void notifyAdmins({
+        title: "New pandit account created",
+        body: `${createdPandit.fullName || createdPandit.phone || "A pandit"} signed up`,
+        data: {
+          eventType: "pandit.signup",
+          panditId: String(createdPandit._id),
+          phone: createdPandit.phone,
+        },
+      }).catch((error) => console.error("PANDIT SIGNUP NOTIFICATION ERROR:", error.message));
+
       return res.json({
         success: true,
         isNewPandit: true,
@@ -361,6 +378,8 @@ export const updatePanditProfile = async (req, res) => {
           message: "Valid phone is required",
         });
       }
+
+      
 
       const validSession = await PanditOTP.findOne({
         phone,
@@ -552,6 +571,46 @@ export const updatePanditProfile = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Server error",
+    });
+  }
+};
+
+export const updatePanditFcmToken = async (req, res) => {
+  try {
+    const { fcmToken = "" } = req.body || {};
+    const token = String(fcmToken || "").trim();
+
+    if (!token) {
+      return res.status(400).json({
+        success: false,
+        message: "fcmToken is required",
+      });
+    }
+
+    const pandit = await updateDeviceToken({
+      Model: Pandit,
+      id: req.pandit._id,
+      token,
+    });
+
+    if (!pandit) {
+      return res.status(404).json({
+        success: false,
+        message: "Pandit not found",
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: "FCM token updated",
+      data: {
+        panditId: pandit._id,
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Unable to update FCM token",
     });
   }
 };

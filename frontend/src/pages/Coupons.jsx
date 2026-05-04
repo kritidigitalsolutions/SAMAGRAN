@@ -1,0 +1,450 @@
+import { useEffect, useState } from "react";
+import { FiEdit2, FiTrash2, FiX, FiPlus } from "react-icons/fi";
+import API from "../api/axios";
+
+const initialForm = {
+  code: "",
+  title: "",
+  description: "",
+  discountType: "flat",
+  discountValue: "",
+  minOrderAmount: "",
+  maxDiscount: "",
+  usageLimit: "",
+  perUserLimit: "1",
+  isActive: true,
+  startsAt: "",
+  expiresAt: "",
+};
+
+export default function Coupons() {
+  const [coupons, setCoupons] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState("");
+  const [deletingId, setDeletingId] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [form, setForm] = useState(initialForm);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+
+  const fetchCoupons = async () => {
+    try {
+      setLoading(true);
+      const res = await API.get("/admin/coupons");
+      setCoupons(res.data?.data || []);
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to load coupons.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchCoupons();
+  }, []);
+
+  const resetForm = () => {
+    setForm(initialForm);
+    setEditingId("");
+  };
+
+  const handleChange = (event) => {
+    const { name, value, type, checked } = event.target;
+    setForm((current) => ({
+      ...current,
+      [name]: type === "checkbox" ? checked : value,
+    }));
+  };
+
+  const openCreate = () => {
+    resetForm();
+    setError("");
+    setSuccess("");
+    setShowForm(true);
+  };
+
+  const openEdit = (coupon) => {
+    setForm({
+      code: coupon?.code || "",
+      title: coupon?.title || "",
+      description: coupon?.description || "",
+      discountType: coupon?.discountType || "flat",
+      discountValue: coupon?.discountValue || "",
+      minOrderAmount: coupon?.minOrderAmount || "",
+      maxDiscount: coupon?.maxDiscount || "",
+      usageLimit: coupon?.usageLimit || "",
+      perUserLimit: coupon?.perUserLimit || "1",
+      isActive: coupon?.isActive !== false,
+      startsAt: coupon?.startsAt ? new Date(coupon.startsAt).toISOString().slice(0, 10) : "",
+      expiresAt: coupon?.expiresAt ? new Date(coupon.expiresAt).toISOString().slice(0, 10) : "",
+    });
+    setEditingId(coupon?._id || "");
+    setError("");
+    setSuccess("");
+    setShowForm(true);
+  };
+
+  const closeForm = () => {
+    resetForm();
+    setShowForm(false);
+  };
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+
+    if (!form.code.trim()) {
+      setError("Coupon code is required.");
+      setSuccess("");
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      setError("");
+      setSuccess("");
+
+      const payload = {
+        code: form.code.toUpperCase().trim(),
+        title: form.title.trim(),
+        description: form.description.trim(),
+        discountType: form.discountType,
+        discountValue: Number(form.discountValue || 0),
+        minOrderAmount: Number(form.minOrderAmount || 0),
+        maxDiscount: Number(form.maxDiscount || 0),
+        usageLimit: Number(form.usageLimit || 0),
+        perUserLimit: Number(form.perUserLimit || 1),
+        isActive: form.isActive,
+        startsAt: form.startsAt ? new Date(form.startsAt) : null,
+        expiresAt: form.expiresAt ? new Date(form.expiresAt) : null,
+      };
+
+      if (editingId) {
+        await API.put(`/admin/coupons/${editingId}`, payload);
+      } else {
+        await API.post("/admin/coupons", payload);
+      }
+
+      await fetchCoupons();
+      setSuccess(editingId ? "Coupon updated successfully." : "Coupon created successfully.");
+      closeForm();
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to save coupon.");
+      setSuccess("");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDelete = async (coupon) => {
+    if (!coupon?._id) return;
+    if (!window.confirm(`Delete coupon "${coupon.code}"?`)) return;
+
+    try {
+      setDeletingId(coupon._id);
+      setError("");
+      setSuccess("");
+      await API.delete(`/admin/coupons/${coupon._id}`);
+      setCoupons((current) => current.filter((entry) => entry._id !== coupon._id));
+      setSuccess("Coupon deleted successfully.");
+      if (editingId === coupon._id) {
+        closeForm();
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to delete coupon.");
+    } finally {
+      setDeletingId("");
+    }
+  };
+
+  return (
+    <div className="space-y-6 text-[#2f1618] dark:text-[#fff3dc]">
+      <section className="rounded-3xl border border-[var(--admin-border)] bg-[var(--admin-surface)] p-6 shadow-[var(--admin-shadow)]">
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-2xl font-bold">Manage Coupons</h2>
+          <button
+            onClick={openCreate}
+            className="admin-btn-primary flex items-center gap-2 rounded-2xl border border-transparent px-4 py-2 text-sm font-medium transition-all"
+          >
+            <FiPlus size={18} />
+            Add Coupon
+          </button>
+        </div>
+
+        {error && (
+          <div className="mb-4 rounded-xl bg-red-100 p-4 text-red-800 dark:bg-red-900 dark:text-red-200">
+            {error}
+          </div>
+        )}
+        {success && (
+          <div className="mb-4 rounded-xl bg-green-100 p-4 text-green-800 dark:bg-green-900 dark:text-green-200">
+            {success}
+          </div>
+        )}
+
+        {loading ? (
+          <div className="py-8 text-center">Loading coupons...</div>
+        ) : coupons.length === 0 ? (
+          <div className="py-8 text-center">No coupons yet. Create one to get started.</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-[var(--admin-border)]">
+                  <th className="px-4 py-3 text-left font-semibold">Code</th>
+                  <th className="px-4 py-3 text-left font-semibold">Title</th>
+                  <th className="px-4 py-3 text-left font-semibold">Discount</th>
+                  <th className="px-4 py-3 text-left font-semibold">Min Amount</th>
+                  <th className="px-4 py-3 text-left font-semibold">Expires</th>
+                  <th className="px-4 py-3 text-left font-semibold">Status</th>
+                  <th className="px-4 py-3 text-left font-semibold">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {coupons.map((coupon) => (
+                  <tr
+                    key={coupon._id}
+                    className="border-b border-[var(--admin-border)] hover:bg-[var(--admin-surface-soft)]"
+                  >
+                    <td className="px-4 py-3 font-semibold text-[#D4AF37]">{coupon.code}</td>
+                    <td className="px-4 py-3">{coupon.title || "-"}</td>
+                    <td className="px-4 py-3">
+                      {coupon.discountType === "percent"
+                        ? `${coupon.discountValue}%`
+                        : `₹${coupon.discountValue}`}
+                    </td>
+                    <td className="px-4 py-3">₹{coupon.minOrderAmount || 0}</td>
+                    <td className="px-4 py-3">
+                      {coupon.expiresAt ? new Date(coupon.expiresAt).toLocaleDateString() : "-"}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`inline-block rounded-full px-3 py-1 text-xs font-medium ${
+                          coupon.isActive
+                            ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200"
+                            : "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200"
+                        }`}
+                      >
+                        {coupon.isActive ? "Active" : "Inactive"}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => openEdit(coupon)}
+                          className="rounded-lg bg-blue-600/20 p-2 text-blue-600 transition-all hover:bg-blue-600/30 dark:text-blue-400"
+                          title="Edit coupon"
+                        >
+                          <FiEdit2 size={16} />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(coupon)}
+                          disabled={deletingId === coupon._id}
+                          className="rounded-lg bg-red-600/20 p-2 text-red-600 transition-all hover:bg-red-600/30 disabled:opacity-50 dark:text-red-400"
+                          title="Delete coupon"
+                        >
+                          <FiTrash2 size={16} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      {showForm && (
+        <section className="rounded-3xl border border-[var(--admin-border)] bg-[var(--admin-surface)] p-6 shadow-[var(--admin-shadow)]">
+          <div className="mb-4 flex items-center justify-between">
+            <h3 className="text-xl font-bold">
+              {editingId ? "Edit Coupon" : "Create New Coupon"}
+            </h3>
+            <button onClick={closeForm} className="p-1" title="Close form">
+              <FiX size={24} />
+            </button>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="grid gap-4 md:grid-cols-2">
+              <div>
+                <label className="mb-2 block font-medium">
+                  Coupon Code <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  name="code"
+                  value={form.code}
+                  onChange={handleChange}
+                  disabled={!!editingId}
+                  placeholder="e.g., DIWALI50"
+                  className="w-full rounded-xl border border-[var(--admin-border)] bg-[var(--admin-input)] px-4 py-2 disabled:opacity-50"
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block font-medium">Title</label>
+                <input
+                  type="text"
+                  name="title"
+                  value={form.title}
+                  onChange={handleChange}
+                  placeholder="Coupon title"
+                  className="w-full rounded-xl border border-[var(--admin-border)] bg-[var(--admin-input)] px-4 py-2"
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block font-medium">Discount Type</label>
+                <select
+                  name="discountType"
+                  value={form.discountType}
+                  onChange={handleChange}
+                  className="h-11 w-full rounded-xl border border-[#d7c3a3] bg-white text-black px-3 text-sm outline-none 
+           dark:bg-[#181c24] dark:text-white dark:border-white/20"
+                >
+                  <option value="flat">Flat Amount (₹)</option>
+                  <option value="percent">Percentage (%)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="mb-2 block font-medium">Discount Value</label>
+                <input
+                  type="number"
+                  name="discountValue"
+                  value={form.discountValue}
+                  onChange={handleChange}
+                  step="0.01"
+                  min="0"
+                  placeholder="0"
+                  className="w-full rounded-xl border border-[var(--admin-border)] bg-[var(--admin-input)] px-4 py-2"
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block font-medium">Min Order Amount (₹)</label>
+                <input
+                  type="number"
+                  name="minOrderAmount"
+                  value={form.minOrderAmount}
+                  onChange={handleChange}
+                  step="0.01"
+                  min="0"
+                  placeholder="0"
+                  className="w-full rounded-xl border border-[var(--admin-border)] bg-[var(--admin-input)] px-4 py-2"
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block font-medium">Max Discount (₹)</label>
+                <input
+                  type="number"
+                  name="maxDiscount"
+                  value={form.maxDiscount}
+                  onChange={handleChange}
+                  step="0.01"
+                  min="0"
+                  placeholder="0"
+                  className="w-full rounded-xl border border-[var(--admin-border)] bg-[var(--admin-input)] px-4 py-2"
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block font-medium">Total Usage Limit</label>
+                <input
+                  type="number"
+                  name="usageLimit"
+                  value={form.usageLimit}
+                  onChange={handleChange}
+                  min="0"
+                  placeholder="0 = unlimited"
+                  className="w-full rounded-xl border border-[var(--admin-border)] bg-[var(--admin-input)] px-4 py-2"
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block font-medium">Per User Limit</label>
+                <input
+                  type="number"
+                  name="perUserLimit"
+                  value={form.perUserLimit}
+                  onChange={handleChange}
+                  min="1"
+                  className="w-full rounded-xl border border-[var(--admin-border)] bg-[var(--admin-input)] px-4 py-2"
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block font-medium">Start Date</label>
+                <input
+                  type="date"
+                  name="startsAt"
+                  value={form.startsAt}
+                  onChange={handleChange}
+                  className="w-full rounded-xl border border-[var(--admin-border)] bg-[var(--admin-input)] px-4 py-2"
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block font-medium">Expiry Date</label>
+                <input
+                  type="date"
+                  name="expiresAt"
+                  value={form.expiresAt}
+                  onChange={handleChange}
+                  className="w-full rounded-xl border border-[var(--admin-border)] bg-[var(--admin-input)] px-4 py-2"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="mb-2 block font-medium">Description</label>
+              <textarea
+                name="description"
+                value={form.description}
+                onChange={handleChange}
+                placeholder="Coupon description"
+                rows="3"
+                className="w-full rounded-xl border border-[var(--admin-border)] bg-[var(--admin-input)] px-4 py-2"
+              />
+            </div>
+
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="isActive"
+                name="isActive"
+                checked={form.isActive}
+                onChange={handleChange}
+                className="rounded"
+              />
+              <label htmlFor="isActive" className="font-medium">
+                Active
+              </label>
+            </div>
+
+            <div className="flex gap-3 pt-4">
+              <button
+                type="submit"
+                disabled={submitting}
+                className="admin-btn-primary flex-1 rounded-2xl border border-transparent px-4 py-2 font-medium disabled:opacity-50"
+              >
+                {submitting ? "Saving..." : editingId ? "Update Coupon" : "Create Coupon"}
+              </button>
+              <button
+                type="button"
+                onClick={closeForm}
+                disabled={submitting}
+                className="flex-1 rounded-2xl border border-[var(--admin-border)] px-4 py-2 font-medium transition-all hover:bg-[var(--admin-surface-soft)]"
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        </section>
+      )}
+    </div>
+  );
+}

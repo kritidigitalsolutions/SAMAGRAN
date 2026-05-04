@@ -8,6 +8,7 @@ import Ritual from "../models/ritual.model.js";
 import temple from "../models/temple.model.js";
 import BookingPricing from "../models/bookingPrice.js";
 import mongoose from "mongoose";
+import { notifyAdmins } from "../utils/notification.service.js";
 
 // const STATIC_SLOT_TEMPLATE = [
 //   { label: "6:00 AM - 8:00 AM", startTime: "06:00", endTime: "08:00" },
@@ -399,7 +400,19 @@ export const getPanditBookingProfile = async (req, res) => {
       success: true,
       data: {
         ...mapPanditCard(pandit),
-        poojaOfferings: pandit.poojaOfferings || [],
+        poojaOfferings: (function () {
+          try {
+            const raw = JSON.parse(JSON.stringify(pandit.poojaOfferings || []));
+            return raw.map((off) => ({
+              ...off,
+              customSamagriItems: Array.isArray(off.customSamagriItems)
+                ? off.customSamagriItems.filter((it) => String(it.approvalStatus) === "approved")
+                : [],
+            }));
+          } catch (e) {
+            return pandit.poojaOfferings || [];
+          }
+        })(),
         recommendedKit: recommendedKit
           ? {
               _id: recommendedKit._id,
@@ -1058,6 +1071,18 @@ export const confirmPanditBookingPayment = async (req, res) => {
         .populate("temple", "name image description address contactPhone contactPerson")
         .populate("ritualRef", "title description image durationHours status")
         .populate("recommendedKit", "name image kitPrice");
+
+      void notifyAdmins({
+        title: "Pandit booking confirmed",
+        body: `${req.user.name || req.user.phone || "A user"} booked ${booking?.ritual?.name || "a ritual"}`,
+        data: {
+          eventType: "pandit.booking.confirmed",
+          bookingId: String(booking._id),
+          userId: String(req.user._id),
+          panditId: String(createdBooking.pandit),
+          ritualName: booking?.ritual?.name || "",
+        },
+      }).catch((error) => console.error("PANDIT BOOKING NOTIFICATION ERROR:", error.message));
 
       await PanditBookingIntent.deleteMany({
         razorpayOrderId: String(razorpayOrderId || "").trim(),

@@ -2,6 +2,7 @@ import UserKit from "../models/userKit.model.js";
 import Item from "../models/product.model.js";
 import Order from "../models/order.model.js";
 import DefaultKit from "../models/defaultKit.model.js";
+import { notifyAdmins } from "../utils/notification.service.js";
 
 // ------------------------------------
 // Helper: Build items + calculate total
@@ -201,6 +202,17 @@ export const checkoutUserKit = async (req, res) => {
     userKit.paymentStatus = "paid";
     userKit.order = order._id;
     await userKit.save();
+
+    void notifyAdmins({
+      title: "User kit ordered",
+      body: `${req.user.name || req.user.phone || "A user"} placed a custom kit order`,
+      data: {
+        eventType: "userkit.order",
+        orderId: String(order._id),
+        userId: String(req.user._id),
+        userKitId: String(userKit._id),
+      },
+    }).catch((error) => console.error("USER KIT NOTIFICATION ERROR:", error.message));
 
     res.status(201).json({
       success: true,

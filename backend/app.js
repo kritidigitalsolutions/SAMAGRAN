@@ -94,6 +94,9 @@ import adminRoutes from "./routes/admin/admin.routes.js";
 import bookingPricingAdmin from "./routes/admin/bookingPricing.routes.js"
 import userFromAdmin from "./routes/admin/user.routes.js";
 import banner from "./routes/admin/banner.routes.js"
+import adminCouponRoutes from "./routes/admin/coupon.routes.js";
+import adminOfferRoutes from "./routes/admin/offer.routes.js";
+import adminNotificationRoutes from "./routes/admin/notification.routes.js";
 
 import authRoutes from "./routes/user/auth.routes.js";
 import panditAuthRoutes from "./routes/pandit/pandit.auth.routes.js";
@@ -117,6 +120,10 @@ import bookingPricingUser from "./routes/user/bookingPricing.routes.js"
 import userTemples from "./routes/user/temple.routes.js"
 import userRoutes from "./routes/user/user.routes.js"
 import userBanners from "./routes/user/banner.routes.js"
+import walletRoutes from "./routes/user/wallet.routes.js";
+import couponRoutes from "./routes/user/coupon.routes.js";
+import offerRoutes from "./routes/user/offer.routes.js";
+import userVideoRoutes from "./routes/user/video.routes.js";
 
 
 app.use("/api/user/items", userProductRoutes);
@@ -192,7 +199,10 @@ app.use("/api/admin/user", userFromAdmin);
 app.use("/api/legal", legal)
 app.use("/api/aboutus", aboutUs)
 app.use("/api/admin/banners", banner)
-app
+app.use("/api/admin/coupons", adminCouponRoutes);
+app.use("/api/admin/offers", adminOfferRoutes);
+app.use("/api/admin/notifications", adminNotificationRoutes);
+
 // Backward-compatible alias for existing frontend calls.
 app.use("/api/kits", festivalKitRoutes);
 
@@ -220,6 +230,10 @@ app.use("/api/items", productRoutes);
 
 //place order for users
 app.use("/api/order", orderRoutes);
+app.use("/api/user/wallet", walletRoutes);
+app.use("/api/user/coupons", couponRoutes);
+app.use("/api/user/offers", offerRoutes);
+app.use("/api/user/video", userVideoRoutes);
 
 // user get all kit for user
 app.use("/api/user-kits", userKit);

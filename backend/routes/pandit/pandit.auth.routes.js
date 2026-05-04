@@ -4,6 +4,7 @@ import {
   getPanditProfile,
   requestPanditOtp,
   updatePanditProfile,
+  updatePanditFcmToken,
   verifyPanditOtp,
 } from "../../controllers/pandit/pandit.auth.controller.js";
 import { protectPandit } from "../../middleware/pandit.middleware.js";
@@ -13,6 +14,7 @@ const router = express.Router();
 
 router.post("/send-otp", requestPanditOtp);
 router.post("/verify-otp", verifyPanditOtp);
+router.patch("/fcm-token", protectPandit, updatePanditFcmToken);
 
 router.get("/profile", protectPandit, getPanditProfile);
 

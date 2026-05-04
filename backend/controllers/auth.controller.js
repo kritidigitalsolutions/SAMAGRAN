@@ -1,6 +1,7 @@
 import User from "../models/user.model.js";
 import generateToken from "../utils/generateToken.js";
 import OTP from "../models/otp.model.js";
+import { notifyAdmins, updateDeviceToken } from "../utils/notification.service.js";
 
 // 📌 Helper: Phone validation
 const validatePhone = (phone) => {
@@ -50,7 +51,7 @@ const profileImage = req.file
       {
         phone,
         otp,
-        expiresAt: new Date(Date.now() + 5 * 60 * 1000),
+        // expiresAt: new Date(Date.now() + 5 * 60 * 1000),
         name,
         email,
         address,
@@ -113,7 +114,7 @@ export const login = async (req, res) => {
       {
         phone,
         otp,
-        expiresAt: new Date(Date.now() + 5 * 60 * 1000),
+        // expiresAt: new Date(Date.now() + 5 * 60 * 1000),
         type: "login",
       },
       { upsert: true, new: true }
@@ -209,7 +210,10 @@ export const login = async (req, res) => {
 // };
 export const verifyOtp = async (req, res) => {
   try {
-    let { phone, otp } = req.body;
+    let { phone, otp, fcmToken, firebaseToken, deviceToken } = req.body || {};
+    const incomingFcmToken = String(
+      fcmToken || firebaseToken || deviceToken || ""
+    ).trim();
 
     phone = phone.trim();
 
@@ -229,15 +233,9 @@ export const verifyOtp = async (req, res) => {
       });
     }
 
-    if (otpDoc.expiresAt < new Date()) {
-      return res.status(400).json({
-        success: false,
-        message: "OTP expired",
-      });
-    }
-
     let user = await User.findOne({ phone });
     let isNewUser = false;
+    let isFcmTokenUpdated = false;
 
     // Signup flow
     if (!user && otpDoc.type === "signup") {
@@ -250,6 +248,16 @@ export const verifyOtp = async (req, res) => {
         isProfileComplete: true,
       });
 
+      void notifyAdmins({
+        title: "New user account created",
+        body: `${user.name || user.phone || "A user"} joined Samagran`,
+        data: {
+          eventType: "user.signup",
+          userId: String(user._id),
+          phone: user.phone,
+        },
+      }).catch((error) => console.error("USER SIGNUP NOTIFICATION ERROR:", error.message));
+
       isNewUser = true;
     }
 
@@ -259,6 +267,19 @@ export const verifyOtp = async (req, res) => {
         success: false,
         message: "User not found",
       });
+    }
+
+    if (incomingFcmToken) {
+      const updatedUser = await updateDeviceToken({
+        Model: User,
+        id: user._id,
+        token: incomingFcmToken,
+      });
+
+      if (updatedUser) {
+        user = updatedUser;
+        isFcmTokenUpdated = true;
+      }
     }
 
     await OTP.deleteOne({ phone });
@@ -271,6 +292,7 @@ export const verifyOtp = async (req, res) => {
       message: "Verified successfully",
       data: {
         token,
+        fcmTokenUpdated: isFcmTokenUpdated,
         user,
       },
     });
@@ -338,6 +360,13 @@ export const resendOtp = async (req, res) => {
 
     phone = phone.trim();
 
+    if (!validatePhone(phone)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid phone number",
+      });
+    }
+
     const user = await User.findOne({ phone });
 
     if (!user) {
@@ -349,10 +378,16 @@ export const resendOtp = async (req, res) => {
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
-    user.otp = otp;
-    user.otpExpires = new Date(Date.now() + 5 * 60 * 1000);
-
-    await user.save();
+    // Save to OTP collection with type="login" for resend
+    await OTP.findOneAndUpdate(
+      { phone },
+      {
+        phone,
+        otp,
+        type: "login",
+      },
+      { upsert: true, new: true }
+    );
 
     console.log("RESEND OTP:", otp);
 
@@ -361,10 +396,49 @@ export const resendOtp = async (req, res) => {
       message: "OTP resent",
       data: { OTP: otp },
     });
-    console.log("the otp is:", OTP)
 
   } catch (err) {
-    console.error(err);
+    console.error("RESEND OTP ERROR:", err);
     res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+export const updateUserFcmToken = async (req, res) => {
+  try {
+    const { fcmToken = "" } = req.body || {};
+    const token = String(fcmToken || "").trim();
+
+    if (!token) {
+      return res.status(400).json({
+        success: false,
+        message: "fcmToken is required",
+      });
+    }
+
+    const user = await updateDeviceToken({
+      Model: User,
+      id: req.user._id,
+      token,
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: "FCM token updated",
+      data: {
+        userId: user._id,
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Unable to update FCM token",
+    });
   }
 };

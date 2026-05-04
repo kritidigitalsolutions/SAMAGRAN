@@ -54,6 +54,48 @@ const updateProductRatingStats = async (productId) => {
   };
 };
 
+const buildRatingSummary = async (productId) => {
+  const ratings = await ProductReview.aggregate([
+    { $match: { product: new mongoose.Types.ObjectId(productId) } },
+    {
+      $group: {
+        _id: "$rating",
+        count: { $sum: 1 },
+      },
+    },
+  ]);
+
+  const counts = {
+    rating1: 0,
+    rating2: 0,
+    rating3: 0,
+    rating4: 0,
+    rating5: 0,
+  };
+
+  let totalReviews = 0;
+  let averageSum = 0;
+
+  ratings.forEach((row) => {
+    const ratingValue = Number(row._id);
+    if (ratingValue >= 1 && ratingValue <= 5) {
+      const key = `rating${ratingValue}`;
+      const count = Number(row.count || 0);
+      counts[key] = count;
+      totalReviews += count;
+      averageSum += ratingValue * count;
+    }
+  });
+
+  const average = totalReviews ? averageSum / totalReviews : 0;
+
+  return {
+    average: Number(average.toFixed(2)),
+    totalReviews,
+    counts,
+  };
+};
+
 // Get all products (User)
 export const getProductsUser = async (req, res) => {
   try {
@@ -274,6 +316,63 @@ export const addProductRating = async (req, res) => {
       data: {
         review,
         ratings: stats,
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+// Get product ratings (User)
+export const getProductRatings = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { page = 1, limit = 10 } = req.query;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid product id",
+      });
+    }
+
+    const product = await Item.findById(id).select("status");
+    if (!product || product.status !== "active") {
+      return res.status(404).json({
+        success: false,
+        message: "Item not found",
+      });
+    }
+
+    const safeLimit = Math.min(Number(limit) || 10, 50);
+    const safePage = Number(page) || 1;
+    const skip = (safePage - 1) * safeLimit;
+
+    const [totalReviews, summary, reviews] = await Promise.all([
+      ProductReview.countDocuments({ product: id }),
+      buildRatingSummary(id),
+      ProductReview.find({ product: id })
+        .populate("user", "name profileImage")
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(safeLimit)
+        .lean(),
+    ]);
+
+    return res.json({
+      success: true,
+      data: {
+        ratings: summary,
+        reviews,
+        pagination: {
+          totalReviews,
+          currentPage: safePage,
+          totalPages: Math.ceil(totalReviews / safeLimit),
+          limit: safeLimit,
+        },
       },
     });
   } catch (error) {

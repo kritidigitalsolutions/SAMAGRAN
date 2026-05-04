@@ -92,19 +92,19 @@ export const deleteAccount = async (req, res) => {
       });
     }
 
-    if (!DELETE_REASONS.includes(normalizedReason)) {
-      return res.status(400).json({
-        success: false,
-        message: "reason must be a supported value",
-      });
-    }
+    // if (!DELETE_REASONS.includes(normalizedReason)) {
+    //   return res.status(400).json({
+    //     success: false,
+    //     message: "reason must be a supported value",
+    //   });
+    // }
 
-    if (!Boolean(acknowledge)) {
-      return res.status(400).json({
-        success: false,
-        message: "acknowledge is required",
-      });
-    }
+    // if (!Boolean(acknowledge)) {
+    //   return res.status(400).json({
+    //     success: false,
+    //     message: "acknowledge is required",
+    //   });
+    // }
 
     const user = await User.findById(req.user._id);
     if (!user) {

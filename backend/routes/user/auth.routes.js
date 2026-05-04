@@ -4,7 +4,9 @@ import {
   login,
   verifyOtp,
   resendOtp,
+  updateUserFcmToken,
 } from "../../controllers/auth.controller.js";
+import protect from "../../middleware/auth.middleware.js";
 
 const router = express.Router();
 import { upload } from "../../middleware/upload.js";
@@ -12,8 +14,9 @@ import { upload } from "../../middleware/upload.js";
 router.post("/signup", upload.single("profileImage"), signup);
 
 // router.post("/signup", signup);
-router.post("/login", login);
+router.post("/send-otp", login);
 router.post("/verify-otp", verifyOtp);
 router.post("/resend-otp", resendOtp);
+router.patch("/fcm-token", protect, updateUserFcmToken);
 
 export default router;

@@ -1,5 +1,26 @@
 import Ritual from "../../models/ritual.model.js";
+import Pandit from "../../models/pandit.model.js";
 import { uploadFileToFirebase } from "../../utils/firebaseUpload.js";
+
+const normalizeName = (value = "") => String(value || "").trim().toLowerCase();
+
+const sanitizeCustomSamagriItems = (items = []) => {
+  if (!Array.isArray(items)) return [];
+
+  return items
+    .map((item) => ({
+      ...(item._id ? { _id: item._id } : {}),
+      itemName: String(item.itemName || item.name || "").trim(),
+      quantity: Math.max(1, Number(item.quantity || 1)),
+      size: String(item.size || "").trim(),
+      approvalStatus: ["approved", "rejected"].includes(String(item.approvalStatus || "").trim())
+        ? String(item.approvalStatus).trim()
+        : "pending",
+      reviewedAt: item.reviewedAt || null,
+      reviewedBy: String(item.reviewedBy || "").trim(),
+    }))
+    .filter((item) => item.itemName);
+};
 
 export const createRitual = async (req, res) => {
   try {
@@ -199,6 +220,139 @@ export const deleteRitual = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: err.message || "Unable to delete ritual",
+    });
+  }
+};
+
+export const getPendingCustomSamagriItems = async (req, res) => {
+  try {
+    const [pandits, rituals] = await Promise.all([
+      Pandit.find({}, { fullName: 1, phone: 1, poojaOfferings: 1 }).lean(),
+      Ritual.find({}, { title: 1 }).lean(),
+    ]);
+
+    const ritualMap = new Map(
+      rituals.map((ritual) => [normalizeName(ritual.title), ritual._id])
+    );
+
+    const data = [];
+
+    pandits.forEach((pandit) => {
+      const offerings = Array.isArray(pandit.poojaOfferings) ? pandit.poojaOfferings : [];
+
+      offerings.forEach((offering) => {
+        const pendingItems = sanitizeCustomSamagriItems(offering.customSamagriItems || []).filter(
+          (item) => item.approvalStatus === "pending"
+        );
+
+        if (pendingItems.length > 0) {
+          data.push({
+            panditId: pandit._id,
+            panditName: pandit.fullName || "",
+            panditPhone: pandit.phone || "",
+            ritualId: ritualMap.get(normalizeName(offering.name)) || null,
+            ritualName: offering.name || "",
+            customSamagriItems: pendingItems,
+          });
+        }
+      });
+    });
+
+    return res.json({
+      success: true,
+      count: data.length,
+      data,
+    });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      message: err.message || "Unable to load pending custom samagri",
+    });
+  }
+};
+
+export const reviewCustomSamagriItem = async (req, res) => {
+  try {
+    const { panditId, ritualId, itemId } = req.params;
+    const { approvalStatus = "approved" } = req.body || {};
+
+    const normalizedApprovalStatus = ["approved", "rejected"].includes(String(approvalStatus || "").trim())
+      ? String(approvalStatus).trim()
+      : null;
+
+    if (!normalizedApprovalStatus) {
+      return res.status(400).json({
+        success: false,
+        message: "approvalStatus must be approved or rejected",
+      });
+    }
+
+    const pandit = await Pandit.findById(panditId);
+    if (!pandit) {
+      return res.status(404).json({
+        success: false,
+        message: "Pandit not found",
+      });
+    }
+
+    const ritual = await Ritual.findById(ritualId).lean();
+    if (!ritual) {
+      return res.status(404).json({
+        success: false,
+        message: "Ritual not found",
+      });
+    }
+
+    if (!Array.isArray(pandit.poojaOfferings)) {
+      pandit.poojaOfferings = [];
+    }
+
+    const offeringIndex = pandit.poojaOfferings.findIndex(
+      (offering) => normalizeName(offering.name) === normalizeName(ritual.title)
+    );
+
+    if (offeringIndex < 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Ritual offering not found for pandit",
+      });
+    }
+
+    const offering = pandit.poojaOfferings[offeringIndex].toObject();
+    const items = sanitizeCustomSamagriItems(offering.customSamagriItems || []);
+    const itemIndex = items.findIndex((item) => String(item._id) === String(itemId));
+
+    if (itemIndex < 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Custom samagri item not found",
+      });
+    }
+
+    items[itemIndex] = {
+      ...items[itemIndex],
+      approvalStatus: normalizedApprovalStatus,
+      reviewedAt: new Date(),
+      reviewedBy: req.admin?.name || req.admin?.email || "Admin",
+    };
+
+    offering.customSamagriItems = items;
+    pandit.poojaOfferings[offeringIndex] = offering;
+    await pandit.save();
+
+    return res.json({
+      success: true,
+      message: `Custom samagri ${normalizedApprovalStatus}`,
+      data: {
+        panditId,
+        ritualId,
+        item: items[itemIndex],
+      },
+    });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      message: err.message || "Unable to review custom samagri item",
     });
   }
 };

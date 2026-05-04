@@ -662,7 +662,7 @@ const fetchItems = useCallback(async () => {
                 name="status"
                 value={createForm.status}
                 onChange={handleCreateChange}
-                className="h-11 rounded-xl border border-[#d7c3a3] bg-white px-3 text-sm text-black outline-none dark:border-white/20 dark:bg-[#1e1e1e] dark:text-white"
+                className="h-11 rounded-xl border border-[#d7c3a3] bg-white px-3 text-sm text-black outline-none dark:border-white/20 dark:bg-[#181c24] dark:text-white"
               >
                 <option value="active">Active</option>
                 <option value="inactive">Inactive</option>
@@ -799,7 +799,7 @@ const fetchItems = useCallback(async () => {
           value={statusFilter}
           onChange={(event) => setStatusFilter(event.target.value)}
           className="h-11 rounded-xl border border-[#d7c3a3] bg-white text-black px-3 text-sm outline-none 
-           dark:bg-[#1e1e1e] dark:text-white dark:border-white/20"
+           dark:bg-[#181c24] dark:text-white dark:border-white/20"
         >
           <option value="all">All Status</option>
           <option value="active">Active</option>
@@ -809,7 +809,7 @@ const fetchItems = useCallback(async () => {
           value={cityFilter}
           onChange={(event) => setCityFilter(event.target.value)}
           className="h-11 rounded-xl border border-[#d7c3a3] bg-white text-black px-3 text-sm outline-none 
-           dark:bg-[#1e1e1e] dark:text-white dark:border-white/20"
+           dark:bg-[#181c24] dark:text-white dark:border-white/20"
         >
           {cityOptions.map((city) => (
             <option key={city} value={city}>
@@ -821,7 +821,7 @@ const fetchItems = useCallback(async () => {
           value={gstFilter}
           onChange={(event) => setGstFilter(event.target.value)}
           className="h-11 rounded-xl border border-[#d7c3a3] bg-white text-black px-3 text-sm outline-none 
-           dark:bg-[#1e1e1e] dark:text-white dark:border-white/20"
+           dark:bg-[#181c24] dark:text-white dark:border-white/20"
         >
           <option value="all">All GST Modes</option>
           <option value="include">Price Includes GST</option>
@@ -1193,7 +1193,7 @@ const fetchItems = useCallback(async () => {
                   name="status"
                   value={editForm.status}
                   onChange={handleEditChange}
-                  className="h-11 rounded-xl border border-[#d7c3a3] bg-white px-3 text-sm text-black outline-none dark:border-white/20 dark:bg-[#1e1e1e] dark:text-white"
+                  className="h-11 rounded-xl border border-[#d7c3a3] bg-white px-3 text-sm text-black outline-none dark:border-white/20 dark:bg-[#181c24] dark:text-white"
                 >
                   <option value="active">Active</option>
                   <option value="inactive">Inactive</option>

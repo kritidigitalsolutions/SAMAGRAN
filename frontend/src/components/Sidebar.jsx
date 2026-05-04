@@ -12,6 +12,11 @@ const navItems = [
   { label: "Temples", path: "/dashboard/temples", icon: "temples" },
   { label: "Pandit Bookings", path: "/dashboard/pandit-bookings", icon: "pandit-bookings" },
   { label: "Banners", path: "/dashboard/Banners", icon: "Banners" },
+  { label: "Coupons", path: "/dashboard/coupons", icon: "coupons" },
+  { label: "Offers", path: "/dashboard/offers", icon: "offers" },
+  { label: "Legal Pages", path: "/dashboard/legal", icon: "legal" },
+  { label: "Custom Samagri", path: "/dashboard/custom-samagri", icon: "custom-samagri" },
+  { label: "Notifications", path: "/dashboard/notifications", icon: "notifications" },
 ];
 
 function SidebarIcon({ icon }) {
@@ -118,6 +123,57 @@ function SidebarIcon({ icon }) {
         <path d="M14 20V10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
         <path d="M18 20V10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
         <path d="M4 10L12 4L20 10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+
+  if (icon === "coupons") {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" className={common}>
+        <rect x="3" y="6" width="18" height="12" rx="2" stroke="currentColor" strokeWidth="1.8" />
+        <path d="M9 10H9.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+        <path d="M9 14H9.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+        <path d="M15 12H15.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      </svg>
+    );
+  }
+
+  if (icon === "offers") {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" className={common}>
+        <path d="M12 2L15.09 8.26H21.77L16.84 12.45L18.93 18.71L12 14.52L5.07 18.71L7.16 12.45L2.23 8.26H8.91L12 2Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+
+  if (icon === "legal") {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" className={common}>
+        <path d="M6 4V20C6 21.1 6.9 22 8 22H20" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M9 7H17" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+        <path d="M9 11H17" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+        <path d="M9 15H17" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      </svg>
+    );
+  }
+
+  if (icon === "custom-samagri") {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" className={common}>
+        <path d="M12 2L22 7V17L12 22L2 17V7L12 2Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M12 22V12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+        <path d="M12 12L2 7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+        <path d="M12 12L22 7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      </svg>
+    );
+  }
+
+  if (icon === "notifications") {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" className={common}>
+        <path d="M14 18H10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+        <path d="M12 4C9.23858 4 7 6.23858 7 9V12.5L5.5 15H18.5L17 12.5V9C17 6.23858 14.7614 4 12 4Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+        <path d="M9 18C9 19.6569 10.3431 21 12 21C13.6569 21 15 19.6569 15 18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
       </svg>
     );
   }

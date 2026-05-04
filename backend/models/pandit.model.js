@@ -58,6 +58,13 @@ const customSamagriItemSchema = new mongoose.Schema(
     itemName: { type: String, trim: true, required: true },
     quantity: { type: Number, default: 1, min: 1 },
     size: { type: String, trim: true, default: "" },
+    approvalStatus: {
+      type: String,
+      enum: ["pending", "approved", "rejected"],
+      default: "pending",
+    },
+    reviewedAt: { type: Date, default: null },
+    reviewedBy: { type: String, trim: true, default: "" },
   },
   { _id: true, timestamps: false }
 );
@@ -97,6 +104,18 @@ const panditSchema = new mongoose.Schema(
       trim: true,
       default: "",
     },
+
+    fcmToken: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+
+    fcmTokenUpdatedAt: {
+      type: Date,
+      default: null,
+    },
+
     bio: {
       type: String,
       trim: true,

@@ -217,8 +217,7 @@ export default function PanditBookings() {
             <select
               value={statusFilter}
               onChange={(event) => setStatusFilter(event.target.value)}
-              className="h-11 rounded-xl border border-[#d7c3a3] bg-white text-black px-3 text-sm outline-none 
-           dark:bg-[#1e1e1e] dark:text-white dark:border-white/20"
+              className="h-11 rounded-xl border border-[#d7c3a3] bg-white/70 px-3 text-sm outline-none dark:border-white/10 dark:bg-[#23272e] dark:text-white"
             >
               <option value="all">All status</option>
               <option value="requested">Requested</option>
@@ -230,7 +229,7 @@ export default function PanditBookings() {
         </div>
 
         {loading ? (
-          <p className="rounded-xl bg-white/60 p-6 text-sm dark:bg-white/5">Loading bookings...</p>
+          <p className="rounded-xl bg-white/60 p-6 text-sm dark:bg-[#23272e] dark:text-white">Loading bookings...</p>
         ) : error ? (
           <p className="rounded-xl bg-red-100 p-6 text-sm font-medium text-red-600 dark:bg-red-900/30 dark:text-red-300">{error}</p>
         ) : !bookings.length ? (
@@ -247,8 +246,8 @@ export default function PanditBookings() {
                   <th className="px-4 py-3 font-semibold">Pandit</th>
                   <th className="px-4 py-3 font-semibold">Date & Slot</th>
                   <th className="px-4 py-3 font-semibold">Amount</th>
-                  <th className="px-4 py-3 font-semibold">Booking Status</th>
-                  <th className="px-4 py-3 font-semibold">payment Status</th>
+                  <th className="px-4 py-3 font-semibold">Status</th>
+                  <th className="px-4 py-3 font-semibold">Update</th>
                   <th className="px-4 py-3 font-semibold">Actions</th>
                 </tr>
               </thead>
@@ -259,17 +258,13 @@ export default function PanditBookings() {
                     <td className="px-4 py-3 text-[#2f1618] dark:text-[#fff3dc]">{booking.ritual?.name || "-"}</td>
                     <td className="px-4 py-3">{booking.user?.name || booking.user?.phone || "-"}</td>
                     <td className="px-4 py-3">{booking.pandit?.fullName || "-"}</td>
-                    <td className="px-4 py-3">{booking.bookingDate} | {booking.dateAndTime?.label || "-"}</td>
+                    <td className="px-4 py-3">{booking.bookingDate} | {booking.timeSlot?.label || "-"}</td>
                     <td className="px-4 py-3">Rs {Number(booking.dakshinaAmount || 0)}</td>
                     <td className="px-4 py-3">
                       <div className="flex flex-col gap-1">
                         <span className={`w-fit rounded-full px-2.5 py-1 text-xs font-semibold uppercase ${statusBadgeClass(booking.bookingStatus)}`}>
                           {booking.bookingStatus}
                         </span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex flex-col gap-1">
                         <span className={`w-fit rounded-full px-2.5 py-1 text-xs font-semibold uppercase ${paymentBadgeClass(booking.payment?.status)}`}>
                           {booking.payment?.status || "pending"}
                         </span>
@@ -282,7 +277,7 @@ export default function PanditBookings() {
                           onChange={(event) =>
                             setStatusUpdates((current) => ({ ...current, [booking._id]: event.target.value }))
                           }
-                          className="h-9 rounded-lg border border-[#d7c3a3] bg-white/75 px-2 text-xs outline-none dark:border-white/10 dark:bg-white/5"
+                          className="h-9 rounded-lg border border-[#d7c3a3] bg-white/75 px-2 text-xs outline-none dark:border-white/10 dark:bg-[#23272e] dark:text-white"
                         >
                           <option value="requested">Requested</option>
                           <option value="confirmed">Confirmed</option>
@@ -295,7 +290,7 @@ export default function PanditBookings() {
                           onChange={(event) =>
                             setPaymentUpdates((current) => ({ ...current, [booking._id]: event.target.value }))
                           }
-                          className="h-9 rounded-lg border border-[#d7c3a3] bg-white/75 px-2 text-xs outline-none dark:border-white/10 dark:bg-white/5"
+                          className="h-9 rounded-lg border border-[#d7c3a3] bg-white/75 px-2 text-xs outline-none dark:border-white/10 dark:bg-[#23272e] dark:text-white"
                         >
                           <option value="pending">Pending</option>
                           <option value="paid">Paid</option>
@@ -355,7 +350,7 @@ export default function PanditBookings() {
               <div className="rounded-xl bg-white/60 px-4 py-3 dark:bg-white/5"><span className="block text-xs opacity-70">User</span><strong>{selectedBooking.user?.name || selectedBooking.user?.phone || "-"}</strong></div>
               <div className="rounded-xl bg-white/60 px-4 py-3 dark:bg-white/5"><span className="block text-xs opacity-70">Pandit</span><strong>{selectedBooking.pandit?.fullName || "-"}</strong></div>
               <div className="rounded-xl bg-white/60 px-4 py-3 dark:bg-white/5"><span className="block text-xs opacity-70">Date</span><strong>{selectedBooking.bookingDate || "-"}</strong></div>
-              <div className="rounded-xl bg-white/60 px-4 py-3 dark:bg-white/5"><span className="block text-xs opacity-70">Slot</span><strong>{selectedBooking.dateAndTime?.label || "-"}</strong></div>
+              <div className="rounded-xl bg-white/60 px-4 py-3 dark:bg-white/5"><span className="block text-xs opacity-70">Slot</span><strong>{selectedBooking.timeSlot?.label || "-"}</strong></div>
               <div className="rounded-xl bg-white/60 px-4 py-3 dark:bg-white/5"><span className="block text-xs opacity-70">Payment</span><strong>{selectedBooking.payment?.status || "pending"}</strong></div>
               <div className="rounded-xl bg-white/60 px-4 py-3 dark:bg-white/5"><span className="block text-xs opacity-70">Amount</span><strong>Rs {Number(selectedBooking.dakshinaAmount || 0)}</strong></div>
               <div className="rounded-xl bg-white/60 px-4 py-3 dark:bg-white/5 md:col-span-2"><span className="block text-xs opacity-70">Address</span><strong>{formatAddress(selectedBooking) || "-"}</strong></div>

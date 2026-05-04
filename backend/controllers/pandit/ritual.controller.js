@@ -1,6 +1,7 @@
 import Ritual from "../../models/ritual.model.js";
 import Pandit from "../../models/pandit.model.js";
 import mongoose from "mongoose";
+import { notifyAdmins } from "../../utils/notification.service.js";
 
 const normalizeName = (value = "") => String(value || "").trim().toLowerCase();
 
@@ -9,6 +10,11 @@ const toCustomSamagriItem = (item = {}) => ({
   itemName: String(item.itemName || item.name || "").trim(),
   quantity: Math.max(1, Number(item.quantity || 1)),
   size: String(item.size || "").trim(),
+  approvalStatus: ["approved", "rejected"].includes(String(item.approvalStatus || "").trim())
+    ? String(item.approvalStatus).trim()
+    : "pending",
+  reviewedAt: item.reviewedAt || null,
+  reviewedBy: String(item.reviewedBy || "").trim(),
 });
 
 const sanitizeCustomSamagriItems = (items = []) => {
@@ -20,6 +26,13 @@ const sanitizeCustomSamagriItems = (items = []) => {
     .map(toCustomSamagriItem)
     .filter((item) => item.itemName);
 };
+
+const createPendingCustomSamagriItem = (item = {}) => ({
+  ...toCustomSamagriItem(item),
+  approvalStatus: "pending",
+  reviewedAt: null,
+  reviewedBy: "",
+});
 
 const toOfferingFromRitual = ({ ritual, existingOffering = null }) => ({
   name: ritual.title,
@@ -322,11 +335,11 @@ export const addCustomSamagriToPanditRitual = async (req, res) => {
     const normalizedName = normalizeName(finalItemName);
     const existingItemIndex = items.findIndex((item) => normalizeName(item.itemName) === normalizedName);
 
-    const incomingItem = {
+    const incomingItem = createPendingCustomSamagriItem({
       itemName: finalItemName,
       quantity: Math.max(1, Number(quantity || 1)),
       size: String(size || "").trim(),
-    };
+    });
 
     if (existingItemIndex >= 0) {
       items[existingItemIndex] = {
@@ -347,6 +360,18 @@ export const addCustomSamagriToPanditRitual = async (req, res) => {
 
     await pandit.save();
 
+    void notifyAdmins({
+      title: "Custom samagri added",
+      body: `${req.pandit?.fullName || req.pandit?.phone || "A pandit"} added custom samagri for ${ritual.title}`,
+      data: {
+        eventType: "pandit.custom_samagri.created",
+        panditId: String(req.pandit._id),
+        ritualId: String(ritual._id),
+        ritualName: ritual.title,
+        itemName: finalItemName,
+      },
+    }).catch((error) => console.error("CUSTOM SAMAGRI NOTIFICATION ERROR:", error.message));
+
     return res.status(201).json({
       success: true,
       message: "Custom samagri added successfully",
@@ -365,6 +390,38 @@ export const addCustomSamagriToPanditRitual = async (req, res) => {
     });
   }
 };
+
+export const getCustomSamagriToPanditRitual = async (req, res) => {
+  try {
+    const { ritualId } = req.params;
+
+    const { pandit, offeringIndex, ritual } = await getRitualAndPanditOfferingContext({
+      panditId: req.pandit._id,
+      ritualId,
+    });
+
+    const currentOffering = offeringIndex >= 0 ? pandit.poojaOfferings[offeringIndex] : null;
+    const customSamagriItems = sanitizeCustomSamagriItems(currentOffering?.customSamagriItems || []);
+
+    return res.json({
+      success: true,
+      data: {
+        ritualId: ritual._id,
+        ritualName: ritual.title,
+        customSamagri: Boolean(currentOffering?.customSamagri || ritual.customSamagri),
+        customSamagriItems,
+      },
+    });
+  } catch (err) {
+    const message = err.message || "Unable to load custom samagri";
+    const statusCode = message === "Invalid ritual id" ? 400 : message === "Ritual not found" ? 404 : 500;
+    return res.status(statusCode).json({
+      success: false,
+      message,
+    });
+  }
+};
+
 
 export const removeCustomSamagriFromPanditRitual = async (req, res) => {
   try {

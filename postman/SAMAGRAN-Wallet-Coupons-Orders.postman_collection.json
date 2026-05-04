@@ -1,0 +1,314 @@
+{
+  "info": {
+    "_postman_id": "b2e6b86a-6f8a-4f2c-9d32-5d7a2a0c6d51",
+    "name": "SAMAGRAN - Wallet, Coupons, Orders",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:5000" },
+    { "key": "userToken", "value": "" },
+    { "key": "adminToken", "value": "" },
+    { "key": "couponId", "value": "" },
+    { "key": "offerId", "value": "" },
+    { "key": "razorpayOrderId", "value": "" },
+    { "key": "razorpayPaymentId", "value": "" },
+    { "key": "razorpaySignature", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "User - Orders",
+      "item": [
+        {
+          "name": "Create Razorpay Order (with wallet/coupon/offer)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{userToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/order/payment/razorpay/order",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "order", "payment", "razorpay", "order"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    {\n      \"productType\": \"Item\",\n      \"productId\": \"{{itemId}}\",\n      \"quantity\": 1,\n      \"price\": 250\n    }\n  ],\n  \"deliveryFee\": 20,\n  \"couponCode\": \"{{couponCode}}\",\n  \"offerId\": \"{{offerId}}\",\n  \"walletAmount\": 50\n}"
+            }
+          }
+        },
+        {
+          "name": "Place Order (ONLINE or COD)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{userToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/order/place",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "order", "place"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"paymentMethod\": \"ONLINE\",\n  \"items\": [\n    {\n      \"productType\": \"Item\",\n      \"productId\": \"{{itemId}}\",\n      \"quantity\": 1,\n      \"price\": 250\n    }\n  ],\n  \"deliveryFee\": 20,\n  \"couponCode\": \"{{couponCode}}\",\n  \"offerId\": \"{{offerId}}\",\n  \"walletAmount\": 50,\n  \"address\": {\n    \"name\": \"Test User\",\n    \"phone\": \"9999999999\",\n    \"fullAddress\": \"123 Street, City\",\n    \"addressType\": \"home\",\n    \"city\": \"Indore\",\n    \"state\": \"MP\",\n    \"pincode\": \"452001\"\n  },\n  \"razorpayOrderId\": \"{{razorpayOrderId}}\",\n  \"razorpayPaymentId\": \"{{razorpayPaymentId}}\",\n  \"razorpaySignature\": \"{{razorpaySignature}}\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "User - Wallet",
+      "item": [
+        {
+          "name": "Get Wallet",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{userToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/user/wallet",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "user", "wallet"]
+            }
+          }
+        },
+        {
+          "name": "Get Wallet Transactions",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{userToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/user/wallet/transactions?page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "user", "wallet", "transactions"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Wallet Topup (Razorpay)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{userToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/user/wallet/topup/razorpay/order",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "user", "wallet", "topup", "razorpay", "order"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 200\n}"
+            }
+          }
+        },
+        {
+          "name": "Confirm Wallet Topup",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{userToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/user/wallet/topup/confirm",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "user", "wallet", "topup", "confirm"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 200,\n  \"razorpayOrderId\": \"{{razorpayOrderId}}\",\n  \"razorpayPaymentId\": \"{{razorpayPaymentId}}\",\n  \"razorpaySignature\": \"{{razorpaySignature}}\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "User - Coupons/Offers",
+      "item": [
+        {
+          "name": "Apply Coupon",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{userToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/user/coupons/apply",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "user", "coupons", "apply"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"{{couponCode}}\",\n  \"amount\": 300\n}"
+            }
+          }
+        },
+        {
+          "name": "Get Active Offers",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/user/offers/active",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "user", "offers", "active"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin - Coupons",
+      "item": [
+        {
+          "name": "Create Coupon",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/coupons",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "coupons"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"WELCOME50\",\n  \"title\": \"Welcome Offer\",\n  \"description\": \"50 off above 300\",\n  \"discountType\": \"flat\",\n  \"discountValue\": 50,\n  \"minOrderAmount\": 300,\n  \"maxDiscount\": 0,\n  \"usageLimit\": 0,\n  \"perUserLimit\": 1,\n  \"isActive\": true\n}"
+            }
+          }
+        },
+        {
+          "name": "List Coupons",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/coupons",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "coupons"]
+            }
+          }
+        },
+        {
+          "name": "Update Coupon",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/coupons/{{couponId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "coupons", "{{couponId}}"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isActive\": false\n}"
+            }
+          }
+        },
+        {
+          "name": "Delete Coupon",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/coupons/{{couponId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "coupons", "{{couponId}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin - Offers",
+      "item": [
+        {
+          "name": "Create Offer",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/offers",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "offers"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Summer Cashback\",\n  \"description\": \"Cashback on orders\",\n  \"offerType\": \"cashback\",\n  \"discountType\": \"percent\",\n  \"value\": 10,\n  \"minOrderAmount\": 500,\n  \"maxBenefit\": 100,\n  \"isActive\": true\n}"
+            }
+          }
+        },
+        {
+          "name": "List Offers",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/offers",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "offers"]
+            }
+          }
+        },
+        {
+          "name": "Update Offer",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/offers/{{offerId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "offers", "{{offerId}}"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isActive\": false\n}"
+            }
+          }
+        },
+        {
+          "name": "Delete Offer",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/offers/{{offerId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "offers", "{{offerId}}"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -8,6 +8,11 @@ import FestivalKit from "../models/festivalKit.model.js";
 import DefaultKit from "../models/defaultKit.model.js";
 import UserKit from "../models/userKit.model.js";
 import User from "../models/user.model.js";
+import Coupon from "../models/coupon.model.js";
+import Offer from "../models/offer.model.js";
+import Wallet from "../models/wallet.model.js";
+import WalletTransaction from "../models/walletTransaction.model.js";
+import { notifyAdmins } from "../utils/notification.service.js";
 
 const SUPPORTED_PRODUCT_TYPES = ["Item", "FestivalKit", "DefaultKit", "UserKit"];
 const TRACKING_STEPS = ["Placed", "Confirmed", "Preparing", "Out for Delivery", "Delivered"];
@@ -90,6 +95,132 @@ const getRazorpayCredentials = () => {
   }
 
   return { keyId, keySecret };
+};
+
+const isWithinWindow = (doc) => {
+  const now = new Date();
+  if (doc?.startsAt && now < doc.startsAt) return false;
+  if (doc?.expiresAt && now > doc.expiresAt) return false;
+  return true;
+};
+
+const computeCouponDiscount = ({ amount, coupon }) => {
+  if (!coupon) return 0;
+
+  if (coupon.discountType === "percent") {
+    const raw = (toMoney(amount) * coupon.discountValue) / 100;
+    const capped = coupon.maxDiscount ? Math.min(raw, coupon.maxDiscount) : raw;
+    return toMoney(capped);
+  }
+
+  return toMoney(Math.min(coupon.discountValue, amount));
+};
+
+const computeOfferBenefit = ({ amount, offer }) => {
+  if (!offer) return 0;
+
+  if (offer.discountType === "percent") {
+    const raw = (toMoney(amount) * offer.value) / 100;
+    const capped = offer.maxBenefit ? Math.min(raw, offer.maxBenefit) : raw;
+    return toMoney(capped);
+  }
+
+  return toMoney(Math.min(offer.value, amount));
+};
+
+const getOrCreateWallet = async (userId) => {
+  let wallet = await Wallet.findOne({ user: userId });
+  if (!wallet) {
+    wallet = await Wallet.create({ user: userId, balance: 0 });
+  }
+  return wallet;
+};
+
+const resolveDiscountsAndWallet = async ({
+  userId,
+  baseAmount,
+  couponCode,
+  offerId,
+  walletAmount,
+}) => {
+  let coupon = null;
+  let offer = null;
+  let couponDiscount = 0;
+  let offerDiscount = 0;
+  let cashbackAmount = 0;
+  let walletUsed = 0;
+
+  if (couponCode) {
+    const normalizedCode = String(couponCode).trim().toUpperCase();
+    coupon = await Coupon.findOne({ code: normalizedCode, isActive: true });
+
+    if (!coupon || !isWithinWindow(coupon)) {
+      throw new Error("Invalid or inactive coupon code");
+    }
+
+    if (toMoney(baseAmount) < toMoney(coupon.minOrderAmount)) {
+      throw new Error("Order amount is below coupon minimum");
+    }
+
+    if (coupon.usageLimit && coupon.usedCount >= coupon.usageLimit) {
+      throw new Error("Coupon usage limit reached");
+    }
+
+    if (coupon.perUserLimit) {
+      const usageCount = await Order.countDocuments({
+        user: userId,
+        couponCode: normalizedCode,
+      });
+
+      if (usageCount >= coupon.perUserLimit) {
+        throw new Error("Coupon usage limit reached for user");
+      }
+    }
+
+    couponDiscount = computeCouponDiscount({ amount: baseAmount, coupon });
+  }
+
+  if (offerId && mongoose.Types.ObjectId.isValid(offerId)) {
+    offer = await Offer.findById(offerId);
+
+    if (!offer || !offer.isActive || !isWithinWindow(offer)) {
+      throw new Error("Invalid or inactive offer");
+    }
+
+    if (toMoney(baseAmount) < toMoney(offer.minOrderAmount)) {
+      throw new Error("Order amount is below offer minimum");
+    }
+
+    const benefit = computeOfferBenefit({ amount: baseAmount, offer });
+    if (offer.offerType === "cashback") {
+      cashbackAmount = benefit;
+    } else {
+      offerDiscount = benefit;
+    }
+  }
+
+  const discountTotal = toMoney(couponDiscount + offerDiscount);
+  let payableAmount = toMoney(baseAmount - discountTotal);
+
+  if (walletAmount && payableAmount > 0) {
+    const requested = toMoney(walletAmount);
+    if (requested > 0) {
+      const wallet = await getOrCreateWallet(userId);
+      walletUsed = toMoney(Math.min(wallet.balance, requested, payableAmount));
+      payableAmount = toMoney(payableAmount - walletUsed);
+    }
+  }
+
+  return {
+    coupon,
+    offer,
+    couponDiscount,
+    offerDiscount,
+    cashbackAmount,
+    discountTotal,
+    walletUsed,
+    payableAmount,
+  };
 };
 
 const getProductDocAndPrice = async ({ userId, productType, productId }) => {
@@ -409,7 +540,7 @@ const populateOrderItems = async (orders) => {
 export const createRazorpayOrder = async (req, res) => {
   try {
     const userId = req.user._id;
-    const { items = null, deliveryFee } = req.body;
+    const { items = null, deliveryFee, couponCode, offerId, walletAmount } = req.body;
 
     const { orderItems, itemTotal } = await resolveCheckoutItems({
       userId,
@@ -426,11 +557,52 @@ export const createRazorpayOrder = async (req, res) => {
       });
     }
 
+    const {
+      coupon,
+      offer,
+      couponDiscount,
+      offerDiscount,
+      cashbackAmount,
+      discountTotal,
+      walletUsed,
+      payableAmount,
+    } = await resolveDiscountsAndWallet({
+      userId,
+      baseAmount: totalAmount,
+      couponCode,
+      offerId,
+      walletAmount,
+    });
+
+    if (payableAmount <= 0) {
+      return res.json({
+        success: true,
+        message: "No online payment required",
+        data: {
+          keyId: null,
+          itemTotal,
+          deliveryFee: finalDeliveryFee,
+          totalAmount,
+          couponCode: coupon?.code || null,
+          offerId: offer?._id || null,
+          couponDiscount,
+          offerDiscount,
+          cashbackAmount,
+          discountTotal,
+          walletUsed,
+          payableAmount: 0,
+          currency: "INR",
+          razorpayOrder: null,
+          requiresPayment: false,
+        },
+      });
+    }
+
     const { keyId, keySecret } = getRazorpayCredentials();
     const razorpay = new Razorpay({ key_id: keyId, key_secret: keySecret });
 
     const razorpayOrder = await razorpay.orders.create({
-      amount: Math.round(totalAmount * 100),
+      amount: Math.round(payableAmount * 100),
       currency: "INR",
       receipt: `order_${String(userId).slice(-6)}_${Date.now()}`,
       notes: {
@@ -447,8 +619,17 @@ export const createRazorpayOrder = async (req, res) => {
         itemTotal,
         deliveryFee: finalDeliveryFee,
         totalAmount,
+        couponCode: coupon?.code || null,
+        offerId: offer?._id || null,
+        couponDiscount,
+        offerDiscount,
+        cashbackAmount,
+        discountTotal,
+        walletUsed,
+        payableAmount,
         currency: "INR",
         razorpayOrder,
+        requiresPayment: true,
       },
     });
   } catch (err) {
@@ -471,6 +652,9 @@ export const placeOrder = async (req, res) => {
       addressLabel,
       items = null,
       deliveryFee,
+      couponCode,
+      offerId,
+      walletAmount,
       razorpayOrderId,
       razorpayPaymentId,
       razorpaySignature,
@@ -485,6 +669,23 @@ export const placeOrder = async (req, res) => {
 
     const finalDeliveryFee = getDeliveryFee(deliveryFee);
     const totalAmount = toMoney(itemTotal + finalDeliveryFee);
+
+    const {
+      coupon,
+      offer,
+      couponDiscount,
+      offerDiscount,
+      cashbackAmount,
+      discountTotal,
+      walletUsed,
+      payableAmount,
+    } = await resolveDiscountsAndWallet({
+      userId,
+      baseAmount: totalAmount,
+      couponCode,
+      offerId,
+      walletAmount,
+    });
 
     let finalAddress;
     if (addressId) {
@@ -516,7 +717,7 @@ export const placeOrder = async (req, res) => {
     let paymentStatus = "Pending";
     let paymentGateway = null;
 
-    if (normalizedPaymentMethod === "ONLINE") {
+    if (normalizedPaymentMethod === "ONLINE" && payableAmount > 0) {
       if (!razorpayOrderId || !razorpayPaymentId || !razorpaySignature) {
         return res.status(400).json({
           success: false,
@@ -542,6 +743,22 @@ export const placeOrder = async (req, res) => {
       paymentGateway = "Razorpay";
     }
 
+    if (payableAmount <= 0) {
+      paymentStatus = "Paid";
+      paymentGateway = walletUsed > 0 ? "Wallet" : paymentGateway;
+    }
+
+    let wallet = null;
+    if (walletUsed > 0) {
+      wallet = await getOrCreateWallet(userId);
+      if (toMoney(wallet.balance) < walletUsed) {
+        return res.status(400).json({
+          success: false,
+          message: "Insufficient wallet balance",
+        });
+      }
+    }
+
     const order = await Order.create({
       user: userId,
       items: orderItems,
@@ -550,7 +767,22 @@ export const placeOrder = async (req, res) => {
       amountBreakup: {
         itemTotal,
         deliveryFee: finalDeliveryFee,
+        couponDiscount,
+        offerDiscount,
+        walletUsed,
+        payableAmount,
       },
+      couponCode: coupon?.code || null,
+      offer: offer
+        ? {
+            id: offer._id,
+            type: offer.offerType,
+          }
+        : { id: null, type: null },
+      discountTotal,
+      cashbackAmount,
+      walletUsed,
+      payableAmount,
       paymentMethod: normalizedPaymentMethod,
       paymentStatus,
       paymentGateway,
@@ -559,6 +791,50 @@ export const placeOrder = async (req, res) => {
       razorpaySignature: razorpaySignature || null,
       address: finalAddress,
     });
+
+    if (walletUsed > 0 && wallet) {
+      const nextBalance = toMoney(wallet.balance - walletUsed);
+      wallet.balance = nextBalance;
+      await wallet.save();
+
+      await WalletTransaction.create({
+        wallet: wallet._id,
+        user: userId,
+        type: "debit",
+        source: "order",
+        amount: walletUsed,
+        balanceAfter: nextBalance,
+        reference: String(order._id),
+        meta: {
+          orderId: String(order._id),
+        },
+      });
+    }
+
+    if (coupon?.code) {
+      await Coupon.updateOne({ _id: coupon._id }, { $inc: { usedCount: 1 } });
+    }
+
+    if (offer && offer.offerType === "cashback" && cashbackAmount > 0 && paymentStatus === "Paid") {
+      const cashbackWallet = wallet || (await getOrCreateWallet(userId));
+      const nextBalance = toMoney(cashbackWallet.balance + cashbackAmount);
+      cashbackWallet.balance = nextBalance;
+      await cashbackWallet.save();
+
+      await WalletTransaction.create({
+        wallet: cashbackWallet._id,
+        user: userId,
+        type: "credit",
+        source: "cashback",
+        amount: cashbackAmount,
+        balanceAfter: nextBalance,
+        reference: String(order._id),
+        meta: {
+          orderId: String(order._id),
+          offerId: String(offer._id),
+        },
+      });
+    }
 
     if (source === "cart") {
       await Cart.deleteMany({ user: userId });
@@ -592,6 +868,18 @@ export const placeOrder = async (req, res) => {
     const populatedOrder = await Order.findById(order._id)
       .populate(ORDER_ITEMS_POPULATE)
       .lean();
+
+    void notifyAdmins({
+      title: "New order placed",
+      body: `${req.user.name || req.user.phone || "A user"} placed an order${coupon?.code ? ` with coupon ${coupon.code}` : ""}`,
+      data: {
+        eventType: "order.placed",
+        orderId: String(order._id),
+        userId: String(req.user._id),
+        couponCode: coupon?.code || "",
+        paymentStatus,
+      },
+    }).catch((error) => console.error("ORDER NOTIFICATION ERROR:", error.message));
 
     return res.status(201).json({
       success: true,

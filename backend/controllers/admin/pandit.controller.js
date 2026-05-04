@@ -1,224 +1,7 @@
 import Pandit from "../../models/pandit.model.js";
 import mongoose from "mongoose";
 import PanditBooking from "../../models/panditBooking.model.js";
-import { uploadFileToFirebase } from "../../utils/firebaseUpload.js";
-
-const parseJsonIfString = (value, fallback = undefined) => {
-  if (value === undefined || value === null || value === "") {
-    return fallback;
-  }
-
-  if (typeof value === "string") {
-    try {
-      return JSON.parse(value);
-    } catch {
-      return fallback;
-    }
-  }
-
-  return value;
-};
-
-const toBoolean = (value, fallback = false) => {
-  if (value === undefined || value === null || value === "") {
-    return fallback;
-  }
-
-  if (typeof value === "string") {
-    const normalized = value.trim().toLowerCase();
-    if (["true", "1", "yes", "y", "on"].includes(normalized)) {
-      return true;
-    }
-    if (["false", "0", "no", "n", "off"].includes(normalized)) {
-      return false;
-    }
-  }
-
-  return Boolean(value);
-};
-
-const toNumber = (value, fallback = 0) => {
-  if (value === undefined || value === null || value === "") {
-    return fallback;
-  }
-
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : fallback;
-};
-
-const normalizeLanguages = (languagesInput) => {
-  if (Array.isArray(languagesInput)) {
-    return languagesInput
-      .map((entry) => String(entry || "").trim())
-      .filter(Boolean);
-  }
-
-  if (typeof languagesInput === "string") {
-    return languagesInput
-      .split(",")
-      .map((entry) => entry.trim())
-      .filter(Boolean);
-  }
-
-  return [];
-};
-
-const normalizeAddress = (input = {}, previous = {}) => {
-  const addressInput = parseJsonIfString(input, {}) || {};
-  return {
-    line1:
-      addressInput.line1 !== undefined
-        ? String(addressInput.line1 || "").trim()
-        : String(previous?.line1 || "").trim(),
-    line2:
-      addressInput.line2 !== undefined
-        ? String(addressInput.line2 || "").trim()
-        : String(previous?.line2 || "").trim(),
-    city:
-      addressInput.city !== undefined
-        ? String(addressInput.city || "").trim()
-        : String(previous?.city || "").trim(),
-    state:
-      addressInput.state !== undefined
-        ? String(addressInput.state || "").trim()
-        : String(previous?.state || "").trim(),
-    pinCode:
-      addressInput.pinCode !== undefined
-        ? String(addressInput.pinCode || "").trim()
-        : String(previous?.pinCode || "").trim(),
-  };
-};
-
-const normalizeAadhaar = (input = {}, previous = {}) => {
-  const aadhaarInput = parseJsonIfString(input, {}) || {};
-  return {
-    number:
-      aadhaarInput.number !== undefined
-        ? String(aadhaarInput.number || "").trim()
-        : String(previous?.number || "").trim(),
-    frontImage:
-      aadhaarInput.frontImage !== undefined
-        ? String(aadhaarInput.frontImage || "").trim()
-        : String(previous?.frontImage || "").trim(),
-    backImage:
-      aadhaarInput.backImage !== undefined
-        ? String(aadhaarInput.backImage || "").trim()
-        : String(previous?.backImage || "").trim(),
-    consentGiven:
-      aadhaarInput.consentGiven !== undefined
-        ? toBoolean(aadhaarInput.consentGiven, false)
-        : toBoolean(previous?.consentGiven, false),
-  };
-};
-
-const normalizeServiceTypes = (input = {}, previous = {}) => {
-  const serviceInput = parseJsonIfString(input, {}) || {};
-
-  return {
-    onlinePooja:
-      serviceInput.onlinePooja !== undefined
-        ? toBoolean(serviceInput.onlinePooja, false)
-        : toBoolean(previous?.onlinePooja, false),
-    homeVisit:
-      serviceInput.homeVisit !== undefined
-        ? toBoolean(serviceInput.homeVisit, false)
-        : toBoolean(previous?.homeVisit, false),
-    atTemple:
-      serviceInput.atTemple !== undefined
-        ? toBoolean(serviceInput.atTemple, false)
-        : toBoolean(previous?.atTemple, false),
-    travelForSpecialPoojas:
-      serviceInput.travelForSpecialPoojas !== undefined
-        ? toBoolean(serviceInput.travelForSpecialPoojas, false)
-        : toBoolean(previous?.travelForSpecialPoojas, false),
-    detectedLocation: {
-      city:
-        serviceInput.detectedLocation?.city !== undefined
-          ? String(serviceInput.detectedLocation.city || "").trim()
-          : String(previous?.detectedLocation?.city || "").trim(),
-      state:
-        serviceInput.detectedLocation?.state !== undefined
-          ? String(serviceInput.detectedLocation.state || "").trim()
-          : String(previous?.detectedLocation?.state || "").trim(),
-    },
-    serviceDistance: {
-      selected:
-        serviceInput.serviceDistance?.selected !== undefined
-          ? String(serviceInput.serviceDistance.selected || "").trim()
-          : String(previous?.serviceDistance?.selected || "").trim(),
-      customKm:
-        serviceInput.serviceDistance?.customKm !== undefined
-          ? toNumber(serviceInput.serviceDistance.customKm, 0)
-          : toNumber(previous?.serviceDistance?.customKm, 0),
-    },
-    outstationAvailability: {
-      withinDistrict:
-        serviceInput.outstationAvailability?.withinDistrict !== undefined
-          ? toBoolean(serviceInput.outstationAvailability.withinDistrict, false)
-          : toBoolean(previous?.outstationAvailability?.withinDistrict, false),
-      withinState:
-        serviceInput.outstationAvailability?.withinState !== undefined
-          ? toBoolean(serviceInput.outstationAvailability.withinState, false)
-          : toBoolean(previous?.outstationAvailability?.withinState, false),
-      anywhereInIndia:
-        serviceInput.outstationAvailability?.anywhereInIndia !== undefined
-          ? toBoolean(serviceInput.outstationAvailability.anywhereInIndia, false)
-          : toBoolean(previous?.outstationAvailability?.anywhereInIndia, false),
-    },
-  };
-};
-
-const normalizePoojaOfferings = (input) => {
-  const source = parseJsonIfString(input, input);
-  if (!Array.isArray(source)) {
-    return [];
-  }
-
-  return source
-    .map((entry) => {
-      if (!entry || typeof entry !== "object") {
-        return null;
-      }
-
-      const customSamagriItems = Array.isArray(entry.customSamagriItems)
-        ? entry.customSamagriItems
-            .map((item) => {
-              if (!item || typeof item !== "object") {
-                return null;
-              }
-
-              const itemName = String(item.itemName || "").trim();
-              if (!itemName) {
-                return null;
-              }
-
-              return {
-                itemName,
-                quantity: toNumber(item.quantity, 1),
-                size: String(item.size || "").trim(),
-              };
-            })
-            .filter(Boolean)
-        : [];
-
-      const name = String(entry.name || entry.title || "").trim();
-      if (!name) {
-        return null;
-      }
-
-      return {
-        name,
-        description: String(entry.description || "").trim(),
-        isSelected: toBoolean(entry.isSelected, false),
-        durationHours: toNumber(entry.durationHours, 2),
-        travelForSpecialPooja: toBoolean(entry.travelForSpecialPooja, false),
-        standardSamagri: toBoolean(entry.standardSamagri, false),
-        customSamagri: toBoolean(entry.customSamagri, false),
-        customSamagriItems,
-      };
-    })
-    .filter(Boolean);
-};
+import { notifyAdmins } from "../../utils/notification.service.js";
 
 export const getAllPanditsForAdmin = async (req, res) => {
   try {
@@ -298,37 +81,21 @@ export const getPanditDetailsForAdmin = async (req, res) => {
 
 export const createPanditByAdmin = async (req, res) => {
   try {
-    const body = req.body || {};
-    const fileMap = req.files || {};
-    const uploadedProfileImage = fileMap.profileImageFile?.[0]
-      ? await uploadFileToFirebase(fileMap.profileImageFile[0], { folder: "pandits/profile" })
-      : "";
-    const uploadedAadhaarFrontImage = fileMap.aadhaarFrontImageFile?.[0]
-      ? await uploadFileToFirebase(fileMap.aadhaarFrontImageFile[0], { folder: "pandits/aadhaar" })
-      : "";
-    const uploadedAadhaarBackImage = fileMap.aadhaarBackImageFile?.[0]
-      ? await uploadFileToFirebase(fileMap.aadhaarBackImageFile[0], { folder: "pandits/aadhaar" })
-      : "";
-
     const {
       phone = "",
       fullName = "",
       profileImage = "",
       bio = "",
-      ratingAverage = 4.5,
-      ratingCount = 0,
       yearsOfExperience = 0,
       templeAssociated = "",
       languagesSpoken = [],
       status = "pending",
       isVerified = false,
       isPhoneVerified = false,
-      isProfileComplete,
       address = {},
-      aadhaar = {},
       serviceTypes = {},
       poojaOfferings = [],
-    } = body;
+    } = req.body;
 
     const finalPhone = String(phone || "").trim();
     if (!finalPhone) {
@@ -349,31 +116,42 @@ export const createPanditByAdmin = async (req, res) => {
     const pandit = await Pandit.create({
       phone: finalPhone,
       fullName: String(fullName || "").trim(),
-      profileImage: uploadedProfileImage || String(profileImage || "").trim(),
+      profileImage: String(profileImage || "").trim(),
       bio: String(bio || "").trim(),
-      ratingAverage: toNumber(ratingAverage, 4.5),
-      ratingCount: toNumber(ratingCount, 0),
-      yearsOfExperience: toNumber(yearsOfExperience, 0),
+      yearsOfExperience: Number(yearsOfExperience || 0),
       templeAssociated: String(templeAssociated || "").trim(),
-      languagesSpoken: normalizeLanguages(languagesSpoken),
+      languagesSpoken: Array.isArray(languagesSpoken)
+        ? languagesSpoken.map((entry) => String(entry || "").trim()).filter(Boolean)
+        : String(languagesSpoken || "")
+            .split(",")
+            .map((entry) => entry.trim())
+            .filter(Boolean),
       status: ["pending", "active", "blocked"].includes(String(status || "").trim())
         ? String(status).trim()
         : "pending",
-      isVerified: toBoolean(isVerified, false),
-      isPhoneVerified: toBoolean(isPhoneVerified, false),
-      address: normalizeAddress(address),
-      aadhaar: {
-        ...normalizeAadhaar(aadhaar),
-        ...(uploadedAadhaarFrontImage ? { frontImage: uploadedAadhaarFrontImage } : {}),
-        ...(uploadedAadhaarBackImage ? { backImage: uploadedAadhaarBackImage } : {}),
+      isVerified: Boolean(isVerified),
+      isPhoneVerified: Boolean(isPhoneVerified),
+      address: {
+        line1: String(address?.line1 || "").trim(),
+        line2: String(address?.line2 || "").trim(),
+        city: String(address?.city || "").trim(),
+        state: String(address?.state || "").trim(),
+        pinCode: String(address?.pinCode || "").trim(),
       },
-      serviceTypes: normalizeServiceTypes(serviceTypes),
-      poojaOfferings: normalizePoojaOfferings(poojaOfferings),
-      isProfileComplete:
-        isProfileComplete !== undefined
-          ? toBoolean(isProfileComplete, false)
-          : Boolean(String(fullName || "").trim() && finalPhone),
+      serviceTypes: serviceTypes || {},
+      poojaOfferings: Array.isArray(poojaOfferings) ? poojaOfferings : [],
+      isProfileComplete: Boolean(fullName && finalPhone),
     });
+
+    void notifyAdmins({
+      title: "Pandit account created",
+      body: `${pandit.fullName || pandit.phone || "A pandit"} was created by admin`,
+      data: {
+        eventType: "pandit.created.admin",
+        panditId: String(pandit._id),
+        phone: pandit.phone,
+      },
+    }).catch((error) => console.error("ADMIN PANDIT NOTIFICATION ERROR:", error.message));
 
     return res.status(201).json({
       success: true,
@@ -391,16 +169,6 @@ export const createPanditByAdmin = async (req, res) => {
 export const updatePanditByAdmin = async (req, res) => {
   try {
     const { id } = req.params;
-    const fileMap = req.files || {};
-    const uploadedProfileImage = fileMap.profileImageFile?.[0]
-      ? await uploadFileToFirebase(fileMap.profileImageFile[0], { folder: "pandits/profile" })
-      : "";
-    const uploadedAadhaarFrontImage = fileMap.aadhaarFrontImageFile?.[0]
-      ? await uploadFileToFirebase(fileMap.aadhaarFrontImageFile[0], { folder: "pandits/aadhaar" })
-      : "";
-    const uploadedAadhaarBackImage = fileMap.aadhaarBackImageFile?.[0]
-      ? await uploadFileToFirebase(fileMap.aadhaarBackImageFile[0], { folder: "pandits/aadhaar" })
-      : "";
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({
@@ -422,8 +190,6 @@ export const updatePanditByAdmin = async (req, res) => {
       fullName,
       profileImage,
       bio,
-      ratingAverage,
-      ratingCount,
       yearsOfExperience,
       templeAssociated,
       languagesSpoken,
@@ -432,7 +198,6 @@ export const updatePanditByAdmin = async (req, res) => {
       isPhoneVerified,
       isProfileComplete,
       address,
-      aadhaar,
       serviceTypes,
       poojaOfferings,
     } = req.body;
@@ -462,54 +227,49 @@ export const updatePanditByAdmin = async (req, res) => {
     }
 
     if (fullName !== undefined) pandit.fullName = String(fullName || "").trim();
-    if (uploadedProfileImage) {
-      pandit.profileImage = uploadedProfileImage;
-    } else if (profileImage !== undefined) {
-      pandit.profileImage = String(profileImage || "").trim();
-    }
+    if (profileImage !== undefined) pandit.profileImage = String(profileImage || "").trim();
     if (bio !== undefined) pandit.bio = String(bio || "").trim();
-    if (ratingAverage !== undefined) pandit.ratingAverage = toNumber(ratingAverage, pandit.ratingAverage || 4.5);
-    if (ratingCount !== undefined) pandit.ratingCount = toNumber(ratingCount, pandit.ratingCount || 0);
-    if (yearsOfExperience !== undefined) pandit.yearsOfExperience = toNumber(yearsOfExperience, 0);
+    if (yearsOfExperience !== undefined) pandit.yearsOfExperience = Number(yearsOfExperience || 0);
     if (templeAssociated !== undefined) pandit.templeAssociated = String(templeAssociated || "").trim();
 
     if (languagesSpoken !== undefined) {
-      pandit.languagesSpoken = normalizeLanguages(languagesSpoken);
+      pandit.languagesSpoken = Array.isArray(languagesSpoken)
+        ? languagesSpoken.map((entry) => String(entry || "").trim()).filter(Boolean)
+        : String(languagesSpoken || "")
+            .split(",")
+            .map((entry) => entry.trim())
+            .filter(Boolean);
     }
 
     if (status !== undefined && ["pending", "active", "blocked"].includes(String(status || "").trim())) {
       pandit.status = String(status || "").trim();
     }
 
-    if (isVerified !== undefined) pandit.isVerified = toBoolean(isVerified, false);
-    if (isPhoneVerified !== undefined) pandit.isPhoneVerified = toBoolean(isPhoneVerified, false);
-    if (isProfileComplete !== undefined) pandit.isProfileComplete = toBoolean(isProfileComplete, false);
+    if (isVerified !== undefined) pandit.isVerified = Boolean(isVerified);
+    if (isPhoneVerified !== undefined) pandit.isPhoneVerified = Boolean(isPhoneVerified);
+    if (isProfileComplete !== undefined) pandit.isProfileComplete = Boolean(isProfileComplete);
 
-    if (address !== undefined) {
-      pandit.address = normalizeAddress(address, pandit.address || {});
-    }
-
-    if (aadhaar !== undefined) {
-      pandit.aadhaar = normalizeAadhaar(aadhaar, pandit.aadhaar || {});
-    }
-
-    if (uploadedAadhaarFrontImage || uploadedAadhaarBackImage) {
-      pandit.aadhaar = {
-        ...(pandit.aadhaar?.toObject?.() || pandit.aadhaar || {}),
-        ...(uploadedAadhaarFrontImage ? { frontImage: uploadedAadhaarFrontImage } : {}),
-        ...(uploadedAadhaarBackImage ? { backImage: uploadedAadhaarBackImage } : {}),
+    if (address && typeof address === "object") {
+      const prevAddress = pandit.address || {};
+      pandit.address = {
+        line1: address.line1 !== undefined ? String(address.line1 || "").trim() : prevAddress.line1 || "",
+        line2: address.line2 !== undefined ? String(address.line2 || "").trim() : prevAddress.line2 || "",
+        city: address.city !== undefined ? String(address.city || "").trim() : prevAddress.city || "",
+        state: address.state !== undefined ? String(address.state || "").trim() : prevAddress.state || "",
+        pinCode: address.pinCode !== undefined ? String(address.pinCode || "").trim() : prevAddress.pinCode || "",
       };
     }
 
-    if (serviceTypes !== undefined) {
-      pandit.serviceTypes = normalizeServiceTypes(
-        serviceTypes,
-        pandit.serviceTypes?.toObject?.() || pandit.serviceTypes || {}
-      );
+    if (serviceTypes && typeof serviceTypes === "object") {
+      pandit.serviceTypes = {
+        ...pandit.serviceTypes?.toObject?.(),
+        ...pandit.serviceTypes,
+        ...serviceTypes,
+      };
     }
 
-    if (poojaOfferings !== undefined) {
-      pandit.poojaOfferings = normalizePoojaOfferings(poojaOfferings);
+    if (Array.isArray(poojaOfferings)) {
+      pandit.poojaOfferings = poojaOfferings;
     }
 
     await pandit.save();

@@ -235,7 +235,7 @@ export default function Rituals() {
                 name="status"
                 value={form.status}
                 onChange={handleChange}
-                className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20"
+                className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-[#23272e] dark:text-white"
               >
                 <option value="active">Active</option>
                 <option value="inactive">Inactive</option>

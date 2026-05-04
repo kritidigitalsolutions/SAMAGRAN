@@ -625,7 +625,7 @@ useEffect(() => {
               value={statusFilter}
               onChange={(event) => setStatusFilter(event.target.value)}
               className="h-11 rounded-xl border border-[#d7c3a3] bg-white text-black px-3 text-sm outline-none 
-           dark:bg-[#1e1e1e] dark:text-white dark:border-white/20"
+           dark:bg-[#181c24] dark:text-white dark:border-white/20"
             >
               <option value="all">All Order Status</option>
               {ORDER_STATUSES.map((status) => (
@@ -637,7 +637,7 @@ useEffect(() => {
               value={paymentStatusFilter}
               onChange={(event) => setPaymentStatusFilter(event.target.value)}
               className="h-11 rounded-xl border border-[#d7c3a3] bg-white text-black px-3 text-sm outline-none 
-           dark:bg-[#1e1e1e] dark:text-white dark:border-white/20"
+           dark:bg-[#181c24] dark:text-white dark:border-white/20"
             >
               <option value="all">All Payment Status</option>
               {PAYMENT_STATUSES.map((status) => (
@@ -649,7 +649,7 @@ useEffect(() => {
               value={paymentMethodFilter}
               onChange={(event) => setPaymentMethodFilter(event.target.value)}
               className="h-11 rounded-xl border border-[#d7c3a3] bg-white text-black px-3 text-sm outline-none 
-           dark:bg-[#1e1e1e] dark:text-white dark:border-white/20"
+           dark:bg-[#181c24] dark:text-white dark:border-white/20"
             >
               <option value="all">All Payment Methods</option>
               {PAYMENT_METHODS.map((method) => (
@@ -775,7 +775,8 @@ useEffect(() => {
                       <select
                         value={trackingUpdates[selectedOrder._id] || selectedOrder.orderStatus || "Placed"}
                         onChange={(event) => handleChangeTrackingSelection(selectedOrder._id, event.target.value)}
-                        className="h-10 flex-1 rounded-lg border border-[#d7c3a3] bg-white/75 px-2 text-sm outline-none dark:border-white/10 dark:bg-white/5"
+                        className="h-11 w-[100%] rounded-xl border border-[#d7c3a3] bg-white text-black px-3 text-sm outline-none 
+           dark:bg-[#181c24] dark:text-white dark:border-white/20"
                       >
                         {ORDER_STATUSES.map((status) => (
                           <option key={status} value={status}>{status}</option>

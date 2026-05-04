@@ -15,6 +15,11 @@ import PanditBookings from "./pages/PanditBookings";
 import Rituals from "./pages/Rituals";
 import Temples from "./pages/Temples";
 import Banner from "./pages/Banner";
+import Coupons from "./pages/Coupons";
+import Offers from "./pages/Offers";
+import Legal from "./pages/Legal";
+import CustomSamagri from "./pages/CustomSamagri";
+import Notifications from "./pages/Notifications";
 
 
 function App() {
@@ -43,6 +48,11 @@ function App() {
         <Route path="Temples" element={<Temples />} />
         <Route path="pandit-bookings" element={<PanditBookings />} />
         <Route path="banners" element={<Banner />} />
+        <Route path="coupons" element={<Coupons />} />
+        <Route path="offers" element={<Offers />} />
+        <Route path="legal" element={<Legal />} />
+        <Route path="custom-samagri" element={<CustomSamagri />} />
+        <Route path="notifications" element={<Notifications />} />
       </Route>
     </Routes>
   );

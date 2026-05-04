@@ -82,6 +82,17 @@ const userSchema = new mongoose.Schema(
       trim: true,
     },
 
+    fcmToken: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+
+    fcmTokenUpdatedAt: {
+      type: Date,
+      default: null,
+    },
+
     isProfileComplete: {
       type: Boolean,
       default: false,

@@ -2,15 +2,16 @@ import admin from "firebase-admin";
 
 let bucket = null;
 
-const hasFirebaseConfig =
-  Boolean(process.env.FIREBASE_STORAGE_BUCKET) &&
+const hasFirebaseCredentials =
   Boolean(process.env.FIREBASE_PROJECT_ID) &&
   Boolean(process.env.FIREBASE_PRIVATE_KEY_ID) &&
   Boolean(process.env.FIREBASE_PRIVATE_KEY) &&
   Boolean(process.env.FIREBASE_CLIENT_EMAIL) &&
   Boolean(process.env.FIREBASE_CLIENT_ID);
 
-if (hasFirebaseConfig) {
+const hasFirebaseStorageBucket = Boolean(process.env.FIREBASE_STORAGE_BUCKET);
+
+if (hasFirebaseCredentials) {
   try {
     const serviceAccount = {
       type: "service_account",
@@ -27,22 +28,30 @@ if (hasFirebaseConfig) {
     };
 
     if (!admin.apps.length) {
-      admin.initializeApp({
+      const appOptions = {
         credential: admin.credential.cert(serviceAccount),
-        storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
-      });
+      };
+
+      if (hasFirebaseStorageBucket) {
+        appOptions.storageBucket = process.env.FIREBASE_STORAGE_BUCKET;
+      }
+
+      admin.initializeApp(appOptions);
     }
 
-    bucket = admin.storage().bucket();
+    if (hasFirebaseStorageBucket) {
+      bucket = admin.storage().bucket();
+    }
   } catch (error) {
     console.error("Firebase initialization failed:", error.message);
   }
 } else {
-  console.warn("Firebase env vars are missing. File uploads to Firebase will be unavailable.");
+  console.warn("Firebase env vars are missing. Firebase uploads and messaging will be unavailable.");
 }
 
 export const firebaseAdmin = admin;
 export const firebaseBucket = bucket;
 export const isFirebaseReady = Boolean(bucket);
+export const isFirebaseMessagingReady = Boolean(admin.apps.length);
 
 export default bucket;

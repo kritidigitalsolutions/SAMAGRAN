@@ -38,6 +38,59 @@ const orderSchema = new mongoose.Schema(
         type: Number,
         default: 0,
       },
+      couponDiscount: {
+        type: Number,
+        default: 0,
+      },
+      offerDiscount: {
+        type: Number,
+        default: 0,
+      },
+      walletUsed: {
+        type: Number,
+        default: 0,
+      },
+      payableAmount: {
+        type: Number,
+        default: 0,
+      },
+    },
+
+    couponCode: {
+      type: String,
+      default: null,
+    },
+
+    offer: {
+      id: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Offer",
+        default: null,
+      },
+      type: {
+        type: String,
+        default: null,
+      },
+    },
+
+    discountTotal: {
+      type: Number,
+      default: 0,
+    },
+
+    cashbackAmount: {
+      type: Number,
+      default: 0,
+    },
+
+    walletUsed: {
+      type: Number,
+      default: 0,
+    },
+
+    payableAmount: {
+      type: Number,
+      default: 0,
     },
 
     addressType: {

@@ -313,7 +313,7 @@ export default function Kits() {
       )}
 
       {showForm && (
-        <form onSubmit={handleSubmit} className="grid gap-6 rounded-3xl border border-[#dcc7ab]/60 bg-[var(--admin-surface)] p-5 shadow-[var(--admin-shadow)] lg:grid-cols-[1.05fr_1fr]">
+        <form onSubmit={handleSubmit} className="grid gap-6 rounded-3xl border border-[#303745] bg-[var(--admin-surface)] p-5 shadow-[var(--admin-shadow)] lg:grid-cols-[1.05fr_1fr]">
           <div className="space-y-4 rounded-3xl border border-[#dcc7ab]/60 bg-white/80 p-5 dark:border-white/10 dark:bg-white/5">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-bold">{editingKit ? "Edit Kit" : "Create Kit"}</h3>
@@ -354,7 +354,7 @@ export default function Kits() {
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium">Status</label>
-                <select name="status" value={form.status} onChange={handleFormChange} className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20">
+                <select name="status" value={form.status} onChange={handleFormChange} className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-[#1d2026] dark:text-white">
                   <option value="active">Active</option>
                   <option value="inactive">Inactive</option>
                 </select>
@@ -393,15 +393,15 @@ export default function Kits() {
                   const quantity = selectedItems[product._id] || 1;
 
                   return (
-                    <div key={product._id} className={`rounded-2xl border p-3 ${selected ? "border-[#8B1E3F]/45 bg-[#8B1E3F]/6" : "border-[#e7d6bb] bg-white"}`}>
+                    <div key={product._id} className={`rounded-2xl border p-3 ${selected ? "border-[#8995ac] bg-[#8B1E3F]/6" : "dark:border-[#303745] bg-gray"}`}>
                       <div className="flex items-start gap-3">
                         <input type="checkbox" checked={selected} onChange={(event) => toggleItem(product._id, event.target.checked)} className="mt-1 h-4 w-4" />
                         <div className="flex-1">
                           <p className="text-sm font-semibold">{product.title}</p>
-                          <p className="text-xs text-[#6f4b42]">{formatCurrency(product?.pricing?.price)}</p>
+                          <p className="text-xs text-[#6f4b42] dark:text-white">{formatCurrency(product?.pricing?.price)}</p>
                         </div>
                         {selected && (
-                          <input type="number" min="1" value={quantity} onChange={(event) => updateQuantity(product._id, event.target.value)} className="w-20 rounded-lg border border-[#d7bf9b] px-2 py-1 text-sm" />
+                          <input type="number" min="1" value={quantity} onChange={(event) => updateQuantity(product._id, event.target.value)} className="w-20 rounded-lg border border-[#303745] dark:bg-[#23272e] dark:text-[#fff] text-[black] px-2 py-1 text-sm" />
                         )}
                       </div>
                     </div>
@@ -450,7 +450,7 @@ export default function Kits() {
             value={statusFilter}
             onChange={(event) => setStatusFilter(event.target.value)}
             className="h-11 rounded-xl border border-[#d7c3a3] bg-white text-black px-3 text-sm outline-none 
-           dark:bg-[#1e1e1e] dark:text-white dark:border-white/20"
+           dark:bg-[#181c24] dark:text-white dark:border-white/20"
           >
             <option value="all">All Status</option>
             <option value="active">Active</option>
@@ -461,7 +461,7 @@ export default function Kits() {
             value={activeTab}
             onChange={(event) => setActiveTab(event.target.value)}
             className="h-11 rounded-xl border border-[#d7c3a3] bg-white text-black px-3 text-sm outline-none 
-           dark:bg-[#1e1e1e] dark:text-white dark:border-white/20"
+           dark:bg-[#181c24] dark:text-white dark:border-white/20"
           >
             <option value="all">All Types</option>
             <option value="default">Default</option>
