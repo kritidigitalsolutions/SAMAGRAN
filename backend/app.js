@@ -73,6 +73,14 @@ app.use((req, res, next) => {
 app.use(express.json());
 app.use("/uploads", express.static("uploads"));
 
+// Fallback for missing uploads - return 404 with helpful message
+app.use("/uploads", (req, res) => {
+  res.status(404).json({
+    success: false,
+    message: "File not found. Use Firebase Storage URLs or upload a new file.",
+  });
+});
+
 // Routes
 app.get("/", (req, res) => {
   res.send("API is running...");

@@ -116,11 +116,20 @@ export const addProduct = async (req, res) => {
       });
     }
 
-    const imageUrls = req.files?.length
-      ? await Promise.all(
+    let imageUrls = [];
+    if (req.files?.length) {
+      try {
+        imageUrls = await Promise.all(
           req.files.map((file) => uploadFileToFirebase(file, { folder: "products" }))
-        )
-      : [];
+        );
+      } catch (uploadError) {
+        console.error("IMAGE UPLOAD ERROR:", uploadError.message);
+        return res.status(400).json({
+          success: false,
+          message: `Image upload failed: ${uploadError.message}`,
+        });
+      }
+    }
 
     const item = await Item.create({
       title,
