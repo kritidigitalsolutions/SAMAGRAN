@@ -87,6 +87,32 @@ const assignDetailsPayload = (item, body = {}) => {
   });
 };
 
+const uploadImagesSafely = async (files = []) => {
+  if (!Array.isArray(files) || !files.length) {
+    return { urls: [], errors: [] };
+  }
+
+  const results = await Promise.allSettled(
+    files.map((file) => uploadFileToFirebase(file, { folder: "products" }))
+  );
+
+  const urls = [];
+  const errors = [];
+
+  results.forEach((result) => {
+    if (result.status === "fulfilled" && result.value) {
+      urls.push(result.value);
+      return;
+    }
+
+    if (result.status === "rejected") {
+      errors.push(result.reason?.message || "Image upload failed");
+    }
+  });
+
+  return { urls, errors };
+};
+
 export const addProduct = async (req, res) => {
   try {
     const {
@@ -116,19 +142,12 @@ export const addProduct = async (req, res) => {
       });
     }
 
-    let imageUrls = [];
-    if (req.files?.length) {
-      try {
-        imageUrls = await Promise.all(
-          req.files.map((file) => uploadFileToFirebase(file, { folder: "products" }))
-        );
-      } catch (uploadError) {
-        console.error("IMAGE UPLOAD ERROR:", uploadError.message);
-        return res.status(400).json({
-          success: false,
-          message: `Image upload failed: ${uploadError.message}`,
-        });
-      }
+    const { urls: imageUrls, errors: uploadErrors } = await uploadImagesSafely(
+      req.files || []
+    );
+
+    if (uploadErrors.length) {
+      console.error("IMAGE UPLOAD WARNINGS:", uploadErrors);
     }
 
     const item = await Item.create({
@@ -468,13 +487,13 @@ export const updateProduct = async (req, res) => {
 
     if (hasExistingImages || hasNewUploads) {
       const existingImages = parseExistingImages(req.body.existingImages);
-      const uploadedImages = hasNewUploads
-        ? await Promise.all(
-            req.files.map((file) =>
-              uploadFileToFirebase(file, { folder: "products" })
-            )
-          )
-        : [];
+      const { urls: uploadedImages, errors: uploadErrors } = hasNewUploads
+        ? await uploadImagesSafely(req.files)
+        : { urls: [], errors: [] };
+
+      if (uploadErrors.length) {
+        console.error("IMAGE UPDATE WARNINGS:", uploadErrors);
+      }
 
       item.media = item.media || {};
       item.media.image = [...existingImages, ...uploadedImages];
