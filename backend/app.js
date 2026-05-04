@@ -1,6 +1,9 @@
 import express from "express";
 import cors from "cors";
 import bcrypt from "bcryptjs";
+import fs from "fs/promises";
+import path from "path";
+import { firebaseBucket, isFirebaseReady } from "./config/firebase.js";
 import Admin from "./models/admin.model.js";
 import connectDB from "./config/db.js";
 
@@ -71,14 +74,52 @@ app.use((req, res, next) => {
   return next();
 });
 app.use(express.json());
-app.use("/uploads", express.static("uploads"));
+// Serve uploads: prefer local files, otherwise try Firebase Storage and redirect.
+app.use("/uploads", async (req, res, next) => {
+  try {
+    const requestedPath = req.path.replace(/^\/+/, "");
 
-// Fallback for missing uploads - return 404 with helpful message
-app.use("/uploads", (req, res) => {
-  res.status(404).json({
-    success: false,
-    message: "File not found. Use Firebase Storage URLs or upload a new file.",
-  });
+    // 1) Check local uploads directory
+    const localFilePath = path.join(process.cwd(), "uploads", requestedPath);
+    try {
+      const stat = await fs.stat(localFilePath);
+      if (stat && stat.isFile()) {
+        return res.sendFile(localFilePath);
+      }
+    } catch (err) {
+      // local file not found; continue to Firebase check
+    }
+
+    // 2) If Firebase is configured, attempt to locate the file in common folders
+    if (isFirebaseReady && firebaseBucket) {
+      const candidates = [requestedPath, `uploads/${requestedPath}`, `products/${requestedPath}`];
+
+      for (const dest of candidates) {
+        try {
+          const file = firebaseBucket.file(dest);
+          const [exists] = await file.exists();
+          if (exists) {
+            const encoded = dest
+              .split("/")
+              .map((s) => encodeURIComponent(s))
+              .join("/");
+            const publicUrl = `https://storage.googleapis.com/${firebaseBucket.name}/${encoded}`;
+            return res.redirect(publicUrl);
+          }
+        } catch (err) {
+          console.error("Error checking firebase file:", err?.message || err);
+        }
+      }
+    }
+
+    // 3) Not found locally or in Firebase
+    return res.status(404).json({
+      success: false,
+      message: "File not found. Use Firebase Storage URLs or upload a new file.",
+    });
+  } catch (err) {
+    return next(err);
+  }
 });
 
 // Routes
