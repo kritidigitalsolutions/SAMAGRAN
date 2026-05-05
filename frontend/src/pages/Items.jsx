@@ -9,8 +9,6 @@ const apiOrigin = (API.defaults.baseURL || "http://localhost:8000/api").replace(
   "",
 );
 
-const brokenUploadPlaceholder = "/panel-logo.jpeg";
-
 const buildItemForm = () => ({
   title: "",
   description: "",
@@ -47,16 +45,7 @@ const buildItemForm = () => ({
 const formatImageUrl = (path) => {
   if (!path) return "";
   if (/^https?:\/\//i.test(path)) return path;
-
-  const normalizedPath = path.replace(/\\/g, "/").replace(/^\/+/, "");
-
-  if (normalizedPath.startsWith("uploads/")) {
-    return apiOrigin.includes("localhost")
-      ? `${apiOrigin}/${normalizedPath}`
-      : brokenUploadPlaceholder;
-  }
-
-  return `${apiOrigin}/${normalizedPath}`;
+  return `${apiOrigin}/${path.replace(/\\/g, "/").replace(/^\/+/, "")}`;
 };
 
 const formatCurrency = (value, currency = "INR") =>

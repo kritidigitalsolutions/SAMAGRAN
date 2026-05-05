@@ -87,32 +87,6 @@ const assignDetailsPayload = (item, body = {}) => {
   });
 };
 
-const uploadImagesSafely = async (files = []) => {
-  if (!Array.isArray(files) || !files.length) {
-    return { urls: [], errors: [] };
-  }
-
-  const results = await Promise.allSettled(
-    files.map((file) => uploadFileToFirebase(file, { folder: "products" }))
-  );
-
-  const urls = [];
-  const errors = [];
-
-  results.forEach((result) => {
-    if (result.status === "fulfilled" && result.value) {
-      urls.push(result.value);
-      return;
-    }
-
-    if (result.status === "rejected") {
-      errors.push(result.reason?.message || "Image upload failed");
-    }
-  });
-
-  return { urls, errors };
-};
-
 export const addProduct = async (req, res) => {
   try {
     const {
@@ -142,13 +116,11 @@ export const addProduct = async (req, res) => {
       });
     }
 
-    const { urls: imageUrls, errors: uploadErrors } = await uploadImagesSafely(
-      req.files || []
-    );
-
-    if (uploadErrors.length) {
-      console.error("IMAGE UPLOAD WARNINGS:", uploadErrors);
-    }
+    const imageUrls = req.files?.length
+      ? await Promise.all(
+          req.files.map((file) => uploadFileToFirebase(file, { folder: "products" }))
+        )
+      : [];
 
     const item = await Item.create({
       title,
@@ -191,10 +163,9 @@ export const addProduct = async (req, res) => {
       item,
     });
   } catch (error) {
-    console.error("ADD PRODUCT ERROR:", error);
     res.status(500).json({
       success: false,
-      message: error.message || "Failed to add product",
+      message: error.message,
     });
   }
 };
@@ -487,13 +458,13 @@ export const updateProduct = async (req, res) => {
 
     if (hasExistingImages || hasNewUploads) {
       const existingImages = parseExistingImages(req.body.existingImages);
-      const { urls: uploadedImages, errors: uploadErrors } = hasNewUploads
-        ? await uploadImagesSafely(req.files)
-        : { urls: [], errors: [] };
-
-      if (uploadErrors.length) {
-        console.error("IMAGE UPDATE WARNINGS:", uploadErrors);
-      }
+      const uploadedImages = hasNewUploads
+        ? await Promise.all(
+            req.files.map((file) =>
+              uploadFileToFirebase(file, { folder: "products" })
+            )
+          )
+        : [];
 
       item.media = item.media || {};
       item.media.image = [...existingImages, ...uploadedImages];

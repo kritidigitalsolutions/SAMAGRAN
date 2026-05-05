@@ -1,13 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import API from "../api/axios";
-import { FiSearch, FiSend, FiX } from "react-icons/fi";
+import { FiCheck, FiSearch, FiSend, FiTrash2, FiX } from "react-icons/fi";
 
 const EMPTY_FORM = {
   target: "all-users",
   userId: "",
   title: "",
   body: "",
-  data: "{}",
 };
 
 export default function Notifications() {
@@ -18,6 +17,9 @@ export default function Notifications() {
   const [loadingHistory, setLoadingHistory] = useState(true);
   const [sending, setSending] = useState(false);
   const [history, setHistory] = useState([]);
+  const [inbox, setInbox] = useState([]);
+  const [inboxStatus, setInboxStatus] = useState("all");
+  const [loadingInbox, setLoadingInbox] = useState(true);
   const [selectedUser, setSelectedUser] = useState(null);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -48,6 +50,20 @@ export default function Notifications() {
     }
   }, []);
 
+  const fetchInbox = useCallback(async (status = "all") => {
+    try {
+      setLoadingInbox(true);
+      const res = await API.get("/admin/notifications/inbox", {
+        params: { status },
+      });
+      setInbox(res.data?.data || []);
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to load admin notifications.");
+    } finally {
+      setLoadingInbox(false);
+    }
+  }, []);
+
   useEffect(() => {
     fetchUsers(userSearch);
   }, [fetchUsers, userSearch]);
@@ -55,6 +71,10 @@ export default function Notifications() {
   useEffect(() => {
     fetchHistory();
   }, [fetchHistory]);
+
+  useEffect(() => {
+    fetchInbox(inboxStatus);
+  }, [fetchInbox, inboxStatus]);
 
   const summary = useMemo(() => {
     return {
@@ -86,16 +106,6 @@ export default function Notifications() {
       return;
     }
 
-    let parsedData = {};
-    if (form.data.trim()) {
-      try {
-        parsedData = JSON.parse(form.data);
-      } catch {
-        setError("Data must be valid JSON.");
-        return;
-      }
-    }
-
     if (form.target === "user" && !form.userId.trim()) {
       setError("Please select a user first.");
       return;
@@ -111,13 +121,13 @@ export default function Notifications() {
         userIds: form.target === "user" ? [form.userId.trim()] : [],
         title: form.title.trim(),
         body: form.body.trim(),
-        data: parsedData,
       });
 
       setSuccess("Notification sent successfully.");
       setForm(EMPTY_FORM);
       setSelectedUser(null);
       await fetchHistory();
+      await fetchInbox(inboxStatus);
     } catch (err) {
       setError(err.response?.data?.message || "Unable to send notification.");
     } finally {
@@ -180,12 +190,6 @@ export default function Notifications() {
               Message
               <textarea name="body" value={form.body} onChange={handleChange} rows={4} className="rounded-xl border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] px-3 py-3 outline-none" placeholder="Notification body" />
             </label>
-
-            <label className="grid gap-2 text-sm font-medium text-[var(--admin-text)]">
-              Custom data JSON
-              <textarea name="data" value={form.data} onChange={handleChange} rows={4} className="font-mono rounded-xl border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] px-3 py-3 text-sm outline-none" />
-            </label>
-
             {form.target === "user" && (
               <div className="rounded-2xl border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] p-4">
                 <div className="mb-3 flex items-center gap-2 rounded-xl border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 py-2">
@@ -238,7 +242,7 @@ export default function Notifications() {
           </div>
         </form>
 
-        <section className="rounded-[30px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-6 shadow-[var(--admin-shadow)]">
+        <section className="rounded-[30px] overflow-auto h-86 border border-[var(--admin-border)] bg-[var(--admin-surface)] p-6 shadow-[var(--admin-shadow)]">
           <div className="mb-4 flex items-center justify-between gap-4">
             <div>
               <p className="text-sm font-semibold uppercase tracking-[0.32em] text-[var(--admin-primary)]">History</p>
@@ -274,6 +278,92 @@ export default function Notifications() {
             <p className="rounded-2xl bg-[var(--admin-surface-soft)] p-4 text-sm text-[var(--admin-muted)]">No notifications have been sent yet.</p>
           )}
         </section>
+      </section>
+
+      <section className="rounded-[30px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-6 shadow-[var(--admin-shadow)]">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-[0.32em] text-[var(--admin-primary)]">Inbox</p>
+            <h3 className="mt-2 text-xl font-bold text-[#2f1618] dark:text-[#fff3dc]">Admin notifications</h3>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <select
+              value={inboxStatus}
+              onChange={(event) => setInboxStatus(event.target.value)}
+              className="h-10 rounded-xl border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] px-3 text-sm outline-none"
+            >
+              <option value="all">All</option>
+              <option value="unread">Unseen</option>
+              <option value="read">Seen</option>
+            </select>
+            <button
+              type="button"
+              onClick={async () => {
+                await API.delete("/admin/notifications/clear");
+                fetchInbox(inboxStatus);
+              }}
+              className="h-10 rounded-xl border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] px-3 text-sm font-semibold text-[var(--admin-primary)]"
+            >
+              Clear all
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-4">
+          {loadingInbox ? (
+            <p className="rounded-2xl bg-[var(--admin-surface-soft)] p-4 text-sm">Loading notifications...</p>
+          ) : inbox.length ? (
+            <div className="space-y-3">
+              {inbox.map((entry) => (
+                <article key={entry._id} className="rounded-2xl border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h4 className="font-semibold text-[var(--admin-text)]">{entry.title}</h4>
+                      <p className="mt-1 text-sm text-[var(--admin-muted)]">{entry.body}</p>
+                      <p className="mt-2 text-xs text-[var(--admin-muted)]">
+                        {entry.createdAt ? new Date(entry.createdAt).toLocaleString() : ""}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {!entry.isRead && (
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            await API.patch(`/admin/notifications/${entry._id}/read`);
+                            setInbox((current) =>
+                              current.map((item) =>
+                                item._id === entry._id ? { ...item, isRead: true } : item
+                              )
+                            );
+                            fetchInbox(inboxStatus);
+                          }}
+                          className="grid h-9 w-9 place-items-center rounded-full border border-emerald-200 text-emerald-600"
+                          aria-label="Mark as read"
+                        >
+                          <FiCheck />
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          await API.delete(`/admin/notifications/${entry._id}`);
+                          setInbox((current) => current.filter((item) => item._id !== entry._id));
+                          fetchInbox(inboxStatus);
+                        }}
+                        className="grid h-9 w-9 place-items-center rounded-full border border-red-200 text-red-600"
+                        aria-label="Delete"
+                      >
+                        <FiTrash2 />
+                      </button>
+                    </div>
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <p className="rounded-2xl bg-[var(--admin-surface-soft)] p-4 text-sm text-[var(--admin-muted)]">No notifications found.</p>
+          )}
+        </div>
       </section>
     </div>
   );

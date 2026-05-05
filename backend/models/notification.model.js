@@ -20,6 +20,14 @@ const notificationSchema = new mongoose.Schema(
     title: { type: String, trim: true, default: "" },
     body: { type: String, trim: true, default: "" },
     data: { type: mongoose.Schema.Types.Mixed, default: {} },
+    readBy: {
+      type: [mongoose.Schema.Types.ObjectId],
+      default: [],
+    },
+    deletedBy: {
+      type: [mongoose.Schema.Types.ObjectId],
+      default: [],
+    },
     audience: {
       type: notificationRecipientSchema,
       default: () => ({ type: "user", ids: [] }),

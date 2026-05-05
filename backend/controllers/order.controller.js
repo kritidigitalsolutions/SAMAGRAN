@@ -148,6 +148,7 @@ const resolveDiscountsAndWallet = async ({
   let couponDiscount = 0;
   let offerDiscount = 0;
   let cashbackAmount = 0;
+  
   let walletUsed = 0;
 
   if (couponCode) {

@@ -1,9 +1,6 @@
 import express from "express";
 import cors from "cors";
 import bcrypt from "bcryptjs";
-import fs from "fs/promises";
-import path from "path";
-import { firebaseBucket, isFirebaseReady } from "./config/firebase.js";
 import Admin from "./models/admin.model.js";
 import connectDB from "./config/db.js";
 
@@ -74,53 +71,7 @@ app.use((req, res, next) => {
   return next();
 });
 app.use(express.json());
-// Serve uploads: prefer local files, otherwise try Firebase Storage and redirect.
-app.use("/uploads", async (req, res, next) => {
-  try {
-    const requestedPath = req.path.replace(/^\/+/, "");
-
-    // 1) Check local uploads directory
-    const localFilePath = path.join(process.cwd(), "uploads", requestedPath);
-    try {
-      const stat = await fs.stat(localFilePath);
-      if (stat && stat.isFile()) {
-        return res.sendFile(localFilePath);
-      }
-    } catch (err) {
-      // local file not found; continue to Firebase check
-    }
-
-    // 2) If Firebase is configured, attempt to locate the file in common folders
-    if (isFirebaseReady && firebaseBucket) {
-      const candidates = [requestedPath, `uploads/${requestedPath}`, `products/${requestedPath}`];
-
-      for (const dest of candidates) {
-        try {
-          const file = firebaseBucket.file(dest);
-          const [exists] = await file.exists();
-          if (exists) {
-            const encoded = dest
-              .split("/")
-              .map((s) => encodeURIComponent(s))
-              .join("/");
-            const publicUrl = `https://storage.googleapis.com/${firebaseBucket.name}/${encoded}`;
-            return res.redirect(publicUrl);
-          }
-        } catch (err) {
-          console.error("Error checking firebase file:", err?.message || err);
-        }
-      }
-    }
-
-    // 3) Not found locally or in Firebase
-    return res.status(404).json({
-      success: false,
-      message: "File not found. Use Firebase Storage URLs or upload a new file.",
-    });
-  } catch (err) {
-    return next(err);
-  }
-});
+app.use("/uploads", express.static("uploads"));
 
 // Routes
 app.get("/", (req, res) => {
@@ -173,6 +124,7 @@ import walletRoutes from "./routes/user/wallet.routes.js";
 import couponRoutes from "./routes/user/coupon.routes.js";
 import offerRoutes from "./routes/user/offer.routes.js";
 import userVideoRoutes from "./routes/user/video.routes.js";
+import userNotificationRoutes from "./routes/user/notification.routes.js";
 
 
 app.use("/api/user/items", userProductRoutes);
@@ -283,6 +235,7 @@ app.use("/api/user/wallet", walletRoutes);
 app.use("/api/user/coupons", couponRoutes);
 app.use("/api/user/offers", offerRoutes);
 app.use("/api/user/video", userVideoRoutes);
+app.use("/api/user/notifications", userNotificationRoutes);
 
 // user get all kit for user
 app.use("/api/user-kits", userKit);

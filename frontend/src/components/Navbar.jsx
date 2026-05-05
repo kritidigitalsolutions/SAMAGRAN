@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import ThemeToggle from "./ThemeToggle";
 import { useNavigate } from "react-router-dom";
 import API from "../api/axios";
 import { clearAdminSession, getStoredAdmin, setStoredAdmin } from "../utils/auth";
+import { FiBell, FiCheck, FiTrash2 } from "react-icons/fi";
 
 function ChevronIcon() {
   return (
@@ -22,6 +23,11 @@ export default function Navbar({ onMenuClick, onToggleSidebar, sidebarCollapsed 
   const navigate = useNavigate();
   const [admin, setAdmin] = useState(() => getStoredAdmin());
   const [profileOpen, setProfileOpen] = useState(false);
+  const [bellOpen, setBellOpen] = useState(false);
+  const [notifLoading, setNotifLoading] = useState(true);
+  const [notifError, setNotifError] = useState("");
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
     let isMounted = true;
@@ -40,7 +46,25 @@ export default function Navbar({ onMenuClick, onToggleSidebar, sidebarCollapsed 
       }
     };
 
+    const fetchBell = async () => {
+      try {
+        setNotifLoading(true);
+        const [countRes, listRes] = await Promise.all([
+          API.get("/admin/notifications/unread-count"),
+          API.get("/admin/notifications/inbox", { params: { status: "unread", limit: 5 } }),
+        ]);
+        setUnreadCount(Number(countRes.data?.count || 0));
+        setNotifications(listRes.data?.data || []);
+        setNotifError("");
+      } catch (error) {
+        setNotifError(error.response?.data?.message || "Unable to load notifications");
+      } finally {
+        setNotifLoading(false);
+      }
+    };
+
     fetchAdmin();
+    fetchBell();
 
     return () => {
       isMounted = false;
@@ -61,6 +85,35 @@ export default function Navbar({ onMenuClick, onToggleSidebar, sidebarCollapsed 
     setProfileOpen(false);
     navigate("/", { replace: true });
   };
+
+  const markBellRead = async (id) => {
+    try {
+      await API.patch(`/admin/notifications/${id}/read`);
+      setNotifications((prev) => prev.filter((item) => item._id !== id));
+      setUnreadCount((prev) => Math.max(prev - 1, 0));
+    } catch (error) {
+      setNotifError(error.response?.data?.message || "Unable to update notification");
+    }
+  };
+
+  const deleteBellItem = async (id) => {
+    try {
+      await API.delete(`/admin/notifications/${id}`);
+      setNotifications((prev) => prev.filter((item) => item._id !== id));
+      setUnreadCount((prev) => Math.max(prev - 1, 0));
+    } catch (error) {
+      setNotifError(error.response?.data?.message || "Unable to delete notification");
+    }
+  };
+
+  const bellSummary = useMemo(() => {
+    return notifications.map((item) => ({
+      id: item._id,
+      title: item.title || "Notification",
+      body: item.body || "",
+      createdAt: item.createdAt,
+    }));
+  }, [notifications]);
 
   return (
     <div className="sticky top-0 z-20 border-b border-[var(--admin-border)] bg-[var(--admin-surface)]/95 px-4 py-3 backdrop-blur-md">
@@ -98,6 +151,80 @@ export default function Navbar({ onMenuClick, onToggleSidebar, sidebarCollapsed 
 
         <div className="flex items-center gap-3 self-start md:self-auto">
           <ThemeToggle />
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setBellOpen((open) => !open)}
+              className="relative grid h-11 w-11 place-items-center rounded-full border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] text-[var(--admin-primary)]"
+              aria-label="Notifications"
+            >
+              <FiBell />
+              {unreadCount > 0 && (
+                <span className="absolute -right-1 -top-1 min-w-[1.25rem] rounded-full bg-[#ca1755] px-1.5 py-0.5 text-[10px] font-semibold text-white">
+                  {unreadCount > 99 ? "99+" : unreadCount}
+                </span>
+              )}
+            </button>
+
+            {bellOpen && (
+              <div className="absolute right-0 mt-3 w-80 overflow-hidden rounded-2xl border border-[var(--admin-border)] bg-[var(--admin-surface)] p-3 shadow-[var(--admin-shadow)]">
+                <div className="mb-2 flex items-center justify-between">
+                  <p className="text-sm font-semibold text-[var(--admin-text)]">Unread notifications</p>
+                  <button
+                    type="button"
+                    onClick={() => navigate("/dashboard/notifications")}
+                    className="text-xs font-semibold text-[var(--admin-primary)]"
+                  >
+                    View all
+                  </button>
+                </div>
+
+                {notifLoading ? (
+                  <p className="rounded-xl bg-[var(--admin-surface-soft)] p-3 text-xs text-[var(--admin-muted)]">Loading...</p>
+                ) : notifError ? (
+                  <p className="rounded-xl bg-red-50 p-3 text-xs text-red-600 dark:bg-red-500/10 dark:text-red-200">{notifError}</p>
+                ) : bellSummary.length ? (
+                  <div className="space-y-2">
+                    {bellSummary.map((item) => (
+                      <div key={item.id} className="rounded-xl border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] p-3">
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <p className="text-sm font-semibold text-[var(--admin-text)]">{item.title}</p>
+                            {item.body && (
+                              <p className="mt-1 text-xs text-[var(--admin-muted)]">{item.body}</p>
+                            )}
+                            <p className="mt-2 text-[10px] text-[var(--admin-muted)]">
+                              {item.createdAt ? new Date(item.createdAt).toLocaleString() : ""}
+                            </p>
+                          </div>
+                          <div className="flex flex-col gap-2">
+                            <button
+                              type="button"
+                              onClick={() => markBellRead(item.id)}
+                              className="grid h-7 w-7 place-items-center rounded-full border border-emerald-200 text-emerald-600"
+                              aria-label="Mark as read"
+                            >
+                              <FiCheck className="text-xs" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => deleteBellItem(item.id)}
+                              className="grid h-7 w-7 place-items-center rounded-full border border-red-200 text-red-600"
+                              aria-label="Delete"
+                            >
+                              <FiTrash2 className="text-xs" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="rounded-xl bg-[var(--admin-surface-soft)] p-3 text-xs text-[var(--admin-muted)]">No new notifications.</p>
+                )}
+              </div>
+            )}
+          </div>
           <div className="relative">
             <button
               onClick={() => setProfileOpen((open) => !open)}
