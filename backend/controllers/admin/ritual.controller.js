@@ -4,6 +4,12 @@ import { uploadFileToFirebase } from "../../utils/firebaseUpload.js";
 
 const normalizeName = (value = "") => String(value || "").trim().toLowerCase();
 
+const sanitizeCustomSamagriNotes = (notes = []) => {
+  if (!Array.isArray(notes)) return [];
+
+  return notes.map((note) => String(note || "").trim()).filter(Boolean);
+};
+
 const sanitizeCustomSamagriItems = (items = []) => {
   if (!Array.isArray(items)) return [];
 
@@ -244,14 +250,16 @@ export const getPendingCustomSamagriItems = async (req, res) => {
         const pendingItems = sanitizeCustomSamagriItems(offering.customSamagriItems || []).filter(
           (item) => item.approvalStatus === "pending"
         );
+        const customSamagriNotes = sanitizeCustomSamagriNotes(offering.customSamagriNotes || []);
 
-        if (pendingItems.length > 0) {
+        if (pendingItems.length > 0 || customSamagriNotes.length > 0) {
           data.push({
             panditId: pandit._id,
             panditName: pandit.fullName || "",
             panditPhone: pandit.phone || "",
             ritualId: ritualMap.get(normalizeName(offering.name)) || null,
             ritualName: offering.name || "",
+            customSamagriNotes,
             customSamagriItems: pendingItems,
           });
         }

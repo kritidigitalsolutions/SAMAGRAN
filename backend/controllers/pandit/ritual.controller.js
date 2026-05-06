@@ -5,6 +5,46 @@ import { notifyAdmins } from "../../utils/notification.service.js";
 
 const normalizeName = (value = "") => String(value || "").trim().toLowerCase();
 
+const normalizeNotesInput = (notes) => {
+  if (Array.isArray(notes)) {
+    return notes;
+  }
+
+  if (typeof notes === "string") {
+    return [notes];
+  }
+
+  return [];
+};
+
+const sanitizeCustomSamagriNotes = (notes = []) => {
+  if (!Array.isArray(notes)) {
+    return [];
+  }
+
+  return notes.map((note) => String(note || "").trim()).filter(Boolean);
+};
+
+const mergeCustomSamagriNotes = (existing = [], incoming = []) => {
+  const result = [];
+  const seen = new Set();
+
+  const addNote = (note) => {
+    const normalized = normalizeName(note);
+    if (!normalized || seen.has(normalized)) {
+      return;
+    }
+
+    seen.add(normalized);
+    result.push(note);
+  };
+
+  sanitizeCustomSamagriNotes(existing).forEach(addNote);
+  sanitizeCustomSamagriNotes(incoming).forEach(addNote);
+
+  return result;
+};
+
 const toCustomSamagriItem = (item = {}) => ({
   ...(item._id ? { _id: item._id } : {}),
   itemName: String(item.itemName || item.name || "").trim(),
@@ -47,6 +87,7 @@ const toOfferingFromRitual = ({ ritual, existingOffering = null }) => ({
   customSamagri: existingOffering
     ? Boolean(existingOffering.customSamagri)
     : Boolean(ritual.customSamagri),
+  customSamagriNotes: sanitizeCustomSamagriNotes(existingOffering?.customSamagriNotes || []),
   customSamagriItems: sanitizeCustomSamagriItems(existingOffering?.customSamagriItems || []),
 });
 
@@ -63,6 +104,7 @@ const buildRitualPayload = ({ ritual, linkedOffering }) => ({
   customSamagri: linkedOffering
     ? Boolean(linkedOffering.customSamagri)
     : Boolean(ritual.customSamagri),
+  customSamagriNotes: sanitizeCustomSamagriNotes(linkedOffering?.customSamagriNotes || []),
   customSamagriItems: sanitizeCustomSamagriItems(linkedOffering?.customSamagriItems || []),
 });
 
@@ -96,45 +138,72 @@ const getRitualAndPanditOfferingContext = async ({ panditId, ritualId }) => {
   };
 };
 
-export const getAllRitualsForPandit = async (req, res) => {
+// export const getAllRitualsForPandit = async (req, res) => {
+//   try {
+//     const { search = "" } = req.query;
+
+//     const filter = { status: "active" };
+
+//     if (String(search || "").trim()) {
+//       const regex = { $regex: String(search).trim(), $options: "i" };
+//       filter.$or = [{ title: regex }, { description: regex }];
+//     }
+
+//     const rituals = await Ritual.find(filter).sort({ createdAt: -1 }).lean();
+
+//     const pandit = await Pandit.findById(req.pandit._id).select("poojaOfferings").lean();
+//     const offerings = Array.isArray(pandit?.poojaOfferings) ? pandit.poojaOfferings : [];
+
+//     const offeringsMap = new Map(
+//       offerings.map((offering) => [normalizeName(offering.name), offering])
+//     );
+
+//     const data = rituals.map((ritual) => {
+//       const linkedOffering = offeringsMap.get(normalizeName(ritual.title));
+
+//       return buildRitualPayload({ ritual, linkedOffering });
+//     });
+
+//     return res.json({
+//       success: true,
+//       count: data.length,
+//       data,
+//     });
+//   } catch (err) {
+//     return res.status(500).json({
+//       success: false,
+//       message: err.message || "Unable to load rituals",
+//     });
+//   }
+// };
+export const getRitualsForBooking = async (req, res) => {
   try {
-    const { search = "" } = req.query;
+    const rituals = await Ritual.find({ status: "active" }).sort({ createdAt: -1 });
 
-    const filter = { status: "active" };
+    const data = rituals.map((ritual) => ({
+      _id: ritual._id,
+      title: ritual.title,
+      name: ritual.title,
+      description: ritual.description || buildRitualDescription(ritual.title),
+      image: ritual.image || "",
+      durationHours: Number(ritual.durationHours || 2),
+      travelForSpecialPooja: Boolean(ritual.travelForSpecialPooja),
+      standardSamagri: Boolean(ritual.standardSamagri),
+      customSamagri: Boolean(ritual.customSamagri),
+    }));
 
-    if (String(search || "").trim()) {
-      const regex = { $regex: String(search).trim(), $options: "i" };
-      filter.$or = [{ title: regex }, { description: regex }];
-    }
-
-    const rituals = await Ritual.find(filter).sort({ createdAt: -1 }).lean();
-
-    const pandit = await Pandit.findById(req.pandit._id).select("poojaOfferings").lean();
-    const offerings = Array.isArray(pandit?.poojaOfferings) ? pandit.poojaOfferings : [];
-
-    const offeringsMap = new Map(
-      offerings.map((offering) => [normalizeName(offering.name), offering])
-    );
-
-    const data = rituals.map((ritual) => {
-      const linkedOffering = offeringsMap.get(normalizeName(ritual.title));
-
-      return buildRitualPayload({ ritual, linkedOffering });
-    });
-
-    return res.json({
+    res.json({
       success: true,
       count: data.length,
       data,
     });
   } catch (err) {
-    return res.status(500).json({
+    res.status(500).json({
       success: false,
       message: err.message || "Unable to load rituals",
     });
   }
 };
-
 export const getMyRitualsForPandit = async (req, res) => {
   try {
     const rituals = await Ritual.find({ status: "active" }).sort({ createdAt: -1 }).lean();
@@ -178,6 +247,7 @@ export const addRitualForPandit = async (req, res) => {
       standardSamagri = false,
       customSamagri = false,
       customSamagriItems = [],
+      customSamagriNotes = [],
       isSelected = true,
     } = req.body;
 
@@ -271,6 +341,13 @@ export const addRitualForPandit = async (req, res) => {
               (existingIndex >= 0 && pandit.poojaOfferings[existingIndex]?.customSamagri) ||
                 ritual.customSamagri
             ),
+      customSamagriNotes:
+        customSamagriNotes !== undefined
+          ? sanitizeCustomSamagriNotes(normalizeNotesInput(customSamagriNotes))
+          : sanitizeCustomSamagriNotes(
+              (existingIndex >= 0 && pandit.poojaOfferings[existingIndex]?.customSamagriNotes) ||
+                []
+            ),
       customSamagriItems:
         customSamagriItems !== undefined
           ? sanitizeCustomSamagriItems(customSamagriItems)
@@ -307,7 +384,13 @@ export const addRitualForPandit = async (req, res) => {
 export const addCustomSamagriToPanditRitual = async (req, res) => {
   try {
     const { ritualId } = req.params;
-    const { itemName, quantity = 1, size = "" } = req.body || {};
+    const {
+      itemName,
+      quantity = 1,
+      size = "",
+      customSamagriNotes,
+      customSamagriNote = "",
+    } = req.body || {};
 
     const finalItemName = String(itemName || "").trim();
     if (!finalItemName) {
@@ -332,6 +415,9 @@ export const addCustomSamagriToPanditRitual = async (req, res) => {
     };
 
     const items = sanitizeCustomSamagriItems(baseOffering.customSamagriItems || []);
+    const incomingNotes = sanitizeCustomSamagriNotes(
+      normalizeNotesInput(customSamagriNotes).concat(customSamagriNote)
+    );
     const normalizedName = normalizeName(finalItemName);
     const existingItemIndex = items.findIndex((item) => normalizeName(item.itemName) === normalizedName);
 
@@ -351,6 +437,12 @@ export const addCustomSamagriToPanditRitual = async (req, res) => {
     }
 
     baseOffering.customSamagriItems = items;
+    if (incomingNotes.length > 0) {
+      baseOffering.customSamagriNotes = mergeCustomSamagriNotes(
+        baseOffering.customSamagriNotes || [],
+        incomingNotes
+      );
+    }
 
     if (offeringIndex >= 0) {
       pandit.poojaOfferings[offeringIndex] = baseOffering;
@@ -378,6 +470,7 @@ export const addCustomSamagriToPanditRitual = async (req, res) => {
       data: {
         ritualId: ritual._id,
         ritualName: ritual.title,
+        customSamagriNotes: baseOffering.customSamagriNotes || [],
         customSamagriItems: baseOffering.customSamagriItems,
       },
     });
@@ -402,6 +495,7 @@ export const getCustomSamagriToPanditRitual = async (req, res) => {
 
     const currentOffering = offeringIndex >= 0 ? pandit.poojaOfferings[offeringIndex] : null;
     const customSamagriItems = sanitizeCustomSamagriItems(currentOffering?.customSamagriItems || []);
+    const customSamagriNotes = sanitizeCustomSamagriNotes(currentOffering?.customSamagriNotes || []);
 
     return res.json({
       success: true,
@@ -409,6 +503,7 @@ export const getCustomSamagriToPanditRitual = async (req, res) => {
         ritualId: ritual._id,
         ritualName: ritual.title,
         customSamagri: Boolean(currentOffering?.customSamagri || ritual.customSamagri),
+        customSamagriNotes,
         customSamagriItems,
       },
     });

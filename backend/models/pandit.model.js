@@ -78,6 +78,10 @@ const poojaOfferingSchema = new mongoose.Schema(
     travelForSpecialPooja: { type: Boolean, default: false },
     standardSamagri: { type: Boolean, default: false },
     customSamagri: { type: Boolean, default: false },
+    customSamagriNotes: {
+      type: [String],
+      default: [],
+    },
     customSamagriItems: {
       type: [customSamagriItemSchema],
       default: [],

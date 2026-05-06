@@ -1,6 +1,5 @@
 import Coupon from "../models/coupon.model.js";
 import Order from "../models/order.model.js";
-import { notifyAdmins } from "../utils/notification.service.js";
 
 const toMoney = (value) => {
   const parsed = Number(value || 0);
@@ -73,17 +72,6 @@ export const applyCoupon = async (req, res) => {
     }
 
     const discount = computeDiscount({ amount: orderAmount, coupon });
-
-    void notifyAdmins({
-      title: "Coupon redeemed",
-      body: `${req.user?.name || req.user?.phone || "A user"} applied coupon ${coupon.code}`,
-      data: {
-        eventType: "coupon.redeemed",
-        couponCode: coupon.code,
-        userId: String(req.user?._id || ""),
-        discount,
-      },
-    }).catch((error) => console.error("COUPON NOTIFICATION ERROR:", error.message));
 
     return res.json({
       success: true,

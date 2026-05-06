@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import ThemeToggle from "./ThemeToggle";
 import { useNavigate } from "react-router-dom";
 import API from "../api/axios";
@@ -28,6 +28,8 @@ export default function Navbar({ onMenuClick, onToggleSidebar, sidebarCollapsed 
   const [notifError, setNotifError] = useState("");
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const bellRef = useRef(null);
+  const profileRef = useRef(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -71,6 +73,21 @@ export default function Navbar({ onMenuClick, onToggleSidebar, sidebarCollapsed 
     };
   }, []);
 
+  useEffect(() => {
+    const handleOutsideClick = (event) => {
+      if (bellRef.current && !bellRef.current.contains(event.target)) {
+        setBellOpen(false);
+      }
+
+      if (profileRef.current && !profileRef.current.contains(event.target)) {
+        setProfileOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
+  }, []);
+
   const adminName = admin?.name || admin?.email?.split("@")[0] || "Admin";
   const adminInitials = adminName
     .split(" ")
@@ -104,6 +121,12 @@ export default function Navbar({ onMenuClick, onToggleSidebar, sidebarCollapsed 
     } catch (error) {
       setNotifError(error.response?.data?.message || "Unable to delete notification");
     }
+  };
+
+  const handleBellItemOpen = async (id) => {
+    await markBellRead(id);
+    setBellOpen(false);
+    navigate("/dashboard/notifications");
   };
 
   const bellSummary = useMemo(() => {
@@ -151,7 +174,12 @@ export default function Navbar({ onMenuClick, onToggleSidebar, sidebarCollapsed 
 
         <div className="flex items-center gap-3 self-start md:self-auto">
           <ThemeToggle />
-          <div className="relative">
+          <div
+            className="relative"
+            ref={bellRef}
+            onMouseEnter={() => setBellOpen(true)}
+            onMouseLeave={() => setBellOpen(false)}
+          >
             <button
               type="button"
               onClick={() => setBellOpen((open) => !open)}
@@ -186,7 +214,12 @@ export default function Navbar({ onMenuClick, onToggleSidebar, sidebarCollapsed 
                 ) : bellSummary.length ? (
                   <div className="space-y-2">
                     {bellSummary.map((item) => (
-                      <div key={item.id} className="rounded-xl border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] p-3">
+                      <button
+                        type="button"
+                        key={item.id}
+                        onClick={() => handleBellItemOpen(item.id)}
+                        className="w-full rounded-xl border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] p-3 text-left transition hover:border-[var(--admin-primary)]/50 hover:bg-[var(--admin-surface)]"
+                      >
                         <div className="flex items-start justify-between gap-2">
                           <div>
                             <p className="text-sm font-semibold text-[var(--admin-text)]">{item.title}</p>
@@ -200,7 +233,10 @@ export default function Navbar({ onMenuClick, onToggleSidebar, sidebarCollapsed 
                           <div className="flex flex-col gap-2">
                             <button
                               type="button"
-                              onClick={() => markBellRead(item.id)}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                markBellRead(item.id);
+                              }}
                               className="grid h-7 w-7 place-items-center rounded-full border border-emerald-200 text-emerald-600"
                               aria-label="Mark as read"
                             >
@@ -208,7 +244,10 @@ export default function Navbar({ onMenuClick, onToggleSidebar, sidebarCollapsed 
                             </button>
                             <button
                               type="button"
-                              onClick={() => deleteBellItem(item.id)}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                deleteBellItem(item.id);
+                              }}
                               className="grid h-7 w-7 place-items-center rounded-full border border-red-200 text-red-600"
                               aria-label="Delete"
                             >
@@ -216,7 +255,7 @@ export default function Navbar({ onMenuClick, onToggleSidebar, sidebarCollapsed 
                             </button>
                           </div>
                         </div>
-                      </div>
+                      </button>
                     ))}
                   </div>
                 ) : (
@@ -225,7 +264,7 @@ export default function Navbar({ onMenuClick, onToggleSidebar, sidebarCollapsed 
               </div>
             )}
           </div>
-          <div className="relative">
+          <div className="relative" ref={profileRef}>
             <button
               onClick={() => setProfileOpen((open) => !open)}
               className="flex items-center gap-3 rounded-full border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] px-2 py-2 pr-4 text-left shadow-sm transition duration-300 hover:shadow-md"

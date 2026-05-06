@@ -40,6 +40,22 @@ const buildPricingPayload = ({ price, mrp, gstPercent, priceIncludesGst }) => {
   };
 };
 
+const buildDiscountPayload = (body = {}) => {
+  const discountType = body.discountType === "flat" ? "flat" : "percent";
+  const discountValue = toNumber(body.discountValue, 0);
+  const discountIsActive = toBoolean(body.discountIsActive, false);
+  const startsAt = body.discountStartsAt ? new Date(body.discountStartsAt) : null;
+  const expiresAt = body.discountExpiresAt ? new Date(body.discountExpiresAt) : null;
+
+  return {
+    type: discountType,
+    value: discountValue,
+    isActive: discountIsActive,
+    startsAt,
+    expiresAt,
+  };
+};
+
 const parseExistingImages = (value) => {
   if (value === undefined || value === null || value === "") {
     return [];
@@ -107,6 +123,11 @@ export const addProduct = async (req, res) => {
       isMostUsed,
       isEveryDayRitual,
       isRitualItems,
+      discountType,
+      discountValue,
+      discountIsActive,
+      discountStartsAt,
+      discountExpiresAt,
     } = req.body;
 
     if (!title || !price) {
@@ -135,6 +156,13 @@ export const addProduct = async (req, res) => {
         mrp,
         gstPercent,
         priceIncludesGst,
+      }),
+      discount: buildDiscountPayload({
+        discountType,
+        discountValue,
+        discountIsActive,
+        discountStartsAt,
+        discountExpiresAt,
       }),
       compliance: {
         city: String(city || "").trim(),
@@ -320,6 +348,13 @@ export const getSingleProduct = async (req, res) => {
           currency,
           savings,
         },
+        discount: item.discount || {
+          type: "percent",
+          value: 0,
+          isActive: false,
+          startsAt: null,
+          expiresAt: null,
+        },
         compliance: {
           hsnCode: item.compliance?.hsnCode || "",
           city: item.compliance?.city || "",
@@ -385,6 +420,11 @@ export const updateProduct = async (req, res) => {
       isMostUsed,
       isEveryDayRitual,
       isRitualItems,
+      discountType,
+      discountValue,
+      discountIsActive,
+      discountStartsAt,
+      discountExpiresAt,
     } = req.body;
 
     if (title) {
@@ -453,6 +493,22 @@ export const updateProduct = async (req, res) => {
       item.flags.isRitualItems = isRitualItems === "true";
     }
 
+    if (
+      discountType !== undefined ||
+      discountValue !== undefined ||
+      discountIsActive !== undefined ||
+      discountStartsAt !== undefined ||
+      discountExpiresAt !== undefined
+    ) {
+      item.discount = buildDiscountPayload({
+        discountType: discountType ?? item.discount?.type,
+        discountValue: discountValue ?? item.discount?.value,
+        discountIsActive: discountIsActive ?? item.discount?.isActive,
+        discountStartsAt: discountStartsAt ?? item.discount?.startsAt,
+        discountExpiresAt: discountExpiresAt ?? item.discount?.expiresAt,
+      });
+    }
+
     const hasExistingImages = req.body.existingImages !== undefined;
     const hasNewUploads = Boolean(req.files?.length);
 
@@ -501,6 +557,13 @@ export const updateProduct = async (req, res) => {
           discountPercent,
           currency,
           savings,
+        },
+        discount: item.discount || {
+          type: "percent",
+          value: 0,
+          isActive: false,
+          startsAt: null,
+          expiresAt: null,
         },
         compliance: {
           hsnCode: item.compliance?.hsnCode || "",

@@ -192,6 +192,13 @@
   border: 1px dashed #d4af37;
 }
 
+/* HELPER TEXT */
+.helper-text {
+  margin-top: 6px;
+  font-size: 12px;
+  color: #7a5c48;
+}
+
 /* PREVIEW */
 :root:not(.dark) .preview-image {
   border: 1px solid #e2d3bd;

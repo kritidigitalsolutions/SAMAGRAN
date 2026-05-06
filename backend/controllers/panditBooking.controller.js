@@ -405,6 +405,11 @@ export const getPanditBookingProfile = async (req, res) => {
             const raw = JSON.parse(JSON.stringify(pandit.poojaOfferings || []));
             return raw.map((off) => ({
               ...off,
+              customSamagriNotes: Array.isArray(off.customSamagriNotes)
+                ? off.customSamagriNotes
+                    .map((note) => String(note || "").trim())
+                    .filter(Boolean)
+                : [],
               customSamagriItems: Array.isArray(off.customSamagriItems)
                 ? off.customSamagriItems.filter((it) => String(it.approvalStatus) === "approved")
                 : [],

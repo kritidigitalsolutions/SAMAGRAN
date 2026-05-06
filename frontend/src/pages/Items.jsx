@@ -16,6 +16,11 @@ const buildItemForm = () => ({
   mrp: "",
   gstPercent: "",
   priceIncludesGst: true,
+  discountType: "percent",
+  discountValue: "",
+  discountIsActive: false,
+  discountStartsAt: "",
+  discountExpiresAt: "",
   categoryName: "",
   brand: "",
   sku: "",
@@ -73,6 +78,7 @@ const productDetailFields = [
 
 const normalizeItem = (item = {}, fallback = {}) => {
   const pricing = item.pricing || fallback.pricing || {};
+  const discount = item.discount || fallback.discount || {};
   const stock = item.stock || fallback.stock || {};
   const compliance = item.compliance || fallback.compliance || {};
   const details = item.details || fallback.details || {};
@@ -111,6 +117,13 @@ const normalizeItem = (item = {}, fallback = {}) => {
       discountPercent:
         pricing.discountPercent ?? fallback.pricing?.discountPercent ?? 0,
       savings: pricing.savings ?? fallback.pricing?.savings ?? 0,
+    },
+    discount: {
+      type: discount.type ?? "percent",
+      value: discount.value ?? 0,
+      isActive: discount.isActive ?? false,
+      startsAt: discount.startsAt ?? null,
+      expiresAt: discount.expiresAt ?? null,
     },
     oldPrice: pricing.mrp ?? fallback.oldPrice,
     products,
@@ -174,6 +187,15 @@ const buildEditForm = (item = {}) => ({
   mrp: item.pricing?.mrp ?? "",
   gstPercent: item.pricing?.gstPercent ?? "",
   priceIncludesGst: item.pricing?.priceIncludesGst ?? true,
+  discountType: item.discount?.type || "percent",
+  discountValue: item.discount?.value ?? "",
+  discountIsActive: Boolean(item.discount?.isActive),
+  discountStartsAt: item.discount?.startsAt
+    ? String(item.discount.startsAt).slice(0, 10)
+    : "",
+  discountExpiresAt: item.discount?.expiresAt
+    ? String(item.discount.expiresAt).slice(0, 10)
+    : "",
   categoryName: item.category?.name || "",
   brand: item.details?.brand || "",
   sku: item.details?.sku || "",
@@ -460,6 +482,14 @@ const fetchItems = useCallback(async () => {
         formData.append("gstPercent", String(Number(editForm.gstPercent)));
       }
 
+      formData.append("discountType", editForm.discountType || "percent");
+      if (editForm.discountValue !== "") {
+        formData.append("discountValue", String(Number(editForm.discountValue)));
+      }
+      formData.append("discountIsActive", String(editForm.discountIsActive));
+      formData.append("discountStartsAt", editForm.discountStartsAt || "");
+      formData.append("discountExpiresAt", editForm.discountExpiresAt || "");
+
       formData.append("priceIncludesGst", String(editForm.priceIncludesGst));
       formData.append("categoryName", editForm.categoryName || "");
       productDetailFields.forEach((field) => {
@@ -629,6 +659,49 @@ const fetchItems = useCallback(async () => {
             </div>
 
             <div className="form-group">
+              <label>Discount Type</label>
+              <select
+                name="discountType"
+                value={createForm.discountType}
+                onChange={handleCreateChange}
+                className="h-11 rounded-xl border border-[#d7c3a3] bg-white px-3 text-sm text-black outline-none dark:border-white/20 dark:bg-[#181c24] dark:text-white"
+              >
+                <option value="percent">Percent</option>
+                <option value="flat">Flat</option>
+              </select>
+            </div>
+
+            <div className="form-group">
+              <label>Discount Value</label>
+              <input
+                type="number"
+                name="discountValue"
+                value={createForm.discountValue}
+                onChange={handleCreateChange}
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Discount Start</label>
+              <input
+                type="date"
+                name="discountStartsAt"
+                value={createForm.discountStartsAt}
+                onChange={handleCreateChange}
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Discount End</label>
+              <input
+                type="date"
+                name="discountExpiresAt"
+                value={createForm.discountExpiresAt}
+                onChange={handleCreateChange}
+              />
+            </div>
+
+            <div className="form-group">
               <label>GST %</label>
               <input
                 type="number"
@@ -708,6 +781,15 @@ const fetchItems = useCallback(async () => {
             </div>
 
             <div className="items-flags-grid full-width">
+              <label className="item-edit-checkbox">
+                <input
+                  type="checkbox"
+                  name="discountIsActive"
+                  checked={createForm.discountIsActive}
+                  onChange={handleCreateChange}
+                />
+                Discount Active
+              </label>
               <label className="item-edit-checkbox">
                 <input
                   type="checkbox"
@@ -1142,6 +1224,45 @@ const fetchItems = useCallback(async () => {
                 />
               </label>
               <label>
+                Discount Type
+                <select
+                  name="discountType"
+                  value={editForm.discountType}
+                  onChange={handleEditChange}
+                  className="h-11 rounded-xl border border-[#d7c3a3] bg-white px-3 text-sm text-black outline-none dark:border-white/20 dark:bg-[#181c24] dark:text-white"
+                >
+                  <option value="percent">Percent</option>
+                  <option value="flat">Flat</option>
+                </select>
+              </label>
+              <label>
+                Discount Value
+                <input
+                  type="number"
+                  name="discountValue"
+                  value={editForm.discountValue}
+                  onChange={handleEditChange}
+                />
+              </label>
+              <label>
+                Discount Start
+                <input
+                  type="date"
+                  name="discountStartsAt"
+                  value={editForm.discountStartsAt}
+                  onChange={handleEditChange}
+                />
+              </label>
+              <label>
+                Discount End
+                <input
+                  type="date"
+                  name="discountExpiresAt"
+                  value={editForm.discountExpiresAt}
+                  onChange={handleEditChange}
+                />
+              </label>
+              <label>
                 Category
                 <input
                   name="categoryName"
@@ -1258,6 +1379,15 @@ const fetchItems = useCallback(async () => {
             </div>
 
             <div className="items-flags-grid mt-4">
+              <label className="item-edit-checkbox">
+                <input
+                  type="checkbox"
+                  name="discountIsActive"
+                  checked={editForm.discountIsActive}
+                  onChange={handleEditChange}
+                />
+                Discount Active
+              </label>
               <label className="item-edit-checkbox">
                 <input
                   type="checkbox"

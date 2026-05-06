@@ -3,8 +3,10 @@ import Pandit from "../../models/pandit.model.js";
 import PanditOTP from "../../models/panditOtp.model.js";
 import { login } from "../auth.controller.js";
 import { notifyAdmins, updateDeviceToken } from "../../utils/notification.service.js";
+import { uploadFileToFirebase } from "../../utils/firebaseUpload.js";
 
 const validatePhone = (phone) => /^[6-9]\d{9}$/.test(phone);
+const normalizeName = (value = "") => String(value || "").trim().toLowerCase();
 
 const generatePanditToken = (panditId) => {
   return jwt.sign(
@@ -55,6 +57,83 @@ const normalizeLanguages = (languagesInput) => {
   return [];
 };
 
+const normalizeNotesInput = (notes) => {
+  if (Array.isArray(notes)) {
+    return notes;
+  }
+
+  if (typeof notes === "string") {
+    return [notes];
+  }
+
+  return [];
+};
+
+const sanitizeCustomSamagriNotes = (notes = []) => {
+  if (!Array.isArray(notes)) {
+    return [];
+  }
+
+  return notes.map((note) => String(note || "").trim()).filter(Boolean);
+};
+
+const toCustomSamagriItem = (item = {}) => ({
+  ...(item && item._id ? { _id: item._id } : {}),
+  itemName: String(item?.itemName || item?.name || "").trim(),
+  quantity: Math.max(1, Number(item?.quantity || 1)),
+  size: String(item?.size || "").trim(),
+  approvalStatus: ["approved", "rejected"].includes(String(item?.approvalStatus || "").trim())
+    ? String(item.approvalStatus).trim()
+    : "pending",
+  reviewedAt: item?.reviewedAt || null,
+  reviewedBy: String(item?.reviewedBy || "").trim(),
+});
+
+const sanitizeCustomSamagriItems = (items = []) => {
+  if (!Array.isArray(items)) {
+    return [];
+  }
+
+  return items
+    .map(toCustomSamagriItem)
+    .filter((item) => item.itemName);
+};
+
+const normalizePoojaOfferingEntry = (entry) => {
+  if (typeof entry === "string") {
+    return {
+      name: entry.trim(),
+      isSelected: true,
+    };
+  }
+
+  if (!entry || typeof entry !== "object") {
+    return null;
+  }
+
+  const hasNotes = Object.prototype.hasOwnProperty.call(entry, "customSamagriNotes");
+  const hasItems = Object.prototype.hasOwnProperty.call(entry, "customSamagriItems");
+
+  return {
+    name: String(entry?.name || entry?.title || "").trim(),
+    description: String(entry?.description || "").trim(),
+    isSelected:
+      entry?.isSelected !== undefined
+        ? Boolean(entry.isSelected)
+        : true,
+    durationHours: Number(entry?.durationHours || 0),
+    travelForSpecialPooja: Boolean(entry?.travelForSpecialPooja),
+    standardSamagri: Boolean(entry?.standardSamagri),
+    customSamagri: Boolean(entry?.customSamagri),
+    ...(hasNotes
+      ? { customSamagriNotes: sanitizeCustomSamagriNotes(normalizeNotesInput(entry.customSamagriNotes)) }
+      : {}),
+    ...(hasItems
+      ? { customSamagriItems: sanitizeCustomSamagriItems(entry.customSamagriItems) }
+      : {}),
+  };
+};
+
 const normalizePoojaOfferingsInput = (body) => {
   const fromPrimary = parseJsonIfString(body?.poojaOfferings, null);
   const fromAlternate = parseJsonIfString(body?.rituals, null);
@@ -62,31 +141,7 @@ const normalizePoojaOfferingsInput = (body) => {
 
   if (Array.isArray(source)) {
     return source
-      .map((entry) => {
-        if (typeof entry === "string") {
-          return {
-            name: entry.trim(),
-            isSelected: true,
-          };
-        }
-
-        if (!entry || typeof entry !== "object") {
-          return null;
-        }
-
-        return {
-          name: String(entry?.name || entry?.title || "").trim(),
-          description: String(entry?.description || "").trim(),
-          isSelected:
-            entry?.isSelected !== undefined
-              ? Boolean(entry.isSelected)
-              : true,
-          durationHours: Number(entry?.durationHours || 0),
-          travelForSpecialPooja: Boolean(entry?.travelForSpecialPooja),
-          standardSamagri: Boolean(entry?.standardSamagri),
-          customSamagri: Boolean(entry?.customSamagri),
-        };
-      })
+      .map(normalizePoojaOfferingEntry)
       .filter((entry) => entry?.name);
   }
 
@@ -456,23 +511,34 @@ export const updatePanditProfile = async (req, res) => {
     }
 
     if (req.files?.aadhaarFrontImage?.[0]) {
+      const uploadedFrontImage = await uploadFileToFirebase(req.files.aadhaarFrontImage[0], {
+        folder: "pandits/aadhaar",
+      });
       pandit.aadhaar = {
         ...pandit.aadhaar,
-        frontImage: `/uploads/${req.files.aadhaarFrontImage[0].filename}`,
+        frontImage: uploadedFrontImage || pandit.aadhaar?.frontImage,
       };
     }
 
     if (req.files?.aadhaarBackImage?.[0]) {
+      const uploadedBackImage = await uploadFileToFirebase(req.files.aadhaarBackImage[0], {
+        folder: "pandits/aadhaar",
+      });
       pandit.aadhaar = {
         ...pandit.aadhaar,
-        backImage: `/uploads/${req.files.aadhaarBackImage[0].filename}`,
+        backImage: uploadedBackImage || pandit.aadhaar?.backImage,
       };
     }
 
     const profileImageFile =
       req.files?.profileImage?.[0] || req.files?.profile?.[0] || req.files?.avatar?.[0];
     if (profileImageFile) {
-      pandit.profileImage = `/uploads/${profileImageFile.filename}`;
+      const uploadedProfileImage = await uploadFileToFirebase(profileImageFile, {
+        folder: "pandits/profile",
+      });
+      if (uploadedProfileImage) {
+        pandit.profileImage = uploadedProfileImage;
+      }
     }
 
     const parsedServiceTypes = parseJsonIfString(serviceTypes, {});
@@ -531,7 +597,26 @@ export const updatePanditProfile = async (req, res) => {
 
     const parsedPoojaOfferings = normalizePoojaOfferingsInput(body);
     if (Array.isArray(parsedPoojaOfferings) && parsedPoojaOfferings.length > 0) {
-      pandit.poojaOfferings = parsedPoojaOfferings;
+      const existingOfferings = Array.isArray(pandit.poojaOfferings) ? pandit.poojaOfferings : [];
+      const offeringsMap = new Map(
+        existingOfferings.map((offering) => [normalizeName(offering.name), offering])
+      );
+
+      pandit.poojaOfferings = parsedPoojaOfferings.map((offering) => {
+        const existing = offeringsMap.get(normalizeName(offering.name));
+        const existingPayload = existing?.toObject ? existing.toObject() : existing;
+        const merged = { ...(existingPayload || {}), ...offering };
+
+        if (offering.customSamagriNotes === undefined && existingPayload?.customSamagriNotes) {
+          merged.customSamagriNotes = existingPayload.customSamagriNotes;
+        }
+
+        if (offering.customSamagriItems === undefined && existingPayload?.customSamagriItems) {
+          merged.customSamagriItems = existingPayload.customSamagriItems;
+        }
+
+        return merged;
+      });
     } else if (
       poojaOfferings !== undefined ||
       body?.rituals !== undefined ||

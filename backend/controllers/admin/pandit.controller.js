@@ -61,7 +61,7 @@ export const getPanditDetailsForAdmin = async (req, res) => {
 
     const bookings = await PanditBooking.find({ pandit: id })
       .populate("user", "name phone email")
-      .sort({ createdAt: -1 })
+      .sort({ createdAt: -1 }) 
       .lean();
 
     return res.json({

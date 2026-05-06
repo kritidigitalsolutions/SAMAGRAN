@@ -93,6 +93,22 @@ const userSchema = new mongoose.Schema(
       default: null,
     },
 
+    welcomeCouponCode: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+
+    welcomeCouponRedeemed: {
+      type: Boolean,
+      default: false,
+    },
+
+    welcomeCouponAssignedAt: {
+      type: Date,
+      default: null,
+    },
+
     isProfileComplete: {
       type: Boolean,
       default: false,

@@ -102,6 +102,21 @@ export default function CustomSamagri() {
                 </div>
 
                 <div className="space-y-3">
+                  {Array.isArray(group.customSamagriNotes) && group.customSamagriNotes.length > 0 && (
+                    <div className="rounded-xl border border-[var(--admin-border)] bg-[var(--admin-input)] p-3">
+                      <p className="text-xs font-semibold uppercase tracking-[0.12em] text-gray-500 dark:text-gray-400">
+                        Custom Samagri Notes
+                      </p>
+                      <ul className="mt-2 space-y-1 text-sm text-gray-700 dark:text-gray-300">
+                        {group.customSamagriNotes.map((note, idx) => (
+                          <li key={`${group.panditId}-note-${idx}`} className="flex items-start gap-2">
+                            <span className="mt-1 inline-block h-1.5 w-1.5 rounded-full bg-gray-400" />
+                            <span>{note}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                   {(group.customSamagriItems || []).map((item) => (
                     <div
                       key={item._id}

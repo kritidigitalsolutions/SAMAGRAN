@@ -140,6 +140,13 @@ export const getProductsUser = async (req, res) => {
         title: item.title,
         description: item.description || "",
         details: item.details || {},
+        discount: item.discount || {
+          type: "percent",
+          value: 0,
+          isActive: false,
+          startsAt: null,
+          expiresAt: null,
+        },
         price,
         oldPrice: mrp,
         discountPercent,
@@ -222,6 +229,13 @@ export const getSingleProductUser = async (req, res) => {
         title: item.title,
         description: item.description || "",
         details: item.details || {},
+        discount: item.discount || {
+          type: "percent",
+          value: 0,
+          isActive: false,
+          startsAt: null,
+          expiresAt: null,
+        },
         category: item.category?.name,
         pricing: {
           price,

@@ -288,15 +288,27 @@ export default function Pandits() {
 
   return (
     <div className="space-y-4">
-      <section className="rounded-[30px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-6 shadow-[var(--admin-shadow)]">
+      <section className="rounded-[30px]  border border-[var(--admin-border)] bg-[var(--admin-surface)] p-6 shadow-[var(--admin-shadow)]">
+
         <p className="text-sm font-semibold uppercase tracking-[0.32em] text-[var(--admin-primary)]">Pandit Network</p>
         <h2 className="mt-2 text-2xl font-bold text-[#2f1618] dark:text-[#fff3dc]">All Pandits</h2>
+        <div className="relative flex justify-between">
         <div className="mt-4 flex flex-wrap gap-3 text-xs">
           <span className="rounded-full bg-[#8B1E3F]/10 px-3 py-1 font-semibold text-[#6c1b2f] dark:bg-[#D4AF37]/20 dark:text-[#f6dfaf]">Total {summary.total}</span>
           <span className="rounded-full bg-emerald-100 px-3 py-1 font-semibold text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-200">Active {summary.active}</span>
           <span className="rounded-full bg-amber-100 px-3 py-1 font-semibold text-amber-700 dark:bg-amber-500/20 dark:text-amber-200">Pending {summary.pending}</span>
           <span className="rounded-full bg-red-100 px-3 py-1 font-semibold text-red-700 dark:bg-red-500/20 dark:text-red-200">Blocked {summary.blocked}</span>
         </div>
+        <button
+            type="button"
+            onClick={openCreate}
+            className="admin-btn-primary inline-flex items-center gap-2 rounded-2xl px-4 py-2 text-sm font-semibold shadow"
+          >
+            <FiPlus className="h-4 w-4" />
+            Add Pandit
+          </button>
+        </div>
+
       </section>
 
       {(error || success) && (
@@ -395,14 +407,7 @@ export default function Pandits() {
         <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <h3 className="text-xl font-bold text-[#2f1618] dark:text-[#fff3dc]">Pandit Listing</h3>
 
-          <button
-            type="button"
-            onClick={openCreate}
-            className="admin-btn-primary inline-flex items-center gap-2 rounded-2xl px-4 py-2 text-sm font-semibold shadow"
-          >
-            <FiPlus className="h-4 w-4" />
-            Add Pandit
-          </button>
+          
 
           <div className="flex w-full max-w-lg items-center gap-2 rounded-xl border border-[#d7c3a3] bg-white/70 px-3 dark:border-white/10 dark:bg-white/5">
             <FiSearch className="text-[var(--admin-primary)]" />
@@ -547,7 +552,9 @@ export default function Pandits() {
               <h3 className="text-xl font-bold text-[#2f1618] dark:text-[#fff3dc]">Pandit Details</h3>
               <button onClick={() => setSelectedPandit(null)} className="text-2xl leading-none">&times;</button>
             </div>
-
+            <div className="h-32 w-full p-2 rounded-sm relative overflow-hidden">
+            <img src={selectedPandit.profileImage || "https://img.freepik.com/free-vector/flat-illustration-guru-purnima_23-2150428341.jpg"} className="h-full w-32 mx-auto border-gray-300 border-2 rounded-lg" alt="" />
+            </div>
             <div className="grid gap-3 text-sm md:grid-cols-2">
               <div className="rounded-xl bg-white/60 px-4 py-3 dark:bg-white/5"><span className="block text-xs opacity-70">Name</span><strong>{selectedPandit.fullName || "N/A"}</strong></div>
               <div className="rounded-xl bg-white/60 px-4 py-3 dark:bg-white/5"><span className="block text-xs opacity-70">Phone</span><strong>{selectedPandit.phone || "-"}</strong></div>
@@ -611,6 +618,16 @@ export default function Pandits() {
                                 <span>{it.itemName} (Qty: {it.quantity}{it.size ? `, ${it.size}` : ""})</span>
                                 <span className="text-xs opacity-80">{it.approvalStatus}</span>
                               </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      {Array.isArray(off.customSamagriNotes) && off.customSamagriNotes.length > 0 && (
+                        <div className="mt-2 text-sm">
+                          <div className="text-xs opacity-70">Custom Samagri Notes</div>
+                          <ul className="mt-1 space-y-1">
+                            {off.customSamagriNotes.map((note, idx) => (
+                              <li key={`${off.name}-note-${idx}`}>{note}</li>
                             ))}
                           </ul>
                         </div>

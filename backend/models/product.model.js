@@ -37,6 +37,18 @@ const itemSchema = new mongoose.Schema(
       priceIncludesGst: { type: Boolean, default: true },
     },
 
+    discount: {
+      type: {
+        type: String,
+        enum: ["percent", "flat"],
+        default: "percent",
+      },
+      value: { type: Number, default: 0 },
+      isActive: { type: Boolean, default: false },
+      startsAt: { type: Date, default: null },
+      expiresAt: { type: Date, default: null },
+    },
+
     compliance: {
       hsnCode: { type: String, trim: true, default: "" },
       city: { type: String, trim: true, default: "" },

@@ -1,12 +1,62 @@
 import User from "../models/user.model.js";
 import generateToken from "../utils/generateToken.js";
 import OTP from "../models/otp.model.js";
+import Coupon from "../models/coupon.model.js";
 import { notifyAdmins, updateDeviceToken } from "../utils/notification.service.js";
 
 // 📌 Helper: Phone validation
 const validatePhone = (phone) => {
   const phoneRegex = /^[6-9]\d{9}$/;
   return phoneRegex.test(phone);
+};
+
+const WELCOME_COUPON_PERCENT = 10;
+const WELCOME_COUPON_MAX = 100;
+
+const buildWelcomeCouponCode = (phone) => {
+  const suffix = String(phone || "").replace(/\D/g, "").slice(-4) || "0000";
+  const rand = Math.floor(1000 + Math.random() * 9000);
+  return `WELCOME${suffix}${rand}`;
+};
+
+const createWelcomeCouponForUser = async (user) => {
+  if (!user || user.welcomeCouponCode || user.welcomeCouponRedeemed) {
+    return null;
+  }
+
+  let code = buildWelcomeCouponCode(user.phone);
+  let attempts = 0;
+
+  while (attempts < 5) {
+    const existing = await Coupon.findOne({ code });
+    if (!existing) {
+      break;
+    }
+    attempts += 1;
+    code = buildWelcomeCouponCode(user.phone);
+  }
+
+  const coupon = await Coupon.create({
+    code,
+    title: "Welcome Coupon",
+    description: "Welcome discount for first order",
+    discountType: "percent",
+    discountValue: WELCOME_COUPON_PERCENT,
+    minOrderAmount: 0,
+    maxDiscount: WELCOME_COUPON_MAX,
+    usageLimit: 1,
+    perUserLimit: 1,
+    isActive: true,
+    startsAt: new Date(),
+    expiresAt: null,
+  });
+
+  user.welcomeCouponCode = coupon.code;
+  user.welcomeCouponRedeemed = false;
+  user.welcomeCouponAssignedAt = new Date();
+  await user.save();
+
+  return coupon;
 };
 
 
@@ -247,6 +297,12 @@ export const verifyOtp = async (req, res) => {
         profileImage: otpDoc.profileImage,
         isProfileComplete: true,
       });
+
+      try {
+        await createWelcomeCouponForUser(user);
+      } catch (error) {
+        console.error("WELCOME COUPON ERROR:", error.message);
+      }
 
       void notifyAdmins({
         title: "New user account created",

@@ -4,14 +4,15 @@ import {
   addCustomSamagriToPanditRitual,
   addRitualForPandit,
   getCustomSamagriToPanditRitual,
-  getAllRitualsForPandit,
+  getRitualsForBooking,
   getMyRitualsForPandit,
   removeCustomSamagriFromPanditRitual,
 } from "../../controllers/pandit/ritual.controller.js";
 
 const router = express.Router();
 
-router.get("/", protectPandit, getAllRitualsForPandit);
+// router.get("/", protectPandit, getAllRitualsForPandit);
+router.get("/", getRitualsForBooking);
 router.get("/my", protectPandit, getMyRitualsForPandit);
 router.get("/:ritualId/custom-samagri", protectPandit, getCustomSamagriToPanditRitual);
 router.post("/", protectPandit, addRitualForPandit);

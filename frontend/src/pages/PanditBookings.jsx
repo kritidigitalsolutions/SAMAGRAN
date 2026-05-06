@@ -217,7 +217,7 @@ export default function PanditBookings() {
             <select
               value={statusFilter}
               onChange={(event) => setStatusFilter(event.target.value)}
-              className="h-11 rounded-xl border border-[#d7c3a3] bg-white/70 px-3 text-sm outline-none dark:border-white/10 dark:bg-[#23272e] dark:text-white"
+              className="h-11 rounded-xl border border-[#d7c3a3] bg-white/70 px-3 text-sm outline-none dark:border-white/10 dark:bg-white/5"
             >
               <option value="all">All status</option>
               <option value="requested">Requested</option>
@@ -229,7 +229,7 @@ export default function PanditBookings() {
         </div>
 
         {loading ? (
-          <p className="rounded-xl bg-white/60 p-6 text-sm dark:bg-[#23272e] dark:text-white">Loading bookings...</p>
+          <p className="rounded-xl bg-white/60 p-6 text-sm dark:bg-white/5">Loading bookings...</p>
         ) : error ? (
           <p className="rounded-xl bg-red-100 p-6 text-sm font-medium text-red-600 dark:bg-red-900/30 dark:text-red-300">{error}</p>
         ) : !bookings.length ? (
@@ -277,7 +277,7 @@ export default function PanditBookings() {
                           onChange={(event) =>
                             setStatusUpdates((current) => ({ ...current, [booking._id]: event.target.value }))
                           }
-                          className="h-9 rounded-lg border border-[#d7c3a3] bg-white/75 px-2 text-xs outline-none dark:border-white/10 dark:bg-[#23272e] dark:text-white"
+                          className="h-9 rounded-lg border border-[#d7c3a3] bg-white/75 px-2 text-xs outline-none dark:border-white/10 dark:bg-white/5"
                         >
                           <option value="requested">Requested</option>
                           <option value="confirmed">Confirmed</option>
@@ -290,7 +290,7 @@ export default function PanditBookings() {
                           onChange={(event) =>
                             setPaymentUpdates((current) => ({ ...current, [booking._id]: event.target.value }))
                           }
-                          className="h-9 rounded-lg border border-[#d7c3a3] bg-white/75 px-2 text-xs outline-none dark:border-white/10 dark:bg-[#23272e] dark:text-white"
+                          className="h-9 rounded-lg border border-[#d7c3a3] bg-white/75 px-2 text-xs outline-none dark:border-white/10 dark:bg-white/5"
                         >
                           <option value="pending">Pending</option>
                           <option value="paid">Paid</option>

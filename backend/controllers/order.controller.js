@@ -148,37 +148,68 @@ const resolveDiscountsAndWallet = async ({
   let couponDiscount = 0;
   let offerDiscount = 0;
   let cashbackAmount = 0;
+  let welcomeCouponCode = "";
+  let autoCouponApplied = false;
   
   let walletUsed = 0;
 
-  if (couponCode) {
-    const normalizedCode = String(couponCode).trim().toUpperCase();
+  const user = await User.findById(userId).select(
+    "welcomeCouponCode welcomeCouponRedeemed",
+  );
+  let resolvedCouponCode = couponCode;
+
+  if (!resolvedCouponCode && user?.welcomeCouponCode && !user?.welcomeCouponRedeemed) {
+    resolvedCouponCode = user.welcomeCouponCode;
+    autoCouponApplied = true;
+  }
+
+  if (resolvedCouponCode) {
+    const normalizedCode = String(resolvedCouponCode).trim().toUpperCase();
     coupon = await Coupon.findOne({ code: normalizedCode, isActive: true });
 
     if (!coupon || !isWithinWindow(coupon)) {
-      throw new Error("Invalid or inactive coupon code");
+      if (autoCouponApplied) {
+        coupon = null;
+      } else {
+        throw new Error("Invalid or inactive coupon code");
+      }
     }
 
-    if (toMoney(baseAmount) < toMoney(coupon.minOrderAmount)) {
-      throw new Error("Order amount is below coupon minimum");
+    if (coupon && toMoney(baseAmount) < toMoney(coupon.minOrderAmount)) {
+      if (autoCouponApplied) {
+        coupon = null;
+      } else {
+        throw new Error("Order amount is below coupon minimum");
+      }
     }
 
-    if (coupon.usageLimit && coupon.usedCount >= coupon.usageLimit) {
-      throw new Error("Coupon usage limit reached");
+    if (coupon && coupon.usageLimit && coupon.usedCount >= coupon.usageLimit) {
+      if (autoCouponApplied) {
+        coupon = null;
+      } else {
+        throw new Error("Coupon usage limit reached");
+      }
     }
 
-    if (coupon.perUserLimit) {
+    if (coupon && coupon.perUserLimit) {
       const usageCount = await Order.countDocuments({
         user: userId,
         couponCode: normalizedCode,
       });
 
       if (usageCount >= coupon.perUserLimit) {
-        throw new Error("Coupon usage limit reached for user");
+        if (autoCouponApplied) {
+          coupon = null;
+        } else {
+          throw new Error("Coupon usage limit reached for user");
+        }
       }
     }
 
-    couponDiscount = computeCouponDiscount({ amount: baseAmount, coupon });
+    if (coupon) {
+      couponDiscount = computeCouponDiscount({ amount: baseAmount, coupon });
+      welcomeCouponCode = normalizedCode;
+    }
   }
 
   if (offerId && mongoose.Types.ObjectId.isValid(offerId)) {
@@ -193,11 +224,7 @@ const resolveDiscountsAndWallet = async ({
     }
 
     const benefit = computeOfferBenefit({ amount: baseAmount, offer });
-    if (offer.offerType === "cashback") {
-      cashbackAmount = benefit;
-    } else {
-      offerDiscount = benefit;
-    }
+    offerDiscount = benefit;
   }
 
   const discountTotal = toMoney(couponDiscount + offerDiscount);
@@ -221,6 +248,7 @@ const resolveDiscountsAndWallet = async ({
     discountTotal,
     walletUsed,
     payableAmount,
+    welcomeCouponCode,
   };
 };
 
@@ -567,6 +595,7 @@ export const createRazorpayOrder = async (req, res) => {
       discountTotal,
       walletUsed,
       payableAmount,
+      welcomeCouponCode,
     } = await resolveDiscountsAndWallet({
       userId,
       baseAmount: totalAmount,
@@ -816,25 +845,16 @@ export const placeOrder = async (req, res) => {
       await Coupon.updateOne({ _id: coupon._id }, { $inc: { usedCount: 1 } });
     }
 
-    if (offer && offer.offerType === "cashback" && cashbackAmount > 0 && paymentStatus === "Paid") {
-      const cashbackWallet = wallet || (await getOrCreateWallet(userId));
-      const nextBalance = toMoney(cashbackWallet.balance + cashbackAmount);
-      cashbackWallet.balance = nextBalance;
-      await cashbackWallet.save();
-
-      await WalletTransaction.create({
-        wallet: cashbackWallet._id,
-        user: userId,
-        type: "credit",
-        source: "cashback",
-        amount: cashbackAmount,
-        balanceAfter: nextBalance,
-        reference: String(order._id),
-        meta: {
-          orderId: String(order._id),
-          offerId: String(offer._id),
+    if (welcomeCouponCode && coupon?.code === welcomeCouponCode) {
+      await User.updateOne(
+        { _id: userId },
+        {
+          $set: {
+            welcomeCouponRedeemed: true,
+            welcomeCouponCode: "",
+          },
         },
-      });
+      );
     }
 
     if (source === "cart") {

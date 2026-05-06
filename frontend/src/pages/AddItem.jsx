@@ -7,6 +7,11 @@ export default function AddItem() {
     title: "",
     price: "",
     mrp: "",
+    discountType: "percent",
+    discountValue: "",
+    discountIsActive: false,
+    discountStartsAt: "",
+    discountExpiresAt: "",
     categoryName: "",
     quantity: "",
     tags: "",
@@ -99,6 +104,29 @@ export default function AddItem() {
   </div>
 
   <div className="form-group">
+    <label>Discount Type</label>
+    <select name="discountType" onChange={handleChange}>
+      <option value="percent">Percent</option>
+      <option value="flat">Flat</option>
+    </select>
+  </div>
+
+  <div className="form-group">
+    <label>Discount Value</label>
+    <input type="number" name="discountValue" onChange={handleChange} />
+  </div>
+
+  <div className="form-group">
+    <label>Discount Start</label>
+    <input type="date" name="discountStartsAt" onChange={handleChange} />
+  </div>
+
+  <div className="form-group">
+    <label>Discount End</label>
+    <input type="date" name="discountExpiresAt" onChange={handleChange} />
+  </div>
+
+  <div className="form-group">
     <label>Stock</label>
     <input type="number" name="quantity" onChange={handleChange} />
   </div>
@@ -115,9 +143,17 @@ export default function AddItem() {
     </label>
   </div>
 
+  <div className="form-group full-width checkbox">
+    <label>
+      <input type="checkbox" name="discountIsActive" onChange={handleChange} />
+      Discount Active
+    </label>
+  </div>
+
   <div className="form-group full-width">
     <label>Images</label>
-    <input type="file" multiple onChange={handleImageChange} />
+    <input type="file" accept="image/*" multiple onChange={handleImageChange} />
+    <p className="helper-text">Images should be JPG/PNG/WebP, max 5 files, up to 2 MB each.</p>
   </div>
 
   <div className="preview-container full-width">
