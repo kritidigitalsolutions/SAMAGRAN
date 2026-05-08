@@ -1,4 +1,4 @@
-import DefaultKit from "../../models/defaultKit.model.js";
+import FestivalKit from "../../models/festivalKit.model.js";
 import Item from "../../models/product.model.js";
 import { uploadFileToFirebase } from "../../utils/firebaseUpload.js";
 
@@ -61,9 +61,36 @@ const buildKitItems = async (items) => {
   return { formattedItems, totalPrice };
 };
 
+const toBoolean = (value, fallback = false) => {
+  if (typeof value === "boolean") {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (["true", "1", "yes"].includes(normalized)) return true;
+    if (["false", "0", "no"].includes(normalized)) return false;
+  }
+
+  if (typeof value === "number") {
+    return value === 1;
+  }
+
+  return fallback;
+};
+
 export const createDefaultKit = async (req, res) => {
   try {
-    const { name, description = "", kitPrice, status = "active" } = req.body;
+    const {
+      name,
+      description = "",
+      kitPrice,
+      status = "active",
+      category = "",
+      isMostPopularKit,
+      isMostUserUse,
+      isPanditApproved,
+    } = req.body;
     const items = parseItems(req.body.items);
 
     if (!name || typeof kitPrice === "undefined") {
@@ -80,10 +107,15 @@ export const createDefaultKit = async (req, res) => {
       ? await uploadFileToFirebase(req.file, { folder: "default-kits" })
       : "";
 
-    const created = await DefaultKit.create({
+    const created = await FestivalKit.create({
+      kitType: "default",
       name: name.trim(),
       description: description.trim(),
       image: imageUrl,
+      category: category.trim(),
+      isMostPopularKit: toBoolean(isMostPopularKit),
+      isMostUserUse: toBoolean(isMostUserUse),
+      isPanditApproved: toBoolean(isPanditApproved),
       items: formattedItems,
       totalPrice,
       kitPrice: normalizedKitPrice,
@@ -107,7 +139,9 @@ export const createDefaultKit = async (req, res) => {
 export const getAdminDefaultKits = async (req, res) => {
   try {
     const { search = "", status = "all" } = req.query;
-    const filter = {};
+    const filter = {
+      kitType: "default",
+    };
 
     if (search.trim()) {
       filter.name = { $regex: search.trim(), $options: "i" };
@@ -117,8 +151,8 @@ export const getAdminDefaultKits = async (req, res) => {
       filter.status = status;
     }
 
-    const kits = await DefaultKit.find(filter)
-      .populate("items.product", "title pricing media")
+    const kits = await FestivalKit.find(filter)
+      .populate("items.product", "title pricing media category")
       .sort({ createdAt: -1 });
 
     res.json({
@@ -136,10 +170,10 @@ export const getAdminDefaultKits = async (req, res) => {
 
 export const getAdminDefaultKitById = async (req, res) => {
   try {
-    const kit = await DefaultKit.findById(req.params.id).populate(
-      "items.product",
-      "title pricing media"
-    );
+    const kit = await FestivalKit.findOne({
+      _id: req.params.id,
+      kitType: "default",
+    }).populate("items.product", "title pricing media category");
 
     if (!kit) {
       return res.status(404).json({
@@ -162,7 +196,10 @@ export const getAdminDefaultKitById = async (req, res) => {
 
 export const updateDefaultKit = async (req, res) => {
   try {
-    const kit = await DefaultKit.findById(req.params.id);
+    const kit = await FestivalKit.findOne({
+      _id: req.params.id,
+      kitType: "default",
+    });
 
     if (!kit) {
       return res.status(404).json({
@@ -176,6 +213,10 @@ export const updateDefaultKit = async (req, res) => {
       description = kit.description,
       kitPrice = kit.kitPrice,
       status = kit.status,
+      category = kit.category || "",
+      isMostPopularKit = kit.isMostPopularKit,
+      isMostUserUse = kit.isMostUserUse,
+      isPanditApproved = kit.isPanditApproved,
     } = req.body;
 
     const parsedItems = req.body.items ? parseItems(req.body.items) : null;
@@ -195,6 +236,10 @@ export const updateDefaultKit = async (req, res) => {
     kit.description = description.trim();
     kit.kitPrice = normalizedKitPrice;
     kit.status = status;
+    kit.category = String(category || "").trim();
+    kit.isMostPopularKit = toBoolean(isMostPopularKit, kit.isMostPopularKit);
+    kit.isMostUserUse = toBoolean(isMostUserUse, kit.isMostUserUse);
+    kit.isPanditApproved = toBoolean(isPanditApproved, kit.isPanditApproved);
     kit.items = nextItems;
     kit.totalPrice = nextTotalPrice;
     kit.savings = Math.max(nextTotalPrice - normalizedKitPrice, 0);
@@ -220,7 +265,10 @@ export const updateDefaultKit = async (req, res) => {
 
 export const deleteDefaultKit = async (req, res) => {
   try {
-    const kit = await DefaultKit.findByIdAndDelete(req.params.id);
+    const kit = await FestivalKit.findOneAndDelete({
+      _id: req.params.id,
+      kitType: "default",
+    });
 
     if (!kit) {
       return res.status(404).json({

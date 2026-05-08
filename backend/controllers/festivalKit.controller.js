@@ -7,7 +7,10 @@ export const getAllKitsUser = async (req, res) => {
   try {
     const { search, festivalType } = req.query;
 
-    let filter = {};
+    const filter = {
+      status: "active",
+      kitType: "special",
+    };
 
     if (search) {
       filter.name = { $regex: search, $options: "i" };
@@ -18,7 +21,7 @@ export const getAllKitsUser = async (req, res) => {
     }
 
     const kits = await FestivalKit.find(filter)
-      .populate("items.product", "title slug pricing media")
+      .populate("items.product", "title slug pricing media category")
       .sort({ createdAt: -1 });
 
     res.status(200).json({
@@ -40,8 +43,12 @@ export const getAllKitsUser = async (req, res) => {
 // @access Public
 export const getSingleKitUser = async (req, res) => {
   try {
-    const kit = await FestivalKit.findById(req.params.id)
-      .populate("items.product", "title slug pricing media");
+    const kit = await FestivalKit.findOne({
+      _id: req.params.id,
+      status: "active",
+      kitType: "special",
+    })
+      .populate("items.product", "title slug pricing media category");
 
     if (!kit) {
       return res.status(404).json({
@@ -55,6 +62,7 @@ export const getSingleKitUser = async (req, res) => {
       name: i.product.title,
       slug: i.product.slug,
       price: i.product.pricing.price,
+      category: i.product.category || null,
       image: i.product.media?.image?.[0] || i.product.media?.Images?.[0] || null,
       quantity: i.quantity
     }));
@@ -67,6 +75,11 @@ export const getSingleKitUser = async (req, res) => {
         slug: kit.slug,
         description: kit.description,
         image: kit.image,
+        category: kit.category || "",
+        kitType: kit.kitType,
+        isMostPopularKit: kit.isMostPopularKit,
+        isMostUserUse: kit.isMostUserUse,
+        isPanditApproved: kit.isPanditApproved,
         items: formattedItems,
         totalPrice: kit.totalPrice,
         kitPrice: kit.kitPrice,

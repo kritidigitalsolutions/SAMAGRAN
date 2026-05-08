@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { FiEdit2, FiSearch, FiTrash2, FiX } from "react-icons/fi";
+import { FiEdit2, FiEye, FiMoreVertical, FiSearch, FiTrash2, FiX } from "react-icons/fi";
 import API from "../api/axios";
 
 const EMPTY_FORM = {
@@ -116,6 +116,8 @@ export default function Orders() {
   const [trackingUpdates, setTrackingUpdates] = useState({});
   const [trackingLoadingId, setTrackingLoadingId] = useState("");
   const [deletingOrderId, setDeletingOrderId] = useState("");
+  const [selectedOrderIds, setSelectedOrderIds] = useState([]);
+  const [openMenuId, setOpenMenuId] = useState("");
 
   const fetchOrders = useCallback(
     async ({ search = "", status = "all", paymentStatus = "all", paymentMethod = "all", page = 1 } = {}) => {
@@ -197,14 +199,20 @@ useEffect(() => {
     orders.some((order) => order._id === selectedOrder._id);
 
   if (!stillPresent) {
-    const firstOrder = orders[0];
-
-    if (selectedOrder?._id !== firstOrder._id) {
-      setSelectedOrder(firstOrder);
-      handleViewOrder(firstOrder._id);
-    }
+    setSelectedOrder(null);
   }
 }, [orders, selectedOrder]);
+
+  useEffect(() => {
+    const handleClick = (event) => {
+      if (!event.target.closest("[data-order-menu]")) {
+        setOpenMenuId("");
+      }
+    };
+
+    document.addEventListener("click", handleClick);
+    return () => document.removeEventListener("click", handleClick);
+  }, []);
 
 
   const summary = useMemo(() => {
@@ -371,6 +379,44 @@ useEffect(() => {
     }
   };
 
+  const toggleOrderSelection = (orderId, checked) => {
+    setSelectedOrderIds((current) => {
+      if (checked) {
+        return current.includes(orderId) ? current : [...current, orderId];
+      }
+      return current.filter((id) => id !== orderId);
+    });
+  };
+
+  const toggleAllOrders = (checked) => {
+    if (checked) {
+      setSelectedOrderIds(orders.map((order) => order._id));
+      return;
+    }
+    setSelectedOrderIds([]);
+  };
+
+  const handleDeleteSelectedOrders = async () => {
+    if (!selectedOrderIds.length) return;
+    if (!window.confirm(`Delete ${selectedOrderIds.length} selected orders?`)) return;
+
+    try {
+      setDeletingOrderId("bulk");
+      setError("");
+      setSuccess("");
+
+      await Promise.all(selectedOrderIds.map((orderId) => API.delete(`/admin/orders/${orderId}`)));
+
+      setOrders((current) => current.filter((entry) => !selectedOrderIds.includes(entry._id)));
+      setSelectedOrderIds([]);
+      setSuccess("Selected orders deleted successfully.");
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to delete selected orders.");
+    } finally {
+      setDeletingOrderId("");
+    }
+  };
+
   const handleChangeTrackingSelection = (orderId, value) => {
     setTrackingUpdates((current) => ({ ...current, [orderId]: value }));
   };
@@ -420,6 +466,12 @@ useEffect(() => {
     } finally {
       setLoadingOrderDetails(false);
     }
+  };
+
+  const openOrderDetails = (order) => {
+    if (!order?._id) return;
+    setSelectedOrder(order);
+    handleViewOrder(order._id);
   };
 
   const handlePageChange = (nextPage) => {
@@ -668,37 +720,151 @@ useEffect(() => {
               : "No orders found."}
           </p>
         ) : (
-          <div className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
-            <div className="space-y-3 rounded-2xl border border-[#d8c4a5] bg-white/45 p-3 dark:border-white/10 dark:bg-white/5">
-              {orders.map((order) => (
+          <div className={selectedOrder ? "grid gap-4 xl:grid-cols-[1.2fr_0.8fr]" : "space-y-3"}>
+            <div className="space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <span className="text-xs text-[#7b5a4b] dark:text-[#dbcdb8]/70">
+                  {selectedOrderIds.length} selected
+                </span>
                 <button
-                  key={order._id}
                   type="button"
-                  onClick={() => handleViewOrder(order._id)}
-                  className={`w-full rounded-xl border px-4 py-3 text-left transition ${
-                    selectedOrder?._id === order._id
-                      ? "border-[#8B1E3F] bg-[#8B1E3F]/10"
-                      : "border-[#e5d3b6] bg-white/70 hover:bg-white dark:border-white/10 dark:bg-white/5"
-                  }`}
+                  onClick={handleDeleteSelectedOrders}
+                  disabled={!selectedOrderIds.length || deletingOrderId === "bulk"}
+                  className="rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-xs font-semibold text-red-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200"
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="font-semibold">#{String(order._id).slice(-8)}</p>
-                      <p className="text-xs opacity-75">{order?.user?.name || "Unknown"} • {order?.address?.city || "-"}</p>
-                    </div>
-                    <p className="text-sm font-semibold">Rs {Number(order.totalAmount || 0).toFixed(2)}</p>
-                  </div>
-                  <div className="mt-3 flex flex-wrap items-center gap-2">
-                    <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${orderStatusBadgeClass(order.orderStatus)}`}>
-                      {order.orderStatus}
-                    </span>
-                    <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${paymentStatusBadgeClass(order.paymentStatus)}`}>
-                      {order.paymentStatus}
-                    </span>
-                    <span className="text-xs opacity-75">{Number(order.itemCount || order.items?.length || 0)} items</span>
-                  </div>
+                  Delete Selected
                 </button>
-              ))}
+              </div>
+
+              <div className="overflow-x-auto rounded-2xl border border-[#d8c4a5] bg-white/60 dark:border-white/10 dark:bg-white/5">
+                <table className="min-w-full text-sm">
+                  <thead className="bg-[#8B1E3F]/8 text-left text-[#5a1b2b] dark:bg-[#D4AF37]/10 dark:text-[#f6dfaf]">
+                    <tr>
+                      <th className="px-4 py-3 font-semibold">
+                        <input
+                          type="checkbox"
+                          checked={orders.length > 0 && selectedOrderIds.length === orders.length}
+                          onChange={(event) => toggleAllOrders(event.target.checked)}
+                          className="h-4 w-4 rounded-[4px] border border-[#d7c3a3]"
+                        />
+                      </th>
+                      <th className="px-4 py-3 font-semibold">S.No</th>
+                      <th className="px-4 py-3 font-semibold">Order ID</th>
+                      <th className="px-4 py-3 font-semibold">Customer</th>
+                      <th className="px-4 py-3 font-semibold">Items</th>
+                      <th className="px-4 py-3 font-semibold">Amount</th>
+                      <th className="px-4 py-3 font-semibold">Status</th>
+                      <th className="px-4 py-3 font-semibold">Payment</th>
+                      <th className="px-4 py-3 font-semibold">Date</th>
+                      <th className="px-4 py-3 font-semibold text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {orders.map((order, index) => (
+                      <tr
+                        key={order._id}
+                        onClick={() => openOrderDetails(order)}
+                        className={`border-t border-[#e8d7bf] transition hover:bg-[#8B1E3F]/5 dark:border-white/10 ${
+                          selectedOrder?._id === order._id ? "bg-[#8B1E3F]/8" : ""
+                        }`}
+                      >
+                        <td className="px-4 py-3" onClick={(event) => event.stopPropagation()}>
+                          <input
+                            type="checkbox"
+                            checked={selectedOrderIds.includes(order._id)}
+                            onChange={(event) => toggleOrderSelection(order._id, event.target.checked)}
+                            className="h-4 w-4 rounded-[4px] border border-[#d7c3a3]"
+                          />
+                        </td>
+                        <td className="px-4 py-3 text-sm text-[#6f3945] dark:text-[#f7e3c0]">
+                          {(pagination.currentPage - 1) * pagination.limit + index + 1}
+                        </td>
+                        <td className="px-4 py-3 font-mono text-xs text-[#6f3945] dark:text-[#f7e3c0]">
+                          #{String(order._id).slice(-8)}
+                        </td>
+                        <td className="px-4 py-3">
+                          <p className="font-semibold text-[#2f1618] dark:text-[#fff3dc]">
+                            {order?.user?.name || "Unknown"}
+                          </p>
+                          <p className="text-xs text-[#7c5b4b] dark:text-[#dbcdb8]/70">
+                            {order?.user?.phone || "-"}
+                          </p>
+                        </td>
+                        <td className="px-4 py-3 text-sm">{Number(order.itemCount || order.items?.length || 0)}</td>
+                        <td className="px-4 py-3 font-semibold">Rs {Number(order.totalAmount || 0).toFixed(2)}</td>
+                        <td className="px-4 py-3">
+                          <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${orderStatusBadgeClass(order.orderStatus)}`}>
+                            {order.orderStatus}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${paymentStatusBadgeClass(order.paymentStatus)}`}>
+                            {order.paymentStatus}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-xs">
+                          {order.createdAt ? new Date(order.createdAt).toLocaleString() : "-"}
+                        </td>
+                        <td className="px-4 py-3 text-right" data-order-menu onClick={(event) => event.stopPropagation()}>
+                          <div className="relative inline-flex">
+                            <button
+                              type="button"
+                              onClick={() => setOpenMenuId(openMenuId === order._id ? "" : order._id)}
+                              className="grid h-9 w-9 place-items-center rounded-lg border border-[#d7bf9b] text-[#6f3945] hover:bg-[#8B1E3F]/10 dark:border-white/20 dark:text-[#f7e3c0]"
+                            >
+                              <FiMoreVertical />
+                            </button>
+                            {openMenuId === order._id && (
+                              <div className="absolute right-0 top-11 z-50 w-44 overflow-hidden rounded-xl border border-[#d9c3a2] bg-white text-sm shadow-lg dark:border-white/10 dark:bg-[#1b1f27]">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setOpenMenuId("");
+                                    openOrderDetails(order);
+                                  }}
+                                  className="flex w-full items-center gap-2 px-4 py-2 text-left hover:bg-[#8B1E3F]/10"
+                                >
+                                  <FiEye className="text-[#6f3945]" /> View
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setOpenMenuId("");
+                                    openEdit(order);
+                                  }}
+                                  className="flex w-full items-center gap-2 px-4 py-2 text-left hover:bg-[#8B1E3F]/10"
+                                >
+                                  <FiEdit2 className="text-[#6f3945]" /> Edit
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setOpenMenuId("");
+                                    openOrderDetails(order);
+                                  }}
+                                  className="flex w-full items-center gap-2 px-4 py-2 text-left hover:bg-[#8B1E3F]/10"
+                                >
+                                  <span className="text-[#6f3945]">Update Status</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setOpenMenuId("");
+                                    handleDeleteOrder(order);
+                                  }}
+                                  className="flex w-full items-center gap-2 px-4 py-2 text-left text-red-700 hover:bg-red-50 dark:text-red-200 dark:hover:bg-red-500/10"
+                                >
+                                  <FiTrash2 className="text-red-600" /> Delete
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
 
               <div className="mt-1 flex items-center justify-end gap-2 text-sm">
                 <button
@@ -723,90 +889,90 @@ useEffect(() => {
               </div>
             </div>
 
-            <div className="rounded-2xl border border-[#d8c4a5] bg-white/55 p-4 dark:border-white/10 dark:bg-white/5">
-              {loadingOrderDetails ? (
-                <p className="rounded-xl bg-white/60 p-5 text-sm dark:bg-white/5">Loading details...</p>
-              ) : !selectedOrder ? (
-                <p className="rounded-xl bg-white/60 p-5 text-sm dark:bg-white/5">Select an order to view details.</p>
-              ) : (
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-lg font-bold">Order #{String(selectedOrder._id).slice(-8)}</h4>
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => openEdit(selectedOrder)}
-                        className="rounded-lg border border-[#d7bf9b] p-2 text-[#6f3945] hover:bg-[#8B1E3F]/10 dark:border-white/20 dark:text-[#f7e3c0]"
-                        title="Edit"
-                      >
-                        <FiEdit2 className="h-4 w-4" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteOrder(selectedOrder)}
-                        disabled={deletingOrderId === selectedOrder._id}
-                        className="rounded-lg border border-red-300 p-2 text-red-600 hover:bg-red-50 disabled:opacity-60 dark:border-red-500/40 dark:text-red-200 dark:hover:bg-red-500/10"
-                        title="Delete"
-                      >
-                        <FiTrash2 className="h-4 w-4" />
-                      </button>
+            {selectedOrder && (
+              <div className="rounded-2xl border border-[#d8c4a5] bg-white/55 p-4 dark:border-white/10 dark:bg-white/5">
+                {loadingOrderDetails ? (
+                  <p className="rounded-xl bg-white/60 p-5 text-sm dark:bg-white/5">Loading details...</p>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-lg font-bold">Order #{String(selectedOrder._id).slice(-8)}</h4>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => openEdit(selectedOrder)}
+                          className="rounded-lg border border-[#d7bf9b] p-2 text-[#6f3945] hover:bg-[#8B1E3F]/10 dark:border-white/20 dark:text-[#f7e3c0]"
+                          title="Edit"
+                        >
+                          <FiEdit2 className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteOrder(selectedOrder)}
+                          disabled={deletingOrderId === selectedOrder._id}
+                          className="rounded-lg border border-red-300 p-2 text-red-600 hover:bg-red-50 disabled:opacity-60 dark:border-red-500/40 dark:text-red-200 dark:hover:bg-red-500/10"
+                          title="Delete"
+                        >
+                          <FiTrash2 className="h-4 w-4" />
+                        </button>
+                      </div>
                     </div>
-                  </div>
 
-                  <div className="grid gap-2 text-sm sm:grid-cols-2">
-                    <div className="rounded-xl bg-white/65 px-3 py-2 dark:bg-white/5"><span className="block text-xs opacity-70">Customer</span><strong>{selectedOrder.user?.name || "-"}</strong></div>
-                    <div className="rounded-xl bg-white/65 px-3 py-2 dark:bg-white/5"><span className="block text-xs opacity-70">Phone</span><strong>{selectedOrder.user?.phone || "-"}</strong></div>
-                    <div className="rounded-xl bg-white/65 px-3 py-2 dark:bg-white/5"><span className="block text-xs opacity-70">Payment</span><strong>{selectedOrder.paymentMethod} / {selectedOrder.paymentStatus}</strong></div>
-                    <div className="rounded-xl bg-white/65 px-3 py-2 dark:bg-white/5"><span className="block text-xs opacity-70">Amount</span><strong>Rs {Number(selectedOrder.totalAmount || 0).toFixed(2)}</strong></div>
-                  </div>
+                    <div className="grid gap-2 text-sm sm:grid-cols-2">
+                      <div className="rounded-xl bg-white/65 px-3 py-2 dark:bg-white/5"><span className="block text-xs opacity-70">Customer</span><strong>{selectedOrder.user?.name || "-"}</strong></div>
+                      <div className="rounded-xl bg-white/65 px-3 py-2 dark:bg-white/5"><span className="block text-xs opacity-70">Phone</span><strong>{selectedOrder.user?.phone || "-"}</strong></div>
+                      <div className="rounded-xl bg-white/65 px-3 py-2 dark:bg-white/5"><span className="block text-xs opacity-70">Payment</span><strong>{selectedOrder.paymentMethod} / {selectedOrder.paymentStatus}</strong></div>
+                      <div className="rounded-xl bg-white/65 px-3 py-2 dark:bg-white/5"><span className="block text-xs opacity-70">Amount</span><strong>Rs {Number(selectedOrder.totalAmount || 0).toFixed(2)}</strong></div>
+                    </div>
 
-                  <div className="rounded-xl border border-[#d8c4a5] p-3 dark:border-white/10">
-                    <p className="mb-2 text-xs uppercase tracking-[0.2em] text-[var(--admin-primary)]">Address</p>
-                    <p className="text-sm">
-                      {[selectedOrder.address?.name, selectedOrder.address?.phone, selectedOrder.address?.fullAddress, selectedOrder.address?.city, selectedOrder.address?.state, selectedOrder.address?.pincode]
-                        .filter(Boolean)
-                        .join(", ") || "-"}
-                    </p>
-                  </div>
+                    <div className="rounded-xl border border-[#d8c4a5] p-3 dark:border-white/10">
+                      <p className="mb-2 text-xs uppercase tracking-[0.2em] text-[var(--admin-primary)]">Address</p>
+                      <p className="text-sm">
+                        {[selectedOrder.address?.name, selectedOrder.address?.phone, selectedOrder.address?.fullAddress, selectedOrder.address?.city, selectedOrder.address?.state, selectedOrder.address?.pincode]
+                          .filter(Boolean)
+                          .join(", ") || "-"}
+                      </p>
+                    </div>
 
-                  <div className="rounded-xl border border-[#d8c4a5] p-3 dark:border-white/10">
-                    <p className="mb-2 text-xs uppercase tracking-[0.2em] text-[var(--admin-primary)]">Update Tracking</p>
-                    <div className="flex items-center gap-2">
-                      <select
-                        value={trackingUpdates[selectedOrder._id] || selectedOrder.orderStatus || "Placed"}
-                        onChange={(event) => handleChangeTrackingSelection(selectedOrder._id, event.target.value)}
-                        className="h-11 w-[100%] rounded-xl border border-[#d7c3a3] bg-white text-black px-3 text-sm outline-none 
+                    <div className="rounded-xl border border-[#d8c4a5] p-3 dark:border-white/10">
+                      <p className="mb-2 text-xs uppercase tracking-[0.2em] text-[var(--admin-primary)]">Update Tracking</p>
+                      <div className="flex items-center gap-2">
+                        <select
+                          value={trackingUpdates[selectedOrder._id] || selectedOrder.orderStatus || "Placed"}
+                          onChange={(event) => handleChangeTrackingSelection(selectedOrder._id, event.target.value)}
+                          className="h-11 w-[100%] rounded-xl border border-[#d7c3a3] bg-white text-black px-3 text-sm outline-none 
            dark:bg-[#181c24] dark:text-white dark:border-white/20"
-                      >
-                        {ORDER_STATUSES.map((status) => (
-                          <option key={status} value={status}>{status}</option>
-                        ))}
-                      </select>
-                      <button
-                        type="button"
-                        onClick={() => handleUpdateTracking(selectedOrder)}
-                        disabled={trackingLoadingId === selectedOrder._id}
-                        className="rounded-lg bg-[#8B1E3F] px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
-                      >
-                        {trackingLoadingId === selectedOrder._id ? "Updating..." : "Update"}
-                      </button>
+                        >
+                          {ORDER_STATUSES.map((status) => (
+                            <option key={status} value={status}>{status}</option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          onClick={() => handleUpdateTracking(selectedOrder)}
+                          disabled={trackingLoadingId === selectedOrder._id}
+                          className="rounded-lg bg-[#8B1E3F] px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                        >
+                          {trackingLoadingId === selectedOrder._id ? "Updating..." : "Update"}
+                        </button>
+                      </div>
                     </div>
-                  </div>
 
-                  <div className="rounded-xl border border-[#d8c4a5] p-3 dark:border-white/10">
-                    <p className="mb-2 text-xs uppercase tracking-[0.2em] text-[var(--admin-primary)]">Items</p>
-                    <div className="space-y-2">
-                      {(selectedOrder.items || []).map((item, index) => (
-                        <div key={`${selectedOrder._id}-${index}`} className="rounded-lg bg-white/70 px-3 py-2 text-sm dark:bg-white/5">
-                          <div className="font-semibold">{item.product?.title || item.product?.name || item.productType}</div>
-                          <div className="text-xs opacity-75">Qty: {item.quantity} | Price: Rs {Number(item.price || 0).toFixed(2)}</div>
-                        </div>
-                      ))}
+                    <div className="rounded-xl border border-[#d8c4a5] p-3 dark:border-white/10">
+                      <p className="mb-2 text-xs uppercase tracking-[0.2em] text-[var(--admin-primary)]">Items</p>
+                      <div className="space-y-2">
+                        {(selectedOrder.items || []).map((item, index) => (
+                          <div key={`${selectedOrder._id}-${index}`} className="rounded-lg bg-white/70 px-3 py-2 text-sm dark:bg-white/5">
+                            <div className="font-semibold">{item.product?.title || item.product?.name || item.productType}</div>
+                            <div className="text-xs opacity-75">Qty: {item.quantity} | Price: Rs {Number(item.price || 0).toFixed(2)}</div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
-            </div>
+                )}
+              </div>
+            )}
           </div>
         )}
       </section>

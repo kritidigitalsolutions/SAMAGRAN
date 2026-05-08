@@ -42,9 +42,37 @@ const buildKitItems = async (items) => {
   return { formattedItems, totalPrice };
 };
 
+const toBoolean = (value, fallback = false) => {
+  if (typeof value === "boolean") {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (["true", "1", "yes"].includes(normalized)) return true;
+    if (["false", "0", "no"].includes(normalized)) return false;
+  }
+
+  if (typeof value === "number") {
+    return value === 1;
+  }
+
+  return fallback;
+};
+
 export const createKit = async (req, res) => {
   try {
-    const { name, description, kitPrice, festivalType, status = "active" } = req.body;
+    const {
+      name,
+      description,
+      kitPrice,
+      festivalType,
+      status = "active",
+      category = "",
+      isMostPopularKit,
+      isMostUserUse,
+      isPanditApproved,
+    } = req.body;
     const image = req.file
       ? await uploadFileToFirebase(req.file, { folder: "festival-kits" })
       : "";
@@ -62,9 +90,14 @@ export const createKit = async (req, res) => {
     const savings = totalPrice - kitPrice;
 
     const kit = await FestivalKit.create({
+      kitType: "special",
       name,
       description,
       image,
+      category: String(category || "").trim(),
+      isMostPopularKit: toBoolean(isMostPopularKit),
+      isMostUserUse: toBoolean(isMostUserUse),
+      isPanditApproved: toBoolean(isPanditApproved),
       items: formattedItems,
       totalPrice,
       kitPrice,
@@ -90,8 +123,9 @@ export const createKit = async (req, res) => {
 export const getAllKits = async (req, res) => {
   try {
     const { search, festivalType, status = "all" } = req.query;
-
-    let filter = {};
+    let filter = {
+      kitType: "special",
+    };
 
     if (search) {
       filter.name = { $regex: search, $options: "i" };
@@ -123,8 +157,11 @@ export const getAllKits = async (req, res) => {
 
 export const getSingleKit = async (req, res) => {
   try {
-    const kit = await FestivalKit.findById(req.params.id)
-      .populate("items.product", "title pricing media");
+    const kit = await FestivalKit.findOne({
+      _id: req.params.id,
+      kitType: "special",
+    })
+      .populate("items.product", "title pricing media category");
 
     if (!kit) {
       return res.status(404).json({
@@ -138,6 +175,7 @@ export const getSingleKit = async (req, res) => {
       id: i.product._id,
       name: i.product.title,
       price: i.product.pricing.price,
+      category: i.product.category || null,
       image: i.product.media?.image?.[0] || i.product.media?.Images?.[0] || null,
       quantity: i.quantity
     }));
@@ -149,6 +187,11 @@ export const getSingleKit = async (req, res) => {
         name: kit.name,
         description: kit.description,
         image: kit.image,
+        category: kit.category || "",
+        kitType: kit.kitType,
+        isMostPopularKit: kit.isMostPopularKit,
+        isMostUserUse: kit.isMostUserUse,
+        isPanditApproved: kit.isPanditApproved,
         items: formattedItems,
         totalPrice: kit.totalPrice,
         kitPrice: kit.kitPrice,
@@ -167,7 +210,10 @@ export const getSingleKit = async (req, res) => {
 
 export const deleteKit = async (req, res) => {
   try {
-    const kit = await FestivalKit.findByIdAndDelete(req.params.id);
+    const kit = await FestivalKit.findOneAndDelete({
+      _id: req.params.id,
+      kitType: "special",
+    });
 
     if (!kit) {
       return res.status(404).json({
@@ -191,7 +237,10 @@ export const deleteKit = async (req, res) => {
 
 export const updateKit = async (req, res) => {
   try {
-    const kit = await FestivalKit.findById(req.params.id);
+    const kit = await FestivalKit.findOne({
+      _id: req.params.id,
+      kitType: "special",
+    });
 
     if (!kit) {
       return res.status(404).json({
@@ -200,26 +249,52 @@ export const updateKit = async (req, res) => {
       });
     }
 
-    const { name, description, kitPrice, festivalType, status = kit.status || "active" } = req.body;
+    const {
+      name = kit.name,
+      description = kit.description,
+      kitPrice = kit.kitPrice,
+      festivalType = kit.festivalType,
+      status = kit.status || "active",
+      category = kit.category || "",
+      isMostPopularKit = kit.isMostPopularKit,
+      isMostUserUse = kit.isMostUserUse,
+      isPanditApproved = kit.isPanditApproved,
+    } = req.body;
     const items = req.body.items ? parseKitItems(req.body.items) : null;
 
-    if (!name || !items?.length || !kitPrice) {
-      return res.status(400).json({
-        success: false,
-        message: "Name, items and kitPrice are required"
-      });
+    let nextItems = kit.items;
+    let nextTotalPrice = kit.totalPrice;
+
+    if (items) {
+      if (!items.length) {
+        return res.status(400).json({
+          success: false,
+          message: "At least one product is required",
+        });
+      }
+
+      const computed = await buildKitItems(items);
+      nextItems = computed.formattedItems;
+      nextTotalPrice = computed.totalPrice;
     }
 
-    const { formattedItems, totalPrice } = await buildKitItems(items);
+    const normalizedKitPrice = Number(kitPrice);
+    const resolvedKitPrice = Number.isFinite(normalizedKitPrice)
+      ? normalizedKitPrice
+      : kit.kitPrice;
 
-    kit.name = name;
-    kit.description = description;
+    kit.name = String(name || "").trim();
+    kit.description = String(description || "");
     kit.festivalType = festivalType;
     kit.status = status;
-    kit.kitPrice = Number(kitPrice);
-    kit.items = formattedItems;
-    kit.totalPrice = totalPrice;
-    kit.savings = totalPrice - Number(kitPrice);
+    kit.category = String(category || "").trim();
+    kit.isMostPopularKit = toBoolean(isMostPopularKit, kit.isMostPopularKit);
+    kit.isMostUserUse = toBoolean(isMostUserUse, kit.isMostUserUse);
+    kit.isPanditApproved = toBoolean(isPanditApproved, kit.isPanditApproved);
+    kit.kitPrice = resolvedKitPrice;
+    kit.items = nextItems;
+    kit.totalPrice = nextTotalPrice;
+    kit.savings = nextTotalPrice - resolvedKitPrice;
 
     if (req.file) {
       kit.image = await uploadFileToFirebase(req.file, { folder: "festival-kits" });

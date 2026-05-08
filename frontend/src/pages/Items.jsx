@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import API from "../api/axios";
 import "./Items.css";
 import "./AddItem.css";
-import { FiEye, FiEdit, FiPlus, FiSearch, FiTrash2, FiX } from "react-icons/fi";
+import { FiEye, FiEdit, FiMoreVertical, FiPlus, FiSearch, FiTrash2, FiX } from "react-icons/fi";
 
 const apiOrigin = (API.defaults.baseURL || "http://localhost:8000/api").replace(
   /\/api\/?$/,
@@ -22,6 +22,7 @@ const buildItemForm = () => ({
   discountStartsAt: "",
   discountExpiresAt: "",
   categoryName: "",
+  subCategoryName: "",
   brand: "",
   sku: "",
   unit: "",
@@ -97,7 +98,11 @@ const normalizeItem = (item = {}, fallback = {}) => {
     title: item.title ?? fallback.title ?? "",
     description: item.description ?? fallback.description ?? "",
     slug: item.slug ?? fallback.slug,
-    category: item.category || fallback.category || { name: "" },
+    category: {
+      name: item.category?.name || fallback.category?.name || "",
+      subCategory:
+        item.category?.subCategory || fallback.category?.subCategory || "",
+    },
     details: productDetailFields.reduce(
       (next, field) => ({
         ...next,
@@ -197,6 +202,7 @@ const buildEditForm = (item = {}) => ({
     ? String(item.discount.expiresAt).slice(0, 10)
     : "",
   categoryName: item.category?.name || "",
+  subCategoryName: item.category?.subCategory || "",
   brand: item.details?.brand || "",
   sku: item.details?.sku || "",
   unit: item.details?.unit || "",
@@ -280,6 +286,8 @@ export default function Items() {
   const [cityFilter, setCityFilter] = useState("all");
   const [gstFilter, setGstFilter] = useState("all");
   const [actionLoading, setActionLoading] = useState("");
+  const [selectedItemIds, setSelectedItemIds] = useState([]);
+  const [openMenuId, setOpenMenuId] = useState("");
 
   const [createForm, setCreateForm] = useState(buildItemForm());
   const [createImages, setCreateImages] = useState([]);
@@ -343,6 +351,17 @@ const fetchItems = useCallback(async () => {
       return true;
     });
   }, [items, statusFilter, cityFilter, gstFilter]);
+
+  useEffect(() => {
+    const handleClick = (event) => {
+      if (!event.target.closest("[data-item-menu]")) {
+        setOpenMenuId("");
+      }
+    };
+
+    document.addEventListener("click", handleClick);
+    return () => document.removeEventListener("click", handleClick);
+  }, []);
 
   const handleCreateChange = (event) => {
     const { name, value, type, checked } = event.target;
@@ -492,6 +511,7 @@ const fetchItems = useCallback(async () => {
 
       formData.append("priceIncludesGst", String(editForm.priceIncludesGst));
       formData.append("categoryName", editForm.categoryName || "");
+      formData.append("subCategoryName", editForm.subCategoryName || "");
       productDetailFields.forEach((field) => {
         formData.append(field.name, editForm[field.name] || "");
       });
@@ -559,6 +579,68 @@ const fetchItems = useCallback(async () => {
     }
   };
 
+  const toggleItemSelection = (itemId, checked) => {
+    setSelectedItemIds((current) => {
+      if (checked) {
+        return current.includes(itemId) ? current : [...current, itemId];
+      }
+      return current.filter((id) => id !== itemId);
+    });
+  };
+
+  const toggleAllItems = (checked) => {
+    if (checked) {
+      setSelectedItemIds(filteredItems.map((item) => item._id));
+      return;
+    }
+    setSelectedItemIds([]);
+  };
+
+  const handleDeleteSelectedItems = async () => {
+    if (!selectedItemIds.length) return;
+    if (!window.confirm(`Remove ${selectedItemIds.length} selected items?`)) return;
+
+    try {
+      setActionLoading("delete-selected");
+      setActionError("");
+      await Promise.all(selectedItemIds.map((itemId) => API.delete(`/items/${itemId}`)));
+      setItems((current) => current.filter((entry) => !selectedItemIds.includes(entry._id)));
+      setSelectedItemIds([]);
+    } catch (err) {
+      setActionError(err.response?.data?.message || "Unable to delete selected items.");
+    } finally {
+      setActionLoading("");
+    }
+  };
+
+  const handleToggleItemStatus = async (item) => {
+    if (!item?._id) return;
+    const nextStatus = item.status === "inactive" ? "active" : "inactive";
+
+    try {
+      setActionLoading(`status:${item._id}`);
+      setActionError("");
+
+      const formData = new FormData();
+      formData.append("status", nextStatus);
+
+      const res = await API.put(`/items/${item._id}`, formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+
+      const updated = normalizeItem(res.data?.data || {}, item);
+      setItems((current) =>
+        current.map((entry) => (entry._id === item._id ? updated : entry))
+      );
+    } catch (err) {
+      setActionError(err.response?.data?.message || "Unable to update item status.");
+    } finally {
+      setActionLoading("");
+    }
+  };
+
   return (
     <div className="items-page">
       <div className="items-header">
@@ -610,6 +692,15 @@ const fetchItems = useCallback(async () => {
               <input
                 name="categoryName"
                 value={createForm.categoryName}
+                onChange={handleCreateChange}
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Sub Category</label>
+              <input
+                name="subCategoryName"
+                value={createForm.subCategoryName}
                 onChange={handleCreateChange}
               />
             </div>
@@ -911,6 +1002,20 @@ const fetchItems = useCallback(async () => {
         </select>
       </div>
 
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+        <span className="text-xs text-[#7b5a4b] dark:text-[#dbcdb8]/70">
+          {selectedItemIds.length} selected
+        </span>
+        <button
+          type="button"
+          onClick={handleDeleteSelectedItems}
+          disabled={!selectedItemIds.length || actionLoading === "delete-selected"}
+          className="rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-xs font-semibold text-red-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200"
+        >
+          Delete Selected
+        </button>
+      </div>
+
       {actionError && !viewItem && !editItem && (
         <div className="items-action-error">{actionError}</div>
       )}
@@ -927,8 +1032,18 @@ const fetchItems = useCallback(async () => {
           <table className="min-w-full text-sm">
             <thead className="dark:bg-[#2b2a25] text-left dark:text-[#f5deae] text-[#5c4a23]">
               <tr>
+                <th className="px-4 py-3 font-semibold">
+                  <input
+                    type="checkbox"
+                    checked={filteredItems.length > 0 && selectedItemIds.length === filteredItems.length}
+                    onChange={(event) => toggleAllItems(event.target.checked)}
+                    className="h-4 w-4 rounded-[4px] border border-[#d7c3a3]"
+                  />
+                </th>
+                <th className="px-4 py-3 font-semibold">S.No</th>
+                <th className="px-4 py-3 font-semibold">Item Code</th>
                 <th className="px-4 py-3 font-semibold">Product</th>
-                <th className="px-4 py-3 font-semibold">Category</th>
+                <th className="px-4 py-3 font-semibold">Category / Subcategory</th>
                 <th className="px-4 py-3 font-semibold">Brand</th>
                 <th className="px-4 py-3 font-semibold">SKU</th>
                 <th className="px-4 py-3 font-semibold">MRP</th>
@@ -940,15 +1055,25 @@ const fetchItems = useCallback(async () => {
                 <th className="px-4 py-3 font-semibold">Stock</th>
                 <th className="px-4 py-3 font-semibold">City</th>
                 <th className="px-4 py-3 font-semibold">Status</th>
-                <th className="px-4 py-3 font-semibold">Actions</th>
+                <th className="px-4 py-3 font-semibold text-right">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {filteredItems.map((item) => (
+              {filteredItems.map((item, index) => (
                 <tr
                   key={item._id}
                   className="border-t-[1px] dark:border-[#53535398] text-black dark:text-white"
                 >
+                  <td className="px-4 py-3">
+                    <input
+                      type="checkbox"
+                      checked={selectedItemIds.includes(item._id)}
+                      onChange={(event) => toggleItemSelection(item._id, event.target.checked)}
+                      className="h-4 w-4 rounded-[4px] border border-[#d7c3a3]"
+                    />
+                  </td>
+                  <td className="px-4 py-3 text-sm text-[#6f3945] dark:text-[#f7e3c0]">{index + 1}</td>
+                  <td className="px-4 py-3 font-mono text-xs text-[#6f3945] dark:text-[#f7e3c0]">ITEM-{String(item._id || "").slice(-6).toUpperCase()}</td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
                       {formatImageUrl(item.thumbnail) ? (
@@ -972,6 +1097,7 @@ const fetchItems = useCallback(async () => {
                   </td>
                   <td className="px-4 py-3">
                     {item.category?.name || "Uncategorized"}
+                    {item.category?.subCategory ? ` / ${item.category.subCategory}` : ""}
                   </td>
                   <td className="px-4 py-3">{item.details?.brand || "-"}</td>
                   <td className="px-4 py-3">{item.details?.sku || "-"}</td>
@@ -1006,29 +1132,61 @@ const fetchItems = useCallback(async () => {
                       {item.status || "active"}
                     </span>
                   </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
+                  <td className="px-4 py-3 text-right" data-item-menu>
+                    <div className="relative inline-flex">
                       <button
                         type="button"
-                        onClick={() => openViewModal(item)}
-                        title="View item"
+                        onClick={() => setOpenMenuId(openMenuId === item._id ? "" : item._id)}
+                        className="grid h-9 w-9 place-items-center rounded-lg border border-[#d7bf9b] text-[#6f3945] hover:bg-[#8B1E3F]/10 dark:border-white/20 dark:text-[#f7e3c0]"
                       >
-                        <FiEye />
+                        <FiMoreVertical />
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => openEditModal(item)}
-                        title="Edit item"
-                      >
-                        <FiEdit />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteItem(item)}
-                        title="Delete item"
-                      >
-                        <FiTrash2 />
-                      </button>
+                      {openMenuId === item._id && (
+                        <div className="absolute right-0 top-11 z-50 w-44 overflow-hidden rounded-xl border border-[#d9c3a2] bg-white text-sm shadow-lg dark:border-white/10 dark:bg-[#1b1f27]">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setOpenMenuId("");
+                              openViewModal(item);
+                            }}
+                            className="flex w-full items-center gap-2 px-4 py-2 text-left hover:bg-[#8B1E3F]/10"
+                          >
+                            <FiEye className="text-[#6f3945]" /> View
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setOpenMenuId("");
+                              openEditModal(item);
+                            }}
+                            className="flex w-full items-center gap-2 px-4 py-2 text-left hover:bg-[#8B1E3F]/10"
+                          >
+                            <FiEdit className="text-[#6f3945]" /> Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setOpenMenuId("");
+                              handleToggleItemStatus(item);
+                            }}
+                            className="flex w-full items-center gap-2 px-4 py-2 text-left hover:bg-[#8B1E3F]/10"
+                          >
+                            <span className="text-[#6f3945]">
+                              {item.status === "inactive" ? "Mark Active" : "Mark Inactive"}
+                            </span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setOpenMenuId("");
+                              handleDeleteItem(item);
+                            }}
+                            className="flex w-full items-center gap-2 px-4 py-2 text-left text-red-700 hover:bg-red-50 dark:text-red-200 dark:hover:bg-red-500/10"
+                          >
+                            <FiTrash2 className="text-red-600" /> Delete
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -1085,6 +1243,10 @@ const fetchItems = useCallback(async () => {
                 <div>
                   <span>Category</span>
                   <strong>{viewItem.category?.name || "Uncategorized"}</strong>
+                </div>
+                <div>
+                  <span>Sub Category</span>
+                  <strong>{viewItem.category?.subCategory || "-"}</strong>
                 </div>
                 {productDetailFields.map((field) => (
                   <div key={field.name}>
@@ -1267,6 +1429,14 @@ const fetchItems = useCallback(async () => {
                 <input
                   name="categoryName"
                   value={editForm.categoryName}
+                  onChange={handleEditChange}
+                />
+              </label>
+              <label>
+                Sub Category
+                <input
+                  name="subCategoryName"
+                  value={editForm.subCategoryName}
                   onChange={handleEditChange}
                 />
               </label>

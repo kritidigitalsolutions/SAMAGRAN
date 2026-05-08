@@ -99,31 +99,31 @@ const buildRatingSummary = async (productId) => {
 // Get all products (User)
 export const getProductsUser = async (req, res) => {
   try {
-    const { page = 1, limit = 10, search } = req.query;
+    // const { page = 1, limit = 10, search } = req.query;
 
-    const skip = (page - 1) * limit;
+    // const skip = (page - 1) * limit;
 
     let query = { status: "active" };
 
-    if (search) {
-      const searchRegex = new RegExp(escapeRegex(search), "i");
+    // if (search) {
+    //   const searchRegex = new RegExp(escapeRegex(search), "i");
 
-      query.$or = [
-        { title: searchRegex },
-        { "category.name": searchRegex },
-        { description: searchRegex },
-        { "details.brand": searchRegex },
-        { "details.sku": searchRegex },
-        { "details.manufacturer": searchRegex },
-        { tags: searchRegex },
-      ];
-    }
+    //   query.$or = [
+    //     { title: searchRegex },
+    //     { "category.name": searchRegex },
+    //     { description: searchRegex },
+    //     { "details.brand": searchRegex },
+    //     { "details.sku": searchRegex },
+    //     { "details.manufacturer": searchRegex },
+    //     { tags: searchRegex },
+    //   ];
+    // }
 
     const totalProducts = await Item.countDocuments(query);
 
     const items = await Item.find(query)
-      .skip(skip)
-      .limit(Number(limit))
+      // .skip(skip)
+      // .limit(Number(limit))
       .sort({ createdAt: -1 });
 
     const products = items.map((item) => {
@@ -155,7 +155,10 @@ export const getProductsUser = async (req, res) => {
           productImages?.map((img) =>
             img.replace(/\\/g, "/")
           ) || [],
-        category: item.category?.name,
+        category: {
+          name: item.category?.name,
+          subCategory: item.category?.subCategory,
+        },
         inStock: item.stock.quantity > 0,
         review: item.review || {
           "review": {     
@@ -188,8 +191,8 @@ export const getProductsUser = async (req, res) => {
         products,
         pagination: {
           totalProducts,
-          currentPage: Number(page),
-          totalPages: Math.ceil(totalProducts / limit),
+          // currentPage: Number(page),
+          totalPages: Math.ceil(totalProducts),
         },
       },
     });
@@ -236,7 +239,10 @@ export const getSingleProductUser = async (req, res) => {
           startsAt: null,
           expiresAt: null,
         },
-        category: item.category?.name,
+        category: {
+          name: item.category?.name,
+          subCategory: item.category?.subCategory,
+        },
         pricing: {
           price,
           mrp,

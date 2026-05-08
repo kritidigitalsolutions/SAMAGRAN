@@ -3,7 +3,7 @@ import Razorpay from "razorpay";
 import Pandit from "../models/pandit.model.js";
 import PanditBooking from "../models/panditBooking.model.js";
 import PanditBookingIntent from "../models/panditBookingIntent.model.js";
-import DefaultKit from "../models/defaultKit.model.js";
+import FestivalKit from "../models/festivalKit.model.js";
 import Ritual from "../models/ritual.model.js";
 import temple from "../models/temple.model.js";
 import BookingPricing from "../models/bookingPrice.js";
@@ -384,8 +384,9 @@ export const getPanditBookingProfile = async (req, res) => {
 
     const { ritual = "" } = req.query;
 
-    const recommendedKit = await DefaultKit.findOne({
+    const recommendedKit = await FestivalKit.findOne({
       status: "active",
+      kitType: "default",
       ...(ritual.trim()
         ? {
             $or: [

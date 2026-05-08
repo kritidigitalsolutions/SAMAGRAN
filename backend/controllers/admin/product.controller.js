@@ -112,6 +112,7 @@ export const addProduct = async (req, res) => {
       gstPercent,
       priceIncludesGst,
       categoryName,
+      subCategoryName,
       description,
       city,
       hsnCode,
@@ -148,6 +149,7 @@ export const addProduct = async (req, res) => {
       slug: generateSlug(title),
       category: {
         name: categoryName,
+        subCategory: subCategoryName,
       },
       description: String(description || "").trim(),
       details: buildDetailsPayload(req.body),
@@ -217,6 +219,7 @@ export const getProducts = async (req, res) => {
       query.$or = [
         { title: searchRegex },
         { "category.name": searchRegex },
+        { "category.subCategory": searchRegex },
         { description: searchRegex },
         { "details.brand": searchRegex },
         { "details.sku": searchRegex },
@@ -247,6 +250,7 @@ export const getProducts = async (req, res) => {
         slug: item.slug,
         category: {
           name: item.category?.name,
+          subCategory: item.category?.subCategory,
         },
         description: item.description || "",
         details: item.details || {},
@@ -334,6 +338,7 @@ export const getSingleProduct = async (req, res) => {
         slug: item.slug,
         category: {
           name: item.category?.name,
+          subCategory: item.category?.subCategory,
         },
         description: item.description || "",
         details: item.details || {},
@@ -409,6 +414,7 @@ export const updateProduct = async (req, res) => {
       gstPercent,
       priceIncludesGst,
       categoryName,
+      subCategoryName,
       description,
       city,
       hsnCode,
@@ -432,7 +438,15 @@ export const updateProduct = async (req, res) => {
       item.slug = title.toLowerCase().replace(/ /g, "-");
     }
 
-    if (categoryName) item.category.name = categoryName;
+    if (categoryName !== undefined) {
+      item.category = item.category || {};
+      item.category.name = categoryName;
+    }
+
+    if (subCategoryName !== undefined) {
+      item.category = item.category || {};
+      item.category.subCategory = subCategoryName;
+    }
 
     if (description !== undefined) {
       item.description = String(description || "").trim();
@@ -544,6 +558,7 @@ export const updateProduct = async (req, res) => {
         slug: item.slug,
         category: {
           name: item.category?.name,
+          subCategory: item.category?.subCategory,
         },
         description: item.description || "",
         details: item.details || {},

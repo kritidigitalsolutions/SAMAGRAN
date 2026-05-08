@@ -1,8 +1,6 @@
 // import Cart from "../models/cart.model.js";
 // import Item from "../models/product.model.js";
 // import FestivalKit from "../models/festivalKit.model.js";
-// import DefaultKit from "../models/defaultKit.model.js";
-// import UserKit from "../models/userKit.model.js";
 
 // const CART_PRODUCT_POPULATE = {
 //   path: "product",
@@ -236,8 +234,6 @@ import mongoose from "mongoose";
 import Cart from "../models/cart.model.js";
 import Item from "../models/product.model.js";
 import FestivalKit from "../models/festivalKit.model.js";
-import DefaultKit from "../models/defaultKit.model.js";
-import UserKit from "../models/userKit.model.js";
 
 const CART_PRODUCT_POPULATE = {
   path: "product",
@@ -269,13 +265,13 @@ const getProductDetails = async (productId) => {
   if (product) return { product, price: toMoney(product.pricing?.price), productType: "Item" };
 
   product = await FestivalKit.findById(productId);
-  if (product) return { product, price: toMoney(product.kitPrice ?? product.totalPrice), productType: "FestivalKit" };
-
-  product = await DefaultKit.findOne({ _id: productId, status: "active" });
-  if (product) return { product, price: toMoney(product.kitPrice ?? product.totalPrice), productType: "DefaultKit" };
-
-  product = await UserKit.findById(productId);
-  if (product) return { product, price: toMoney(product.totalPrice), productType: "UserKit" };
+  if (product) {
+    return {
+      product,
+      price: toMoney(product.kitPrice ?? product.totalPrice),
+      productType: "FestivalKit",
+    };
+  }
 
   return null;
 };

@@ -3,7 +3,7 @@ import Order from "../../models/order.model.js";
 import User from "../../models/user.model.js";
 
 const TRACKING_STEPS = ["Placed", "Confirmed", "Preparing", "Out for Delivery", "Delivered"];
-const SUPPORTED_PRODUCT_TYPES = ["Item", "FestivalKit", "DefaultKit", "UserKit"];
+const SUPPORTED_PRODUCT_TYPES = ["Item", "FestivalKit", "DefaultKit"];
 const ADDRESS_TYPES = ["home", "work", "others"];
 const ORDER_ITEMS_POPULATE = {
   path: "items.product",
@@ -77,13 +77,17 @@ const normalizeOrderItems = (items = []) => {
   }
 
   return items.map((row) => {
-    const productType = String(row.productType || "").trim();
+    let productType = String(row.productType || "").trim();
     const product = row.product || row.productId || row.id;
     const quantity = Number(row.quantity || 1);
     const price = toMoney(row.price);
 
     if (!SUPPORTED_PRODUCT_TYPES.includes(productType)) {
       throw new Error(`Unsupported productType: ${productType || "unknown"}`);
+    }
+
+    if (productType === "DefaultKit") {
+      productType = "FestivalKit";
     }
 
     if (!product || !mongoose.Types.ObjectId.isValid(product)) {

@@ -79,10 +79,8 @@ app.get("/", (req, res) => {
 });
 
 // Admin ROUTES
-import festivalKitRoutes from "./routes/admin/festivalKit.routes.js";
-import adminDefaultKitRoutes from "./routes/admin/defaultKit.routes.js";
-//for user festival kits
-import adminUserKitRoutes from "./routes/admin/userKit.routes.js";
+import adminKitRoutes from "./routes/admin/kit.routes.js";
+import userKitRoutes from "./routes/user/kit.routes.js";
 import adminPanditRoutes from "./routes/admin/pandit.routes.js";
 import adminPanditBookingRoutes from "./routes/admin/panditBooking.routes.js";
 import adminRitualRoutes from "./routes/admin/ritual.routes.js";
@@ -103,9 +101,6 @@ import panditAuthRoutes from "./routes/pandit/pandit.auth.routes.js";
 
 
 // User Routs
-import userFestivalKitRoutes from "./routes/user/festivalKit.routes.js";
-import userDefaultKitRoutes from "./routes/user/defaultKit.routes.js";
-import userKit from "./routes/user/userKit.routes.js";
 import userProductRoutes from "./routes/user/product.routes.js";
 import panditBooking from "./routes/user/panditBooking.routes.js";
 import cartRoutes from "./routes/user/cart.routes.js";
@@ -186,9 +181,8 @@ export const bootstrapApp = async () => {
 app.use("/api/admin", adminRoutes);
 app.use("/api/admin/auth", adminAuthRoutes);
 
-app.use("/api/admin/kits", festivalKitRoutes);
-app.use("/api/admin/default-kits", adminDefaultKitRoutes);
-app.use("/api/admin/user-kits", adminUserKitRoutes);
+app.use("/api/admin", adminKitRoutes);
+app.use("/api", userKitRoutes);
 app.use("/api/admin/pandits", adminPanditRoutes);
 app.use("/api/admin/pandit-bookings", adminPanditBookingRoutes);
 app.use("/api/admin/rituals", adminRitualRoutes);
@@ -204,12 +198,6 @@ app.use("/api/admin/coupons", adminCouponRoutes);
 app.use("/api/admin/offers", adminOfferRoutes);
 app.use("/api/admin/notifications", adminNotificationRoutes);
 
-// Backward-compatible alias for existing frontend calls.
-app.use("/api/kits", festivalKitRoutes);
-
-
-
-
 // ############ User Routes ##########################
 
 app.use("/api/auth", authRoutes);
@@ -217,10 +205,6 @@ app.use("/api/pandit/auth", panditAuthRoutes);
 
 // user routs for user side
 app.use("/api/user", userRoutes);
-
-// user festive kit for user
-app.use("/api/user/kits", userFestivalKitRoutes);
-app.use("/api/default-kits", userDefaultKitRoutes);
 
 //cart
 app.use("/api/cart", cartRoutes);
@@ -236,9 +220,6 @@ app.use("/api/user/coupons", couponRoutes);
 app.use("/api/user/offers", offerRoutes);
 app.use("/api/user/video", userVideoRoutes);
 app.use("/api/user/notifications", userNotificationRoutes);
-
-// user get all kit for user
-app.use("/api/user-kits", userKit);
 
 // user pandit booking journey
 app.use("/api/pandit-bookings", panditBooking);

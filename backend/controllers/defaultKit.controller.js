@@ -1,4 +1,4 @@
-import DefaultKit from "../models/defaultKit.model.js";
+import FestivalKit from "../models/festivalKit.model.js";
 
 export const getDefaultKitsForUsers = async (req, res) => {
   try {
@@ -6,14 +6,15 @@ export const getDefaultKitsForUsers = async (req, res) => {
 
     const filter = {
       status: "active",
+      kitType: "default",
     };
 
     if (search.trim()) {
       filter.name = { $regex: search.trim(), $options: "i" };
     }
 
-    const kits = await DefaultKit.find(filter)
-      .populate("items.product", "title pricing media")
+    const kits = await FestivalKit.find(filter)
+      .populate("items.product", "title pricing media category")
       .sort({ createdAt: -1 });
 
     res.json({
@@ -31,10 +32,11 @@ export const getDefaultKitsForUsers = async (req, res) => {
 
 export const getDefaultKitByIdForUsers = async (req, res) => {
   try {
-    const kit = await DefaultKit.findOne({
+    const kit = await FestivalKit.findOne({
       _id: req.params.id,
       status: "active",
-    }).populate("items.product", "title pricing media stock status");
+      kitType: "default",
+    }).populate("items.product", "title pricing media stock status category");
 
     if (!kit) {
       return res.status(404).json({

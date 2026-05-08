@@ -13,6 +13,7 @@ export default function AddItem() {
     discountStartsAt: "",
     discountExpiresAt: "",
     categoryName: "",
+    subCategoryName: "",
     quantity: "",
     tags: "",
     isRecommended: false,
@@ -91,6 +92,11 @@ export default function AddItem() {
   <div className="form-group">
     <label>Category</label>
     <input name="categoryName" onChange={handleChange} />
+  </div>
+
+  <div className="form-group">
+    <label>Sub Category</label>
+    <input name="subCategoryName" onChange={handleChange} />
   </div>
 
   <div className="form-group">

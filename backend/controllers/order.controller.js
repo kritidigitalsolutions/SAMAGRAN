@@ -5,8 +5,6 @@ import Order from "../models/order.model.js";
 import Cart from "../models/cart.model.js";
 import Item from "../models/product.model.js";
 import FestivalKit from "../models/festivalKit.model.js";
-import DefaultKit from "../models/defaultKit.model.js";
-import UserKit from "../models/userKit.model.js";
 import User from "../models/user.model.js";
 import Coupon from "../models/coupon.model.js";
 import Offer from "../models/offer.model.js";
@@ -14,7 +12,7 @@ import Wallet from "../models/wallet.model.js";
 import WalletTransaction from "../models/walletTransaction.model.js";
 import { notifyAdmins } from "../utils/notification.service.js";
 
-const SUPPORTED_PRODUCT_TYPES = ["Item", "FestivalKit", "DefaultKit", "UserKit"];
+const SUPPORTED_PRODUCT_TYPES = ["Item", "FestivalKit", "DefaultKit"];
 const TRACKING_STEPS = ["Placed", "Confirmed", "Preparing", "Out for Delivery", "Delivered"];
 const ADDRESS_TYPES = ["home", "work", "others"];
 const ORDER_ITEMS_POPULATE = {
@@ -278,28 +276,6 @@ const getProductDocAndPrice = async ({ userId, productType, productId }) => {
       };
     }
 
-    const defaultKit = await DefaultKit.findOne({ _id: productId, status: "active" });
-    if (defaultKit) {
-      return {
-        productType: "DefaultKit",
-        doc: defaultKit,
-        unitPrice: toMoney(defaultKit.kitPrice || defaultKit.totalPrice),
-      };
-    }
-
-    const userKit = await UserKit.findOne({ _id: productId, user: userId });
-    if (userKit) {
-      if (userKit.status === "ordered") {
-        throw new Error("Selected user kit is already ordered");
-      }
-
-      return {
-        productType: "UserKit",
-        doc: userKit,
-        unitPrice: toMoney(userKit.totalPrice),
-      };
-    }
-
     throw new Error("Product not found");
   }
 
@@ -334,32 +310,21 @@ const getProductDocAndPrice = async ({ userId, productType, productId }) => {
   }
 
   if (resolvedProductType === "DefaultKit") {
-    const kit = await DefaultKit.findOne({ _id: productId, status: "active" });
+    const kit = await FestivalKit.findOne({
+      _id: productId,
+      kitType: "default",
+      status: "active",
+    });
     if (!kit) {
       throw new Error("Default kit not found");
     }
 
     return {
-      productType: "DefaultKit",
+      productType: "FestivalKit",
       doc: kit,
       unitPrice: toMoney(kit.kitPrice || kit.totalPrice),
     };
   }
-
-  const userKit = await UserKit.findOne({ _id: productId, user: userId });
-  if (!userKit) {
-    throw new Error("User kit not found");
-  }
-
-  if (userKit.status === "ordered") {
-    throw new Error("Selected user kit is already ordered");
-  }
-
-  return {
-    productType: "UserKit",
-    doc: userKit,
-    unitPrice: toMoney(userKit.totalPrice),
-  };
 };
 
 const resolveCheckoutItems = async ({ userId, directItems = null }) => {
@@ -373,8 +338,6 @@ const resolveCheckoutItems = async ({ userId, directItems = null }) => {
   }
 
   const resolved = [];
-  const userKitIds = [];
-
   for (const row of sourceItems) {
     const providedProductType = String(row.productType || "").trim();
     const productId = row.id || row.productId || row.product;
@@ -403,10 +366,6 @@ const resolveCheckoutItems = async ({ userId, directItems = null }) => {
       quantity = 1;
     }
 
-    if (productType === "UserKit") {
-      userKitIds.push(doc._id);
-    }
-
     resolved.push({
       productType,
       product: doc._id,
@@ -426,7 +385,6 @@ const resolveCheckoutItems = async ({ userId, directItems = null }) => {
     orderItems,
     itemTotal,
     source: fromDirect ? "direct" : "cart",
-    userKitIds,
   };
 };
 
@@ -692,7 +650,7 @@ export const placeOrder = async (req, res) => {
 
     const normalizedPaymentMethod = normalizePaymentMethod(paymentMethod);
 
-    const { orderItems, itemTotal, source, userKitIds } = await resolveCheckoutItems({
+    const { orderItems, itemTotal, source } = await resolveCheckoutItems({
       userId,
       directItems: items,
     });
@@ -859,23 +817,6 @@ export const placeOrder = async (req, res) => {
 
     if (source === "cart") {
       await Cart.deleteMany({ user: userId });
-    }
-
-    if (userKitIds.length > 0) {
-      await UserKit.updateMany(
-        {
-          _id: { $in: userKitIds },
-          user: userId,
-          status: "draft",
-        },
-        {
-          $set: {
-            status: "ordered",
-            paymentStatus: paymentStatus === "Paid" ? "paid" : "pending",
-            order: order._id,
-          },
-        }
-      );
     }
 
     if (saveAddress && !addressId) {

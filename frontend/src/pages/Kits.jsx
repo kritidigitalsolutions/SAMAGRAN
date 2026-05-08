@@ -1,7 +1,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import API from "../api/axios";
-import { FiEdit2, FiPlus, FiRefreshCw, FiSearch, FiTrash2, FiX } from "react-icons/fi";
+import { FiEdit2, FiEye, FiMoreVertical, FiPlus, FiRefreshCw, FiSearch, FiTrash2, FiX } from "react-icons/fi";
 
 const apiOrigin = (API.defaults.baseURL || "http://localhost:8000/api").replace(/\/api\/?$/, "");
 
@@ -9,6 +9,7 @@ const buildForm = () => ({
   kitType: "default",
   name: "",
   description: "",
+  category: "",
   kitPrice: "",
   status: "active",
   festivalType: "",
@@ -27,8 +28,7 @@ const formatCurrency = (value) =>
     maximumFractionDigits: 0,
   }).format(Number(value || 0));
 
-const getAdminKitEndpointBase = (kitType) =>
-  kitType === "default" ? "/admin/default-kits" : "/admin/kits";
+const getAdminKitEndpointBase = (kitType) => `/admin/kits/${kitType}`;
 
 export default function Kits() {
   const [kits, setKits] = useState([]);
@@ -37,6 +37,7 @@ export default function Kits() {
   const [selectedItems, setSelectedItems] = useState({});
   const [showForm, setShowForm] = useState(false);
   const [editingKit, setEditingKit] = useState(null);
+  const [viewKit, setViewKit] = useState(null);
   const [imageFile, setImageFile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [loadingProducts, setLoadingProducts] = useState(true);
@@ -46,6 +47,8 @@ export default function Kits() {
   const [activeTab, setActiveTab] = useState("all");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [selectedKitId, setSelectedKitId] = useState("");
+  const [openMenuId, setOpenMenuId] = useState("");
 
   const selectedList = useMemo(
     () =>
@@ -75,10 +78,23 @@ export default function Kits() {
       const bySearch =
         !term ||
         String(kit.name || "").toLowerCase().includes(term) ||
-        String(kit.description || "").toLowerCase().includes(term);
+        String(kit.description || "").toLowerCase().includes(term) ||
+        String(kit.category || "").toLowerCase().includes(term);
       return byTab && byStatus && bySearch;
     });
   }, [kits, activeTab, statusFilter, searchTerm]);
+
+  const categoryOptions = useMemo(() => {
+    const fromProducts = products
+      .map((product) => product?.category?.name)
+      .filter(Boolean)
+      .map((name) => String(name).trim());
+    const fromKits = kits
+      .map((kit) => kit?.category)
+      .filter(Boolean)
+      .map((name) => String(name).trim());
+    return Array.from(new Set([...fromProducts, ...fromKits].filter(Boolean))).sort();
+  }, [products, kits]);
 
   const fetchKits = useCallback(async () => {
     try {
@@ -86,8 +102,8 @@ export default function Kits() {
       setError("");
 
       const [defaultRes, specialRes] = await Promise.all([
-        API.get("/admin/default-kits", { params: { status: "all" } }),
-        API.get("/admin/kits"),
+        API.get("/admin/kits/default", { params: { status: "all" } }),
+        API.get("/admin/kits/special"),
       ]);
 
       const defaultKits = (defaultRes.data?.data || []).map((kit) => ({
@@ -123,6 +139,23 @@ export default function Kits() {
     fetchProducts();
     fetchKits();
   }, [fetchProducts, fetchKits]);
+
+  useEffect(() => {
+    if (selectedKitId && !kits.some((kit) => kit._id === selectedKitId)) {
+      setSelectedKitId("");
+    }
+  }, [kits, selectedKitId]);
+
+  useEffect(() => {
+    const handleClick = (event) => {
+      if (!event.target.closest("[data-kit-menu]")) {
+        setOpenMenuId("");
+      }
+    };
+
+    document.addEventListener("click", handleClick);
+    return () => document.removeEventListener("click", handleClick);
+  }, []);
 
   const resetForm = () => {
     setForm(buildForm());
@@ -172,7 +205,7 @@ export default function Kits() {
       setError("");
       const isDefault = kit.kitType === "default";
       const detailRes = await API.get(
-        isDefault ? `/admin/default-kits/${kit._id}` : `/admin/kits/${kit._id}`
+        isDefault ? `/admin/kits/default/${kit._id}` : `/admin/kits/special/${kit._id}`
       );
       const detail = detailRes.data?.data || kit;
 
@@ -180,6 +213,7 @@ export default function Kits() {
         kitType: isDefault ? "default" : "special",
         name: detail.name || "",
         description: detail.description || "",
+        category: detail.category || "",
         kitPrice: detail.kitPrice ?? "",
         status: detail.status || "active",
         festivalType: detail.festivalType || "",
@@ -203,13 +237,63 @@ export default function Kits() {
     if (!window.confirm(`Delete ${kit.name}?`)) return;
 
     try {
-      const endpoint = kit.kitType === "default" ? `/admin/default-kits/${kit._id}` : `/admin/kits/${kit._id}`;
+      const endpoint = kit.kitType === "default"
+        ? `/admin/kits/default/${kit._id}`
+        : `/admin/kits/special/${kit._id}`;
       await API.delete(endpoint);
       setSuccess("Kit deleted successfully.");
       setKits((current) => current.filter((entry) => entry._id !== kit._id));
+      if (selectedKitId === kit._id) {
+        setSelectedKitId("");
+      }
     } catch (err) {
       setError(err.response?.data?.message || "Unable to delete kit.");
     }
+  };
+
+  const handleView = async (kit) => {
+    try {
+      const isDefault = kit.kitType === "default";
+      const detailRes = await API.get(
+        isDefault ? `/admin/kits/default/${kit._id}` : `/admin/kits/special/${kit._id}`
+      );
+      const detail = detailRes.data?.data || kit;
+      setViewKit({
+        ...detail,
+        kitType: isDefault ? "default" : "special",
+      });
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to load kit details.");
+    }
+  };
+
+  const handleToggleStatus = async (kit) => {
+    try {
+      const nextStatus = (kit.status || "active") === "active" ? "inactive" : "active";
+      const endpoint = kit.kitType === "default"
+        ? `/admin/kits/default/${kit._id}`
+        : `/admin/kits/special/${kit._id}`;
+
+      const formData = new FormData();
+      formData.append("status", nextStatus);
+      await API.put(endpoint, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+
+      setKits((current) =>
+        current.map((entry) => (entry._id === kit._id ? { ...entry, status: nextStatus } : entry))
+      );
+      setSuccess(`Kit marked ${nextStatus}.`);
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to update kit status.");
+    }
+  };
+
+  const handleDeleteSelected = async () => {
+    if (!selectedKitId) return;
+    const selected = kits.find((kit) => kit._id === selectedKitId);
+    if (!selected) return;
+    await handleDelete(selected);
   };
 
   const handleSubmit = async (event) => {
@@ -229,6 +313,7 @@ export default function Kits() {
       const formData = new FormData();
       formData.append("name", form.name.trim());
       formData.append("description", form.description.trim());
+      formData.append("category", form.category.trim());
       formData.append("kitPrice", Number(form.kitPrice));
       formData.append("status", form.status);
       formData.append("items", JSON.stringify(selectedList));
@@ -285,6 +370,12 @@ export default function Kits() {
     return "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-200";
   };
 
+  const getKitCode = (kit) => {
+    const raw = String(kit?._id || "");
+    if (!raw) return "KIT-NA";
+    return `KIT-${raw.slice(-6).toUpperCase()}`;
+  };
+
   return (
     <div className="space-y-4">
       <section className="rounded-[30px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-6 shadow-[var(--admin-shadow)]">
@@ -333,6 +424,23 @@ export default function Kits() {
             <div className="space-y-2">
               <label className="text-sm font-medium">Kit Name</label>
               <input name="name" value={form.name} onChange={handleFormChange} className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20" required />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Category</label>
+              <input
+                name="category"
+                list="kit-category-list"
+                value={form.category}
+                onChange={handleFormChange}
+                className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20"
+                placeholder="e.g. Pooja Essentials"
+              />
+              <datalist id="kit-category-list">
+                {categoryOptions.map((option) => (
+                  <option key={option} value={option} />
+                ))}
+              </datalist>
             </div>
 
             {form.kitType === "special" && (
@@ -413,6 +521,63 @@ export default function Kits() {
         </form>
       )}
 
+      {viewKit && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-2xl rounded-3xl border border-[#d9c3a2] bg-white p-6 shadow-2xl dark:border-white/10 dark:bg-[#12151b]">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-bold">Kit Details</h3>
+              <button
+                type="button"
+                onClick={() => setViewKit(null)}
+                className="rounded-full border border-[#d9c3a2] p-2 text-[#7b3a4b] hover:bg-[#8B1E3F]/8 dark:border-white/20"
+              >
+                <FiX className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="mt-4 grid gap-4 md:grid-cols-2">
+              <div>
+                <p className="text-xs uppercase tracking-[0.2em] text-[#8b6b5b]">Name</p>
+                <p className="font-semibold">{viewKit.name}</p>
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-[0.2em] text-[#8b6b5b]">Kit Code</p>
+                <p className="font-mono text-sm">{getKitCode(viewKit)}</p>
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-[0.2em] text-[#8b6b5b]">Category</p>
+                <p>{viewKit.category || "-"}</p>
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-[0.2em] text-[#8b6b5b]">Type</p>
+                <p className="capitalize">{viewKit.kitType || "-"}</p>
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-[0.2em] text-[#8b6b5b]">Festival Type</p>
+                <p>{viewKit.festivalType || "-"}</p>
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-[0.2em] text-[#8b6b5b]">Status</p>
+                <p className="capitalize">{viewKit.status || "active"}</p>
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-[0.2em] text-[#8b6b5b]">Kit Price</p>
+                <p>{formatCurrency(viewKit.kitPrice)}</p>
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-[0.2em] text-[#8b6b5b]">Items</p>
+                <p>{Array.isArray(viewKit.items) ? viewKit.items.length : 0}</p>
+              </div>
+            </div>
+
+            <div className="mt-4 rounded-2xl border border-[#e8d7bf] bg-[#fff7ea] p-4 text-sm dark:border-white/10 dark:bg-white/5">
+              <p className="text-xs uppercase tracking-[0.2em] text-[#8b6b5b]">Description</p>
+              <p className="mt-2 text-[#5b3a35] dark:text-[#f7e3c0]">{viewKit.description || "No description"}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
       <section className="rounded-[30px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-6 shadow-[var(--admin-shadow)]">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div className="inline-flex rounded-xl border border-[#d8c4a5] bg-white/70 p-1 text-sm dark:border-white/10 dark:bg-white/5">
@@ -445,7 +610,7 @@ export default function Kits() {
           </button>
         </div>
 
-        <div className="mb-4 grid gap-3 md:grid-cols-[180px_180px_1fr_auto]">
+        <div className="mb-4 grid gap-3 md:grid-cols-[180px_180px_1fr_auto_auto]">
           <select
             value={statusFilter}
             onChange={(event) => setStatusFilter(event.target.value)}
@@ -486,6 +651,15 @@ export default function Kits() {
           >
             Reset
           </button>
+
+          <button
+            type="button"
+            onClick={handleDeleteSelected}
+            disabled={!selectedKitId}
+            className="h-11 rounded-xl border border-red-200 bg-red-50 px-4 text-sm font-semibold text-red-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200"
+          >
+            Delete Selected
+          </button>
         </div>
 
         {loading ? (
@@ -497,20 +671,34 @@ export default function Kits() {
             <table className="min-w-full text-sm">
               <thead className="bg-[#8B1E3F]/8 text-left text-[#5a1b2b] dark:bg-[#D4AF37]/10 dark:text-[#f6dfaf]">
                 <tr>
+                  <th className="px-4 py-3 font-semibold"></th>
+                  <th className="px-4 py-3 font-semibold">S.No</th>
+                  <th className="px-4 py-3 font-semibold">Kit Code</th>
                   <th className="px-4 py-3 font-semibold">Kit</th>
+                  <th className="px-4 py-3 font-semibold">Category</th>
                   <th className="px-4 py-3 font-semibold">Type</th>
                   <th className="px-4 py-3 font-semibold">Festival Type</th>
-                  <th className="px-4 py-3 font-semibold">Items</th>
-                  <th className="px-4 py-3 font-semibold">Total Price</th>
                   <th className="px-4 py-3 font-semibold">Kit Price</th>
-                  <th className="px-4 py-3 font-semibold">Savings</th>
                   <th className="px-4 py-3 font-semibold">Status</th>
-                  <th className="px-4 py-3 font-semibold">Actions</th>
+                  <th className="px-4 py-3 font-semibold text-right">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {filteredKits.map((kit) => (
+                {filteredKits.map((kit, index) => (
                   <tr key={kit._id} className="border-t border-[#e8d7bf] dark:border-white/10">
+                    <td className="px-4 py-3">
+                      <input
+                        type="radio"
+                        name="selectedKit"
+                        checked={selectedKitId === kit._id}
+                        onChange={() => setSelectedKitId(kit._id)}
+                        className="h-4 w-4"
+                      />
+                    </td>
+                    <td className="px-4 py-3 text-sm text-[#6f3945] dark:text-[#f7e3c0]">{index + 1}</td>
+                    <td className="px-4 py-3 font-mono text-xs text-[#6f3945] dark:text-[#f7e3c0]">
+                      {getKitCode(kit)}
+                    </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         {kit.image ? (
@@ -524,29 +712,74 @@ export default function Kits() {
                         </div>
                       </div>
                     </td>
+                    <td className="px-4 py-3 text-sm text-[#6f3945] dark:text-[#f7e3c0]">{kit.category || "-"}</td>
                     <td className="px-4 py-3">
                       <span className={`rounded-full px-2.5 py-1 text-xs font-semibold uppercase ${kit.kitType === "default" ? "bg-blue-100 text-blue-700" : "bg-violet-100 text-violet-700"}`}>
                         {kit.kitType === "default" ? "Default" : "Special"}
                       </span>
                     </td>
                     <td className="px-4 py-3">{kit.festivalType || "-"}</td>
-                    <td className="px-4 py-3">{Array.isArray(kit.items) ? kit.items.length : 0}</td>
-                    <td className="px-4 py-3">{formatCurrency(kit.totalPrice)}</td>
                     <td className="px-4 py-3 font-semibold text-emerald-700 dark:text-emerald-300">{formatCurrency(kit.kitPrice)}</td>
-                    <td className="px-4 py-3">{formatCurrency(kit.savings)}</td>
                     <td className="px-4 py-3">
                       <span className={`rounded-full px-2.5 py-1 text-xs font-semibold uppercase ${statusPillClass(kit.status || "active")}`}>
                         {kit.status || "active"}
                       </span>
                     </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <button type="button" onClick={() => handleEdit(kit)} className="grid h-9 w-9 place-items-center rounded-lg border border-[#d7bf9b] text-[#6f3945] hover:bg-[#8B1E3F]/10 dark:border-white/20 dark:text-[#f7e3c0]">
-                          <FiEdit2 />
+                    <td className="px-4 py-3 text-right" data-kit-menu>
+                      <div className="relative inline-flex">
+                        <button
+                          type="button"
+                          onClick={() => setOpenMenuId(openMenuId === kit._id ? "" : kit._id)}
+                          className="grid h-9 w-9 place-items-center rounded-lg border border-[#d7bf9b] text-[#6f3945] hover:bg-[#8B1E3F]/10 dark:border-white/20 dark:text-[#f7e3c0]"
+                        >
+                          <FiMoreVertical />
                         </button>
-                        <button type="button" onClick={() => handleDelete(kit)} className="grid h-9 w-9 place-items-center rounded-lg bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-500/20 dark:text-red-200">
-                          <FiTrash2 />
-                        </button>
+                        {openMenuId === kit._id && (
+                          <div className="absolute right-0 top-11 z-50 w-44 overflow-hidden rounded-xl border border-[#d9c3a2] bg-white text-sm shadow-lg dark:border-white/10 dark:bg-[#1b1f27]">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setOpenMenuId("");
+                                handleView(kit);
+                              }}
+                              className="flex w-full items-center gap-2 px-4 py-2 text-left hover:bg-[#8B1E3F]/10"
+                            >
+                              <FiEye className="text-[#6f3945]" /> View
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setOpenMenuId("");
+                                handleEdit(kit);
+                              }}
+                              className="flex w-full items-center gap-2 px-4 py-2 text-left hover:bg-[#8B1E3F]/10"
+                            >
+                              <FiEdit2 className="text-[#6f3945]" /> Edit
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setOpenMenuId("");
+                                handleToggleStatus(kit);
+                              }}
+                              className="flex w-full items-center gap-2 px-4 py-2 text-left hover:bg-[#8B1E3F]/10"
+                            >
+                              <span className="text-[#6f3945]">
+                                {kit.status === "inactive" ? "Mark Active" : "Mark Inactive"}
+                              </span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setOpenMenuId("");
+                                handleDelete(kit);
+                              }}
+                              className="flex w-full items-center gap-2 px-4 py-2 text-left text-red-700 hover:bg-red-50 dark:text-red-200 dark:hover:bg-red-500/10"
+                            >
+                              <FiTrash2 className="text-red-600" /> Delete
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </td>
                   </tr>

@@ -36,6 +36,25 @@ const festivalKitSchema = new mongoose.Schema(
     description: String,
     image: String,
 
+    category: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+
+    isMostPopularKit: {
+      type: Boolean,
+      default: false,
+    },
+    isMostUserUse: {
+      type: Boolean,
+      default: false,
+    },
+    isPanditApproved: {
+      type: Boolean,
+      default: false,
+    },
+
     items: [kitItemSchema],
 
     totalPrice: Number,
