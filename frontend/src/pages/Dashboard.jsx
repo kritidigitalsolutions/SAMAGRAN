@@ -34,7 +34,7 @@ export default function Dashboard() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [selectedRecentOrderIds, setSelectedRecentOrderIds] = useState([]);
+  // const [selectedRecentOrderIds, setSelectedRecentOrderIds] = useState([]);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
@@ -138,22 +138,22 @@ export default function Dashboard() {
   useEffect(() => {
     setPage(1);
   }, [recentOrders.length]);
-  const toggleRecentOrderSelection = (orderId, checked) => {
-    setSelectedRecentOrderIds((current) => {
-      if (checked) {
-        return current.includes(orderId) ? current : [...current, orderId];
-      }
-      return current.filter((id) => id !== orderId);
-    });
-  };
+  // const toggleRecentOrderSelection = (orderId, checked) => {
+  //   setSelectedRecentOrderIds((current) => {
+  //     if (checked) {
+  //       return current.includes(orderId) ? current : [...current, orderId];
+  //     }
+  //     return current.filter((id) => id !== orderId);
+  //   });
+  // };
 
-  const toggleAllRecentOrders = (checked) => {
-    if (checked) {
-      setSelectedRecentOrderIds(recentOrders.map((order) => order._id));
-      return;
-    }
-    setSelectedRecentOrderIds([]);
-  };
+  // const toggleAllRecentOrders = (checked) => {
+  //   if (checked) {
+  //     setSelectedRecentOrderIds(recentOrders.map((order) => order._id));
+  //     return;
+  //   }
+  //   setSelectedRecentOrderIds([]);
+  // };
 
   const greeting = getGreeting(now.getHours());
   const formattedDate = now.toLocaleDateString("en-IN", {
