@@ -18,6 +18,15 @@ const toNumber = (value, fallback = 0) => {
   return Number.isFinite(parsed) ? parsed : fallback;
 };
 
+const parseList = (value) => {
+  if (value === undefined || value === null || value === "") return [];
+  const raw = Array.isArray(value) ? value : String(value).split(",");
+  return raw
+    .flatMap((entry) => String(entry).split(","))
+    .map((entry) => String(entry).trim())
+    .filter(Boolean);
+};
+
 const buildPricingPayload = ({ price, mrp, gstPercent, priceIncludesGst }) => {
   const sellingPrice = toNumber(price, 0);
   const gstRate = Math.max(toNumber(gstPercent, 0), 0);
@@ -79,7 +88,7 @@ const parseExistingImages = (value) => {
 
 const buildDetailsPayload = (body = {}) => ({
   brand: String(body.brand || "").trim(),
-  sku: String(body.sku || "").trim(),
+  subBrand: String(body.subBrand || "").trim(),
   unit: String(body.unit || "").trim(),
   weight: String(body.weight || "").trim(),
   dimensions: String(body.dimensions || "").trim(),
@@ -202,7 +211,18 @@ export const addProduct = async (req, res) => {
 
 export const getProducts = async (req, res) => {
   try {
-    const { page = 1, limit = 10, search, status = "active" } = req.query;
+    const {
+      page = 1,
+      limit = 10,
+      search,
+      status = "active",
+      brand,
+      subBrand,
+      hsnCode,
+      gstPercent,
+      category,
+      subCategory,
+    } = req.query;
     const searchTerm = search?.trim();
 
     const skip = (page - 1) * limit;
@@ -222,10 +242,42 @@ export const getProducts = async (req, res) => {
         { "category.subCategory": searchRegex },
         { description: searchRegex },
         { "details.brand": searchRegex },
-        { "details.sku": searchRegex },
+        { "details.subBrand": searchRegex },
         { "details.manufacturer": searchRegex },
+        { itemCode: searchRegex },
         { tags: searchRegex },
       ];
+    }
+
+    const brandList = parseList(brand);
+    if (brandList.length) {
+      query["details.brand"] = { $in: brandList };
+    }
+
+    const subBrandList = parseList(subBrand);
+    if (subBrandList.length) {
+      query["details.subBrand"] = { $in: subBrandList };
+    }
+    const categoryList = parseList(category);
+    if (categoryList.length) {
+      query["category.name"] = { $in: categoryList };
+    }
+
+    const subCategoryList = parseList(subCategory);
+    if (subCategoryList.length) {
+      query["category.subCategory"] = { $in: subCategoryList };
+    }
+
+    const hsnList = parseList(hsnCode);
+    if (hsnList.length) {
+      query["compliance.hsnCode"] = { $in: hsnList };
+    }
+
+    const gstList = parseList(gstPercent)
+      .map((value) => Number(value))
+      .filter((value) => Number.isFinite(value));
+    if (gstList.length) {
+      query["pricing.gstPercent"] = { $in: gstList };
     }
 
     const totalProducts = await Item.countDocuments(query);
@@ -246,6 +298,7 @@ export const getProducts = async (req, res) => {
 
       return {
         _id: item._id,
+        itemCode: item.itemCode || "",
         title: item.title,
         slug: item.slug,
         category: {
@@ -259,6 +312,7 @@ export const getProducts = async (req, res) => {
           mrp,
           basePrice,
           gstPercent,
+        itemCode: item.itemCode || "",
           gstAmount,
           priceIncludesGst,
           discountPercent,
@@ -334,6 +388,7 @@ export const getSingleProduct = async (req, res) => {
       success: true,
       data: {
         id: item._id,
+        itemCode: item.itemCode || "",
         title: item.title,
         slug: item.slug,
         category: {
@@ -554,6 +609,7 @@ export const updateProduct = async (req, res) => {
       message: "Item updated successfully",
       data: {
         id: item._id,
+        itemCode: item.itemCode || "",
         title: item.title,
         slug: item.slug,
         category: {

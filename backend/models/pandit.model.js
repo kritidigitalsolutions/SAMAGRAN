@@ -39,7 +39,7 @@ const serviceTypeSchema = new mongoose.Schema(
     serviceDistance: {
       selected: {
         type: String,
-        enum: ["within5", "within10", "within25", "within50", "custom", ""],
+        // enum: ["within5", "within10", "within25", "within50", "custom", ""],
         default: "",
       },
       customKm: { type: Number, default: 0 },
@@ -60,7 +60,7 @@ const customSamagriItemSchema = new mongoose.Schema(
     size: { type: String, trim: true, default: "" },
     approvalStatus: {
       type: String,
-      enum: ["pending", "approved", "rejected"],
+      // enum: ["pending", "approved", "rejected"],
       default: "pending",
     },
     reviewedAt: { type: Date, default: null },
@@ -185,7 +185,7 @@ const panditSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["pending", "active", "blocked"],
+      // enum: ["pending", "active", "blocked"],
       default: "pending",
     },
   },

@@ -1,6 +1,8 @@
-import { useEffect, useState } from "react";
-import { FiEdit2, FiTrash2, FiX } from "react-icons/fi";
+import { useEffect, useMemo, useState } from "react";
+import { FiEdit2, FiEye, FiMoreVertical, FiTrash2, FiX } from "react-icons/fi";
 import API from "../api/axios";
+import TablePagination from "../components/TablePagination";
+import TableMenuPopover from "../components/TableMenuPopover";
 
 const initialForm = {
   title: "",
@@ -19,6 +21,15 @@ export default function Banner() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [imageFile, setImageFile] = useState(null);
+  const [selectedBannerIds, setSelectedBannerIds] = useState([]);
+  const [openMenuId, setOpenMenuId] = useState("");
+  const [menuAnchorRect, setMenuAnchorRect] = useState(null);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const pagedBanners = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return banners.slice(start, start + pageSize);
+  }, [banners, page, pageSize]);
 
   const fetchbanners = async () => {
     try {
@@ -35,6 +46,27 @@ export default function Banner() {
   useEffect(() => {
     fetchbanners();
   }, []);
+
+  useEffect(() => {
+    setPage(1);
+  }, [banners.length]);
+
+  useEffect(() => {
+    const handleClick = (event) => {
+      if (!event.target.closest("[data-banner-menu], [data-table-menu-popover]")) {
+        setOpenMenuId("");
+      }
+    };
+
+    document.addEventListener("click", handleClick);
+    return () => document.removeEventListener("click", handleClick);
+  }, []);
+
+  useEffect(() => {
+    if (!openMenuId) {
+      setMenuAnchorRect(null);
+    }
+  }, [openMenuId]);
 
   const resetForm = () => {
     setForm(initialForm);
@@ -140,6 +172,64 @@ export default function Banner() {
       setError(err.response?.data?.message || "Unable to delete banner.");
     } finally {
       setDeletingId("");
+    }
+  };
+
+  const buildBannerPayload = (banner, overrides = {}) => {
+    const payload = new FormData();
+    payload.append("title", String(overrides.title ?? banner.title ?? "").trim());
+    payload.append("subTitle", String(overrides.subTitle ?? banner.subTitle ?? "").trim());
+    payload.append("description", String(overrides.description ?? banner.description ?? "").trim());
+    payload.append("priceOff", String(overrides.priceOff ?? banner.priceOff ?? "").trim());
+    payload.append("status", overrides.status ?? banner.status ?? "inactive");
+    return payload;
+  };
+
+  const handleToggleBannerStatus = async (banner) => {
+    if (!banner?._id) return;
+    const nextStatus = banner.status === "active" ? "inactive" : "active";
+
+    try {
+      const payload = buildBannerPayload(banner, { status: nextStatus });
+      await API.put(`/admin/banners/${banner._id}`, payload, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      setbanners((current) =>
+        current.map((entry) => (entry._id === banner._id ? { ...entry, status: nextStatus } : entry))
+      );
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to update banner status.");
+    }
+  };
+
+  const toggleBannerSelection = (bannerId, checked) => {
+    setSelectedBannerIds((current) => {
+      if (checked) {
+        return current.includes(bannerId) ? current : [...current, bannerId];
+      }
+      return current.filter((id) => id !== bannerId);
+    });
+  };
+
+  const toggleAllBanners = (checked) => {
+    if (checked) {
+      setSelectedBannerIds(banners.map((banner) => banner._id));
+      return;
+    }
+    setSelectedBannerIds([]);
+  };
+
+  const handleDeleteSelectedBanners = async () => {
+    if (!selectedBannerIds.length) return;
+    if (!window.confirm(`Delete ${selectedBannerIds.length} selected banners?`)) return;
+
+    try {
+      await Promise.all(selectedBannerIds.map((bannerId) => API.delete(`/admin/banners/${bannerId}`)));
+      setbanners((current) => current.filter((entry) => !selectedBannerIds.includes(entry._id)));
+      setSelectedBannerIds([]);
+      setSuccess("Selected banners deleted successfully.");
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to delete selected banners.");
     }
   };
 
@@ -302,11 +392,35 @@ export default function Banner() {
             No banners added yet.
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-left text-sm">
+          <>
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <span className="text-xs text-[#7b5a4b] dark:text-[#dbcdb8]/70">
+                {selectedBannerIds.length} selected
+              </span>
+              <button
+                type="button"
+                onClick={handleDeleteSelectedBanners}
+                disabled={!selectedBannerIds.length}
+                className="rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-xs font-semibold text-red-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200"
+              >
+                Delete Selected
+              </button>
+            </div>
+            <div className="admin-table-wrap overflow-x-auto">
+            <table className="admin-table min-w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-[#e6d8c5] text-xs uppercase tracking-[0.18em] text-[#7f5a4f] dark:border-white/10 dark:text-[#e7c98b]">
+                  <th className="px-3 py-3 text-center">
+                    <input
+                      type="checkbox"
+                      checked={banners.length > 0 && selectedBannerIds.length === banners.length}
+                      onChange={(event) => toggleAllBanners(event.target.checked)}
+                      className="h-4 w-4 rounded-[4px] border border-[#d7c3a3]"
+                    />
+                  </th>
+                  <th className="serial-col px-2 py-3">S.No</th>
                   <th className="px-3 py-3">Image</th>
+                  <th className="px-3 py-3">Banner Code</th>
                   <th className="px-3 py-3">Title</th>
                   <th className="px-3 py-3">SubTitle</th>
                   <th className="px-3 py-3">Description</th>
@@ -316,10 +430,23 @@ export default function Banner() {
                 </tr>
               </thead>
               <tbody>
-                {banners.map((banner) => (
+                {pagedBanners.map((banner, index) => (
                   <tr key={banner._id} className="border-b border-[#f0e3d1] align-top last:border-none dark:border-white/10">
-                    <td className="px-3 py-4 font-semibold ">
-                      <img src={banner.image} className="rounded border border-[#f0e3d1]" height={30} width={70} alt="" /></td>
+                    <td className="px-3 py-4 text-center">
+                      <input
+                        type="checkbox"
+                        checked={selectedBannerIds.includes(banner._id)}
+                        onChange={(event) => toggleBannerSelection(banner._id, event.target.checked)}
+                        className="h-4 w-4 rounded-[4px] border border-[#d7c3a3]"
+                      />
+                    </td>
+                    <td className="serial-col px-2 py-4 text-sm text-[#6f3945] dark:text-[#f7e3c0]">{(page - 1) * pageSize + index + 1}</td>
+                    <td className="px-3 py-4 font-semibold">
+                      <img src={banner.image} className="rounded border border-[#f0e3d1]" height={30} width={70} alt="" />
+                    </td>
+                    <td className="px-3 py-4 font-mono text-xs text-[#6f3945] dark:text-[#f7e3c0]">
+                      BANNER-{String(banner._id || "").slice(-6).toUpperCase()}
+                    </td>
                     <td className="px-3 py-4 font-semibold">{banner.title}</td>
                     <td className="px-3 py-4 font-semibold">{banner.subTitle}</td>
                     <td className="px-3 py-4 text-[#6e4b40] dark:text-[#f7e3c0]/80">{banner.description || "-"}</td>
@@ -335,32 +462,89 @@ export default function Banner() {
                         {banner.status}
                       </span>
                     </td>
-                    <td className="px-3 py-4">
-                      <div className="flex items-center justify-end gap-2">
+                    <td className="px-3 py-4 text-right" data-banner-menu>
+                      <div className="relative inline-flex">
                         <button
                           type="button"
-                          onClick={() => openEdit(banner)}
-                          className="rounded-lg border border-[#d7bf9b] p-2 text-[#6f3945] hover:bg-[#8B1E3F]/10 dark:border-white/20 dark:text-[#f7e3c0]"
-                          title="Edit"
+                          onClick={(event) => {
+                            const nextId = openMenuId === banner._id ? "" : banner._id;
+                            setOpenMenuId(nextId);
+                            setMenuAnchorRect(nextId ? event.currentTarget.getBoundingClientRect() : null);
+                          }}
+                          className="grid h-9 w-9 place-items-center rounded-lg border border-[#d7bf9b] text-[#6f3945] hover:bg-[#8B1E3F]/10 dark:border-white/20 dark:text-[#f7e3c0]"
                         >
-                          <FiEdit2 className="h-4 w-4" />
+                          <FiMoreVertical />
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDelete(banner)}
-                          disabled={deletingId === banner._id}
-                          className="rounded-lg border border-red-300 p-2 text-red-600 hover:bg-red-50 disabled:opacity-60 dark:border-red-500/40 dark:text-red-200 dark:hover:bg-red-500/10"
-                          title="Delete"
-                        >
-                          <FiTrash2 className="h-4 w-4" />
-                        </button>
+                        {openMenuId === banner._id && (
+                          <TableMenuPopover
+                            open
+                            anchorRect={menuAnchorRect}
+                            preferUp={index >= pagedBanners.length - 3}
+                            onClose={() => setOpenMenuId("")}
+                            className="w-44 overflow-hidden rounded-xl border border-[#d9c3a2] bg-white text-sm shadow-lg dark:border-white/10 dark:bg-[#1b1f27]"
+                          >
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setOpenMenuId("");
+                                openEdit(banner);
+                              }}
+                              className="flex w-full items-center gap-2 px-4 py-2 text-left hover:bg-[#8B1E3F]/10"
+                            >
+                              <FiEye className="text-[#6f3945]" /> View
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setOpenMenuId("");
+                                openEdit(banner);
+                              }}
+                              className="flex w-full items-center gap-2 px-4 py-2 text-left hover:bg-[#8B1E3F]/10"
+                            >
+                              <FiEdit2 className="text-[#6f3945]" /> Edit
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setOpenMenuId("");
+                                handleToggleBannerStatus(banner);
+                              }}
+                              className="flex w-full items-center gap-2 px-4 py-2 text-left hover:bg-[#8B1E3F]/10"
+                            >
+                              <span className="text-[#6f3945]">{banner.status === "active" ? "Mark Inactive" : "Mark Active"}</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setOpenMenuId("");
+                                handleDelete(banner);
+                              }}
+                              disabled={deletingId === banner._id}
+                              className="flex w-full items-center gap-2 px-4 py-2 text-left text-red-700 hover:bg-red-50 dark:text-red-200 dark:hover:bg-red-500/10"
+                            >
+                              <FiTrash2 className="text-red-600" /> Delete
+                            </button>
+                          </TableMenuPopover>
+                        )}
                       </div>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
-          </div>
+            </div>
+            <TablePagination
+              page={page}
+              pageSize={pageSize}
+              total={banners.length}
+              onPageChange={setPage}
+              onPageSizeChange={(size) => {
+                setPageSize(size);
+                setPage(1);
+              }}
+              pageSizeOptions={[10]}
+            />
+          </>
         )}
       </section>
     </div>

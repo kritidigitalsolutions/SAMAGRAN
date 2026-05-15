@@ -2,6 +2,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import API from "../api/axios";
 import { FiEdit2, FiEye, FiMoreVertical, FiPlus, FiRefreshCw, FiSearch, FiTrash2, FiX } from "react-icons/fi";
+import TablePagination from "../components/TablePagination";
+import TableMenuPopover from "../components/TableMenuPopover";
 
 const apiOrigin = (API.defaults.baseURL || "http://localhost:8000/api").replace(/\/api\/?$/, "");
 
@@ -47,8 +49,11 @@ export default function Kits() {
   const [activeTab, setActiveTab] = useState("all");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  const [selectedKitId, setSelectedKitId] = useState("");
+  const [selectedKitIds, setSelectedKitIds] = useState([]);
   const [openMenuId, setOpenMenuId] = useState("");
+  const [menuAnchorRect, setMenuAnchorRect] = useState(null);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   const selectedList = useMemo(
     () =>
@@ -83,6 +88,15 @@ export default function Kits() {
       return byTab && byStatus && bySearch;
     });
   }, [kits, activeTab, statusFilter, searchTerm]);
+
+  const pagedKits = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return filteredKits.slice(start, start + pageSize);
+  }, [filteredKits, page, pageSize]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [filteredKits.length]);
 
   const categoryOptions = useMemo(() => {
     const fromProducts = products
@@ -141,14 +155,14 @@ export default function Kits() {
   }, [fetchProducts, fetchKits]);
 
   useEffect(() => {
-    if (selectedKitId && !kits.some((kit) => kit._id === selectedKitId)) {
-      setSelectedKitId("");
-    }
-  }, [kits, selectedKitId]);
+    setSelectedKitIds((current) =>
+      current.filter((kitId) => kits.some((kit) => kit._id === kitId))
+    );
+  }, [kits]);
 
   useEffect(() => {
     const handleClick = (event) => {
-      if (!event.target.closest("[data-kit-menu]")) {
+      if (!event.target.closest("[data-kit-menu], [data-table-menu-popover]")) {
         setOpenMenuId("");
       }
     };
@@ -156,6 +170,12 @@ export default function Kits() {
     document.addEventListener("click", handleClick);
     return () => document.removeEventListener("click", handleClick);
   }, []);
+
+  useEffect(() => {
+    if (!openMenuId) {
+      setMenuAnchorRect(null);
+    }
+  }, [openMenuId]);
 
   const resetForm = () => {
     setForm(buildForm());
@@ -243,9 +263,7 @@ export default function Kits() {
       await API.delete(endpoint);
       setSuccess("Kit deleted successfully.");
       setKits((current) => current.filter((entry) => entry._id !== kit._id));
-      if (selectedKitId === kit._id) {
-        setSelectedKitId("");
-      }
+      setSelectedKitIds((current) => current.filter((id) => id !== kit._id));
     } catch (err) {
       setError(err.response?.data?.message || "Unable to delete kit.");
     }
@@ -290,10 +308,46 @@ export default function Kits() {
   };
 
   const handleDeleteSelected = async () => {
-    if (!selectedKitId) return;
-    const selected = kits.find((kit) => kit._id === selectedKitId);
-    if (!selected) return;
-    await handleDelete(selected);
+    if (!selectedKitIds.length) return;
+    if (!window.confirm(`Delete ${selectedKitIds.length} selected kits?`)) return;
+
+    try {
+      setError("");
+      setSuccess("");
+      const selectedKits = kits.filter((kit) => selectedKitIds.includes(kit._id));
+
+      await Promise.all(
+        selectedKits.map((kit) => {
+          const endpoint = kit.kitType === "default"
+            ? `/admin/kits/default/${kit._id}`
+            : `/admin/kits/special/${kit._id}`;
+          return API.delete(endpoint);
+        })
+      );
+
+      setKits((current) => current.filter((entry) => !selectedKitIds.includes(entry._id)));
+      setSelectedKitIds([]);
+      setSuccess("Selected kits deleted successfully.");
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to delete selected kits.");
+    }
+  };
+
+  const toggleKitSelection = (kitId, checked) => {
+    setSelectedKitIds((current) => {
+      if (checked) {
+        return current.includes(kitId) ? current : [...current, kitId];
+      }
+      return current.filter((id) => id !== kitId);
+    });
+  };
+
+  const toggleAllKits = (checked) => {
+    if (checked) {
+      setSelectedKitIds(filteredKits.map((kit) => kit._id));
+      return;
+    }
+    setSelectedKitIds([]);
   };
 
   const handleSubmit = async (event) => {
@@ -523,7 +577,7 @@ export default function Kits() {
 
       {viewKit && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-2xl rounded-3xl border border-[#d9c3a2] bg-white p-6 shadow-2xl dark:border-white/10 dark:bg-[#12151b]">
+          <div className="w-full max-w-5xl rounded-3xl border border-[#d9c3a2] bg-white p-6 shadow-2xl dark:border-white/10 dark:bg-[#12151b]">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-bold">Kit Details</h3>
               <button
@@ -535,44 +589,91 @@ export default function Kits() {
               </button>
             </div>
 
-            <div className="mt-4 grid gap-4 md:grid-cols-2">
-              <div>
-                <p className="text-xs uppercase tracking-[0.2em] text-[#8b6b5b]">Name</p>
-                <p className="font-semibold">{viewKit.name}</p>
-              </div>
-              <div>
-                <p className="text-xs uppercase tracking-[0.2em] text-[#8b6b5b]">Kit Code</p>
+            <div className="mt-4 grid gap-3 md:grid-cols-4">
+              <div className="rounded-xl border border-[#e8d7bf] bg-[#fff7ea] px-3 py-2 dark:border-white/10 dark:bg-white/5">
+                <p className="text-xs uppercase tracking-[0.18em] text-[#8b6b5b]">Kit Code</p>
                 <p className="font-mono text-sm">{getKitCode(viewKit)}</p>
               </div>
-              <div>
-                <p className="text-xs uppercase tracking-[0.2em] text-[#8b6b5b]">Category</p>
-                <p>{viewKit.category || "-"}</p>
+              <div className="rounded-xl border border-[#e8d7bf] bg-[#fff7ea] px-3 py-2 dark:border-white/10 dark:bg-white/5">
+                <p className="text-xs uppercase tracking-[0.18em] text-[#8b6b5b]">Category</p>
+                <p className="font-semibold">{viewKit.category || "-"}</p>
               </div>
-              <div>
-                <p className="text-xs uppercase tracking-[0.2em] text-[#8b6b5b]">Type</p>
-                <p className="capitalize">{viewKit.kitType || "-"}</p>
+              <div className="rounded-xl border border-[#e8d7bf] bg-[#fff7ea] px-3 py-2 dark:border-white/10 dark:bg-white/5">
+                <p className="text-xs uppercase tracking-[0.18em] text-[#8b6b5b]">Type</p>
+                <p className="capitalize font-semibold">{viewKit.kitType || "-"}</p>
               </div>
-              <div>
-                <p className="text-xs uppercase tracking-[0.2em] text-[#8b6b5b]">Festival Type</p>
-                <p>{viewKit.festivalType || "-"}</p>
+              <div className="rounded-xl border border-[#e8d7bf] bg-[#fff7ea] px-3 py-2 dark:border-white/10 dark:bg-white/5">
+                <p className="text-xs uppercase tracking-[0.18em] text-[#8b6b5b]">Status</p>
+                <p className="capitalize font-semibold">{viewKit.status || "active"}</p>
               </div>
-              <div>
-                <p className="text-xs uppercase tracking-[0.2em] text-[#8b6b5b]">Status</p>
-                <p className="capitalize">{viewKit.status || "active"}</p>
+              <div className="rounded-xl border border-[#e8d7bf] bg-[#fff7ea] px-3 py-2 dark:border-white/10 dark:bg-white/5">
+                <p className="text-xs uppercase tracking-[0.18em] text-[#8b6b5b]">Kit Price</p>
+                <p className="font-bold text-emerald-700 dark:text-emerald-300">{formatCurrency(viewKit.kitPrice)}</p>
               </div>
-              <div>
-                <p className="text-xs uppercase tracking-[0.2em] text-[#8b6b5b]">Kit Price</p>
-                <p>{formatCurrency(viewKit.kitPrice)}</p>
+              <div className="rounded-xl border border-[#e8d7bf] bg-[#fff7ea] px-3 py-2 dark:border-white/10 dark:bg-white/5">
+                <p className="text-xs uppercase tracking-[0.18em] text-[#8b6b5b]">Total Items</p>
+                <p className="font-semibold">{Array.isArray(viewKit.items) ? viewKit.items.length : 0}</p>
               </div>
-              <div>
-                <p className="text-xs uppercase tracking-[0.2em] text-[#8b6b5b]">Items</p>
-                <p>{Array.isArray(viewKit.items) ? viewKit.items.length : 0}</p>
+              <div className="rounded-xl border border-[#e8d7bf] bg-[#fff7ea] px-3 py-2 dark:border-white/10 dark:bg-white/5 md:col-span-2">
+                <p className="text-xs uppercase tracking-[0.18em] text-[#8b6b5b]">Festival Type</p>
+                <p className="font-semibold">{viewKit.festivalType || "-"}</p>
               </div>
             </div>
 
             <div className="mt-4 rounded-2xl border border-[#e8d7bf] bg-[#fff7ea] p-4 text-sm dark:border-white/10 dark:bg-white/5">
-              <p className="text-xs uppercase tracking-[0.2em] text-[#8b6b5b]">Description</p>
-              <p className="mt-2 text-[#5b3a35] dark:text-[#f7e3c0]">{viewKit.description || "No description"}</p>
+              <p className="text-xs uppercase tracking-[0.2em] text-[#8b6b5b]">Kit Name</p>
+              <p className="mt-1 text-base font-semibold">{viewKit.name}</p>
+              <p className="mt-3 text-xs uppercase tracking-[0.2em] text-[#8b6b5b]">Description</p>
+              <p className="mt-1 text-[#5b3a35] dark:text-[#f7e3c0]">{viewKit.description || "No description"}</p>
+            </div>
+
+            <div className="mt-4">
+              <div className="mb-2 flex items-center justify-between">
+                <p className="text-sm font-semibold">Kit Items</p>
+                <p className="text-xs text-[#7b5a4b] dark:text-[#dbcdb8]/70">
+                  {Array.isArray(viewKit.items) ? viewKit.items.length : 0} items
+                </p>
+              </div>
+              <div className="grid max-h-[44vh] gap-3 overflow-y-auto pr-1 md:grid-cols-2">
+                {(viewKit.items || []).map((entry, itemIndex) => {
+                  const item = entry?.product || {};
+                  const image = item?.thumbnail || item?.image || item?.media?.image?.[0] || item?.products?.[0];
+
+                  return (
+                    <div key={`${viewKit._id}-${itemIndex}`} className="rounded-xl border border-[#e8d7bf] bg-white p-3 dark:border-white/10 dark:bg-white/5">
+                      <div className="flex gap-3">
+                        {image ? (
+                          <img
+                            src={formatImageUrl(image)}
+                            alt={item?.title || item?.name || "Item"}
+                            className="h-16 w-16 rounded-lg border border-[#d8c4a5] object-cover dark:border-white/10"
+                          />
+                        ) : (
+                          <div className="grid h-16 w-16 place-items-center rounded-lg bg-[#f8ecda] text-xs text-[#7b5a4e] dark:bg-white/10">
+                            No Img
+                          </div>
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-semibold">{item?.title || item?.name || "Item"}</p>
+                          <p className="mt-0.5 text-xs text-[#7c5b4b] dark:text-[#dbcdb8]/70">
+                            Code: {item?.itemCode || "-"}
+                          </p>
+                          <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
+                            <span className="text-[#7c5b4b] dark:text-[#dbcdb8]/70">Qty:</span>
+                            <strong>{Number(entry?.quantity || 0)}</strong>
+                            <span className="text-[#7c5b4b] dark:text-[#dbcdb8]/70">Unit Price:</span>
+                            <strong>{formatCurrency(item?.pricing?.price || item?.price || 0)}</strong>
+                            <span className="text-[#7c5b4b] dark:text-[#dbcdb8]/70">Category:</span>
+                            <strong className="truncate">{item?.category?.name || "-"}</strong>
+                            <span className="text-[#7c5b4b] dark:text-[#dbcdb8]/70">Stock:</span>
+                            <strong>{item?.stock?.quantity ?? "-"}</strong>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
         </div>
@@ -655,7 +756,7 @@ export default function Kits() {
           <button
             type="button"
             onClick={handleDeleteSelected}
-            disabled={!selectedKitId}
+            disabled={!selectedKitIds.length}
             className="h-11 rounded-xl border border-red-200 bg-red-50 px-4 text-sm font-semibold text-red-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200"
           >
             Delete Selected
@@ -667,12 +768,21 @@ export default function Kits() {
         ) : !filteredKits.length ? (
           <p className="rounded-xl bg-white/60 p-6 text-sm dark:bg-white/5">No kits found.</p>
         ) : (
-          <div className="overflow-x-auto rounded-2xl border border-[#d8c4a5] dark:border-white/10">
-            <table className="min-w-full text-sm">
-              <thead className="bg-[#8B1E3F]/8 text-left text-[#5a1b2b] dark:bg-[#D4AF37]/10 dark:text-[#f6dfaf]">
-                <tr>
-                  <th className="px-4 py-3 font-semibold"></th>
+          <>
+            <div className="admin-table-wrap overflow-x-auto">
+              <table className="admin-table min-w-full text-sm">
+              <thead>
+                <tr className="border-b border-[#e6d8c5] text-xs uppercase tracking-[0.18em] text-[#7f5a4f] dark:border-white/10 dark:text-[#e7c98b]">
+                  <th className="text-center py-3 font-semibold">
+                    <input
+                      type="checkbox"
+                      checked={filteredKits.length > 0 && selectedKitIds.length === filteredKits.length}
+                      onChange={(event) => toggleAllKits(event.target.checked)}
+                      className="h-4 w-4 rounded-[4px] border border-[#d7c3a3]"
+                    />
+                  </th>
                   <th className="px-4 py-3 font-semibold">S.No</th>
+                  <th className="px-4 py-3 font-semibold">Image</th>
                   <th className="px-4 py-3 font-semibold">Kit Code</th>
                   <th className="px-4 py-3 font-semibold">Kit</th>
                   <th className="px-4 py-3 font-semibold">Category</th>
@@ -684,32 +794,31 @@ export default function Kits() {
                 </tr>
               </thead>
               <tbody>
-                {filteredKits.map((kit, index) => (
-                  <tr key={kit._id} className="border-t border-[#e8d7bf] dark:border-white/10">
-                    <td className="px-4 py-3">
+                {pagedKits.map((kit, index) => (
+                  <tr key={kit._id} className="border-b border-[#f0e3d1] align-top last:border-none dark:border-white/10">
+                    <td className="text-center px-4 py-3">
                       <input
-                        type="radio"
-                        name="selectedKit"
-                        checked={selectedKitId === kit._id}
-                        onChange={() => setSelectedKitId(kit._id)}
-                        className="h-4 w-4"
+                        type="checkbox"
+                        checked={selectedKitIds.includes(kit._id)}
+                        onChange={(event) => toggleKitSelection(kit._id, event.target.checked)}
+                        className="h-4 w-4 rounded-[4px] border border-[#d7c3a3]"
                       />
                     </td>
-                    <td className="px-4 py-3 text-sm text-[#6f3945] dark:text-[#f7e3c0]">{index + 1}</td>
+                    <td className="px-4 py-3 text-sm text-[#6f3945] dark:text-[#f7e3c0]">{(page - 1) * pageSize + index + 1}</td>
+                    <td className="px-4 py-3">
+                      {kit.image ? (
+                        <img src={formatImageUrl(kit.image)} alt={kit.name} className="h-10 w-10 rounded-lg border border-[#D4AF37]/30 object-cover" />
+                      ) : (
+                        <div className="grid h-10 w-10 place-items-center rounded-lg bg-[#f8ecda] text-xs text-[#7b5a4e]">No</div>
+                      )}
+                    </td>
                     <td className="px-4 py-3 font-mono text-xs text-[#6f3945] dark:text-[#f7e3c0]">
                       {getKitCode(kit)}
                     </td>
                     <td className="px-4 py-3">
-                      <div className="flex items-center gap-3">
-                        {kit.image ? (
-                          <img src={formatImageUrl(kit.image)} alt={kit.name} className="h-10 w-10 rounded-lg border border-[#D4AF37]/30 object-cover" />
-                        ) : (
-                          <div className="grid h-10 w-10 place-items-center rounded-lg bg-[#f8ecda] text-xs text-[#7b5a4e]">No</div>
-                        )}
-                        <div>
-                          <p className="font-semibold text-[#2f1618] dark:text-[#fff3dc]">{kit.name}</p>
-                          <p className="line-clamp-1 max-w-[260px] text-xs text-[#7a5a4c] dark:text-[#f7e3c0]/70">{kit.description || "No description"}</p>
-                        </div>
+                      <div>
+                        <p className="font-semibold text-[#2f1618] dark:text-[#fff3dc]">{kit.name}</p>
+                        <p className="line-clamp-1 max-w-[260px] text-xs text-[#7a5a4c] dark:text-[#f7e3c0]/70">{kit.description || "No description"}</p>
                       </div>
                     </td>
                     <td className="px-4 py-3 text-sm text-[#6f3945] dark:text-[#f7e3c0]">{kit.category || "-"}</td>
@@ -729,13 +838,23 @@ export default function Kits() {
                       <div className="relative inline-flex">
                         <button
                           type="button"
-                          onClick={() => setOpenMenuId(openMenuId === kit._id ? "" : kit._id)}
+                          onClick={(event) => {
+                            const nextId = openMenuId === kit._id ? "" : kit._id;
+                            setOpenMenuId(nextId);
+                            setMenuAnchorRect(nextId ? event.currentTarget.getBoundingClientRect() : null);
+                          }}
                           className="grid h-9 w-9 place-items-center rounded-lg border border-[#d7bf9b] text-[#6f3945] hover:bg-[#8B1E3F]/10 dark:border-white/20 dark:text-[#f7e3c0]"
                         >
                           <FiMoreVertical />
                         </button>
                         {openMenuId === kit._id && (
-                          <div className="absolute right-0 top-11 z-50 w-44 overflow-hidden rounded-xl border border-[#d9c3a2] bg-white text-sm shadow-lg dark:border-white/10 dark:bg-[#1b1f27]">
+                          <TableMenuPopover
+                            open
+                            anchorRect={menuAnchorRect}
+                            preferUp={index >= pagedKits.length - 3}
+                            onClose={() => setOpenMenuId("")}
+                            className="w-44 overflow-hidden rounded-xl border border-[#d9c3a2] bg-white text-sm shadow-lg dark:border-white/10 dark:bg-[#1b1f27]"
+                          >
                             <button
                               type="button"
                               onClick={() => {
@@ -778,15 +897,27 @@ export default function Kits() {
                             >
                               <FiTrash2 className="text-red-600" /> Delete
                             </button>
-                          </div>
+                          </TableMenuPopover>
                         )}
                       </div>
                     </td>
                   </tr>
                 ))}
               </tbody>
-            </table>
-          </div>
+              </table>
+            </div>
+            <TablePagination
+              page={page}
+              pageSize={pageSize}
+              total={filteredKits.length}
+              onPageChange={setPage}
+              onPageSizeChange={(size) => {
+                setPageSize(size);
+                setPage(1);
+              }}
+              pageSizeOptions={[10]}
+            />
+          </>
         )}
       </section>
     </div>

@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 
 const itemSchema = new mongoose.Schema(
   {
+    itemCode: { type: String, unique: true, index: true, sparse: true },
     title: { type: String, required: true },
     slug: { type: String },
 
@@ -14,7 +15,7 @@ const itemSchema = new mongoose.Schema(
 
     details: {
       brand: { type: String, trim: true, default: "" },
-      sku: { type: String, trim: true, default: "" },
+      subBrand: { type: String, trim: true, default: "" },
       unit: { type: String, trim: true, default: "" },
       weight: { type: String, trim: true, default: "" },
       dimensions: { type: String, trim: true, default: "" },
@@ -89,5 +90,23 @@ const itemSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+itemSchema.pre("save", async function generateItemCode() {
+  if (this.itemCode) {
+    return;
+  }
+
+  let candidate = "";
+  let exists = true;
+
+  while (exists) {
+    const suffix = Math.floor(100000 + Math.random() * 900000);
+    candidate = `PROD${suffix}`;
+    // eslint-disable-next-line no-await-in-loop
+    exists = await this.constructor.exists({ itemCode: candidate });
+  }
+
+  this.itemCode = candidate;
+});
 
 export default mongoose.model("Item", itemSchema);

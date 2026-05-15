@@ -61,7 +61,11 @@ export const generateToken = async (req, res) => {
 export const startCall = async (req, res) => {
   try {
     const { channelName, calleeId, uid, meta } = req.body || {};
-    const callerId = req.user?._id || req.user?.id;
+    const callerId =
+      req.user?._id ||
+      req.user?.id ||
+      req.pandit?._id ||
+      req.pandit?.id;
 
     if (!callerId) return res.status(401).json({ success: false, message: "Unauthorized" });
     if (!channelName) return res.status(400).json({ success: false, message: "channelName is required" });

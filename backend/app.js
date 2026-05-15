@@ -95,9 +95,12 @@ import banner from "./routes/admin/banner.routes.js"
 import adminCouponRoutes from "./routes/admin/coupon.routes.js";
 import adminOfferRoutes from "./routes/admin/offer.routes.js";
 import adminNotificationRoutes from "./routes/admin/notification.routes.js";
+import adminDeliveryBoyRoutes from "./routes/admin/deliveryBoy.routes.js";
 
 import authRoutes from "./routes/user/auth.routes.js";
 import panditAuthRoutes from "./routes/pandit/pandit.auth.routes.js";
+import deliveryAuthRoutes from "./routes/delivery/delivery.auth.routes.js";
+import deliveryRoutes from "./routes/delivery/delivery.routes.js";
 
 
 // User Routs
@@ -197,11 +200,14 @@ app.use("/api/admin/banners", banner)
 app.use("/api/admin/coupons", adminCouponRoutes);
 app.use("/api/admin/offers", adminOfferRoutes);
 app.use("/api/admin/notifications", adminNotificationRoutes);
+app.use("/api/admin", adminDeliveryBoyRoutes);
 
 // ############ User Routes ##########################
 
 app.use("/api/auth", authRoutes);
 app.use("/api/pandit/auth", panditAuthRoutes);
+app.use("/api/delivery/auth", deliveryAuthRoutes);
+app.use("/api/delivery", deliveryRoutes);
 
 // user routs for user side
 app.use("/api/user", userRoutes);

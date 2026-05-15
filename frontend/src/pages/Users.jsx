@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import API from "../api/axios";
+import TablePagination from "../components/TablePagination";
+import TableMenuPopover from "../components/TableMenuPopover";
 import {
   FiEdit2,
   FiEye,
+  FiMoreVertical,
   FiPackage,
   FiSearch,
   FiShoppingCart,
@@ -107,12 +110,50 @@ export default function Users() {
   const [searchTerm, setSearchTerm] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [openMenuId, setOpenMenuId] = useState("");
+  const [menuAnchorRect, setMenuAnchorRect] = useState(null);
+  const [selectedUserIds, setSelectedUserIds] = useState([]);
+  const [selectedUserOrderIds, setSelectedUserOrderIds] = useState([]);
+  const [selectedUserCartIds, setSelectedUserCartIds] = useState([]);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [ordersPage, setOrdersPage] = useState(1);
+  const [ordersPageSize, setOrdersPageSize] = useState(10);
+  const [cartPage, setCartPage] = useState(1);
+  const [cartPageSize, setCartPageSize] = useState(10);
 
   const normalizeAddressLine = (address = {}) => {
     return [address?.fullAddress, address?.city, address?.state, address?.pincode]
       .filter(Boolean)
       .join(", ");
   };
+
+  const pagedUsers = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return users.slice(start, start + pageSize);
+  }, [users, page, pageSize]);
+
+  const pagedUserOrders = useMemo(() => {
+    const start = (ordersPage - 1) * ordersPageSize;
+    return selectedUserOrders.slice(start, start + ordersPageSize);
+  }, [selectedUserOrders, ordersPage, ordersPageSize]);
+
+  const pagedUserCart = useMemo(() => {
+    const start = (cartPage - 1) * cartPageSize;
+    return selectedUserCart.slice(start, start + cartPageSize);
+  }, [selectedUserCart, cartPage, cartPageSize]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [users.length]);
+
+  useEffect(() => {
+    setOrdersPage(1);
+  }, [selectedUserOrders.length, ordersModalUser?._id]);
+
+  useEffect(() => {
+    setCartPage(1);
+  }, [selectedUserCart.length, cartModalUser?._id]);
 
   const handleEditImageFileChange = (event) => {
     const file = event.target.files?.[0] || null;
@@ -144,6 +185,28 @@ export default function Users() {
 
     return () => clearTimeout(searchTimer);
   }, [fetchUsers, searchTerm]);
+
+  useEffect(() => {
+    setSelectedUserOrderIds([]);
+    setSelectedUserCartIds([]);
+  }, [ordersModalUser, cartModalUser]);
+
+  useEffect(() => {
+    const handleClick = (event) => {
+      if (!event.target.closest("[data-user-menu], [data-table-menu-popover]")) {
+        setOpenMenuId("");
+      }
+    };
+
+    document.addEventListener("click", handleClick);
+    return () => document.removeEventListener("click", handleClick);
+  }, []);
+
+  useEffect(() => {
+    if (!openMenuId) {
+      setMenuAnchorRect(null);
+    }
+  }, [openMenuId]);
 
   const handleDelete = async (id) => {
     try {
@@ -302,6 +365,57 @@ export default function Users() {
     }
   };
 
+  const toggleUserSelection = (userId, checked) => {
+    setSelectedUserIds((current) => {
+      if (checked) {
+        return current.includes(userId) ? current : [...current, userId];
+      }
+      return current.filter((id) => id !== userId);
+    });
+  };
+
+  const toggleAllUsers = (checked) => {
+    if (checked) {
+      setSelectedUserIds(users.map((user) => user._id));
+      return;
+    }
+    setSelectedUserIds([]);
+  };
+
+  const toggleAllUserOrders = (checked) => {
+    if (checked) {
+      setSelectedUserOrderIds(selectedUserOrders.map((order) => order._id));
+      return;
+    }
+    setSelectedUserOrderIds([]);
+  };
+
+  const toggleUserOrderSelection = (orderId, checked) => {
+    setSelectedUserOrderIds((current) => {
+      if (checked) {
+        return current.includes(orderId) ? current : [...current, orderId];
+      }
+      return current.filter((id) => id !== orderId);
+    });
+  };
+
+  const toggleAllUserCartItems = (checked) => {
+    if (checked) {
+      setSelectedUserCartIds(selectedUserCart.map((item) => item._id));
+      return;
+    }
+    setSelectedUserCartIds([]);
+  };
+
+  const toggleUserCartSelection = (cartId, checked) => {
+    setSelectedUserCartIds((current) => {
+      if (checked) {
+        return current.includes(cartId) ? current : [...current, cartId];
+      }
+      return current.filter((id) => id !== cartId);
+    });
+  };
+
   const summary = useMemo(() => {
     const blocked = users.filter((user) => Boolean(user.isBlocked)).length;
     const completeProfiles = users.filter((user) => Boolean(user.isProfileComplete)).length;
@@ -378,11 +492,22 @@ export default function Users() {
             {searchTerm ? "No users match your search." : "No users found."}
           </p>
         ) : (
-          <div className="overflow-x-auto rounded-2xl border border-[#d8c4a5] dark:border-white/10">
-            <table className="min-w-full text-sm">
-              <thead className="bg-[#8B1E3F]/8 text-left text-[#5a1b2b] dark:bg-[#D4AF37]/10 dark:text-[#f6dfaf]">
-                <tr>
-                  <th className="px-4 py-3 font-semibold">Profile</th>
+          <>
+            <div className="admin-table-wrap overflow-x-auto">
+              <table className="admin-table min-w-full text-sm">
+              <thead>
+                <tr className="border-b border-[#e6d8c5] text-xs uppercase tracking-[0.18em] text-[#7f5a4f] dark:border-white/10 dark:text-[#e7c98b]">
+                  <th className="px-4 py-3 font-semibold text-center">
+                    <input
+                      type="checkbox"
+                      checked={users.length > 0 && selectedUserIds.length === users.length}
+                      onChange={(event) => toggleAllUsers(event.target.checked)}
+                      className="h-4 w-4 rounded-[4px] border border-[#d7c3a3]"
+                    />
+                  </th>
+                  <th className="px-4 py-3 font-semibold">S.No</th>
+                  <th className="px-4 py-3 font-semibold">Image</th>
+                  <th className="px-4 py-3 font-semibold">Name</th>
                   <th className="px-4 py-3 font-semibold">Phone</th>
                   <th className="px-4 py-3 font-semibold">Email</th>
                   <th className="px-4 py-3 font-semibold">Address</th>
@@ -392,16 +517,23 @@ export default function Users() {
               </thead>
 
               <tbody>
-                {users.map((user) => (
-                  <tr key={user._id} className="border-t border-[#e8d7bf] dark:border-white/10">
+                {pagedUsers.map((user, index) => (
+                  <tr key={user._id} className="border-b border-[#f0e3d1] align-top last:border-none dark:border-white/10">
+                    <td className="px-4 py-3 text-center">
+                      <input
+                        type="checkbox"
+                        checked={selectedUserIds.includes(user._id)}
+                        onChange={(event) => toggleUserSelection(user._id, event.target.checked)}
+                        className="h-4 w-4 rounded-[4px] border border-[#d7c3a3]"
+                      />
+                    </td>
+                    <td className="px-4 py-3 text-sm text-[#6f3945] dark:text-[#f7e3c0]">{(page - 1) * pageSize + index + 1}</td>
                     <td className="px-4 py-3">
-                      <div className="flex items-center gap-3">
-                        <UserAvatar key={user._id} user={user} />
-                        <div>
-                          <p className="font-semibold text-[#2f1618] dark:text-[#fff3dc]">{user.name || "Unnamed User"}</p>
-                          <p className="text-xs text-[#7c5b4b] dark:text-[#dbcdb8]/70">ID: {user._id}</p>
-                        </div>
-                      </div>
+                      <UserAvatar key={user._id} user={user} />
+                    </td>
+                    <td className="px-4 py-3">
+                      <p className="font-semibold text-[#2f1618] dark:text-[#fff3dc]">{user.name || "Unnamed User"}</p>
+                      <p className="text-xs text-[#7c5b4b] dark:text-[#dbcdb8]/70">ID: {user._id}</p>
                     </td>
                     <td className="px-4 py-3">{user.phone}</td>
                     <td className="px-4 py-3">{user.email || "-"}</td>
@@ -422,58 +554,111 @@ export default function Users() {
                         </span>
                       </div>
                     </td>
-                    <td className="px-4 py-3">
-                      <div className="flex flex-wrap items-center gap-2">
+                    <td className="px-4 py-3" data-user-menu>
+                      <div className="relative inline-flex">
                         <button
-                          onClick={() => handleView(user._id)}
-                          className="grid h-9 w-9 place-items-center rounded-lg bg-blue-100 text-blue-700 hover:bg-blue-200"
-                          title="View user"
-                        >
-                          <FiEye />
-                        </button>
-                        <button
-                          onClick={() => openEdit(user)}
+                          type="button"
+                          onClick={(event) => {
+                            const nextId = openMenuId === user._id ? "" : user._id;
+                            setOpenMenuId(nextId);
+                            setMenuAnchorRect(nextId ? event.currentTarget.getBoundingClientRect() : null);
+                          }}
                           className="grid h-9 w-9 place-items-center rounded-lg border border-[#d7bf9b] text-[#6f3945] hover:bg-[#8B1E3F]/10 dark:border-white/20 dark:text-[#f7e3c0]"
-                          title="Edit user"
+                          aria-label="User actions"
                         >
-                          <FiEdit2 />
+                          <FiMoreVertical />
                         </button>
-                        <button
-                          onClick={() => handleToggleBlock(user)}
-                          disabled={togglingBlockId === user._id}
-                          className="grid h-9 w-9 place-items-center rounded-lg bg-amber-100 text-amber-700 hover:bg-amber-200 disabled:opacity-60 dark:bg-amber-500/20 dark:text-amber-200"
-                          title={user.isBlocked ? "Unblock user" : "Block user"}
-                        >
-                          {user.isBlocked ? <FiUnlock /> : <FiSlash />}
-                        </button>
-                        <button
-                          onClick={() => handleViewOrders(user)}
-                          className="grid h-9 w-9 place-items-center rounded-lg bg-emerald-100 text-emerald-700 hover:bg-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-200"
-                          title="View all orders"
-                        >
-                          <FiPackage />
-                        </button>
-                        <button
-                          onClick={() => handleViewCart(user)}
-                          className="grid h-9 w-9 place-items-center rounded-lg bg-purple-100 text-purple-700 hover:bg-purple-200 dark:bg-purple-500/20 dark:text-purple-200"
-                          title="View cart"
-                        >
-                          <FiShoppingCart />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(user._id)}
-                          className="grid h-9 w-9 place-items-center rounded-lg bg-red-100 text-red-700 hover:bg-red-200"
-                          title="Delete user"
-                        >
-                          <MdDelete />
-                        </button>
+                        {openMenuId === user._id && (
+                          <TableMenuPopover
+                            open
+                            anchorRect={menuAnchorRect}
+                            preferUp={index >= pagedUsers.length - 3}
+                            onClose={() => setOpenMenuId("")}
+                            className="w-48 overflow-hidden rounded-xl border border-[#d9c3a2] bg-white text-sm shadow-lg dark:border-white/10 dark:bg-[#1b1f27]"
+                          >
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setOpenMenuId("");
+                                handleView(user._id);
+                              }}
+                              className="flex w-full items-center gap-2 px-4 py-2 text-left hover:bg-[#8B1E3F]/10"
+                            >
+                              <FiEye className="text-[#6f3945]" /> View
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setOpenMenuId("");
+                                openEdit(user);
+                              }}
+                              className="flex w-full items-center gap-2 px-4 py-2 text-left hover:bg-[#8B1E3F]/10"
+                            >
+                              <FiEdit2 className="text-[#6f3945]" /> Edit
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setOpenMenuId("");
+                                handleToggleBlock(user);
+                              }}
+                              disabled={togglingBlockId === user._id}
+                              className="flex w-full items-center gap-2 px-4 py-2 text-left hover:bg-[#8B1E3F]/10 disabled:opacity-60"
+                            >
+                              {user.isBlocked ? <FiUnlock className="text-[#6f3945]" /> : <FiSlash className="text-[#6f3945]" />}
+                              {user.isBlocked ? "Unblock" : "Block"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setOpenMenuId("");
+                                handleViewOrders(user);
+                              }}
+                              className="flex w-full items-center gap-2 px-4 py-2 text-left hover:bg-[#8B1E3F]/10"
+                            >
+                              <FiPackage className="text-[#6f3945]" /> Orders
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setOpenMenuId("");
+                                handleViewCart(user);
+                              }}
+                              className="flex w-full items-center gap-2 px-4 py-2 text-left hover:bg-[#8B1E3F]/10"
+                            >
+                              <FiShoppingCart className="text-[#6f3945]" /> Cart
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setOpenMenuId("");
+                                handleDelete(user._id);
+                              }}
+                              className="flex w-full items-center gap-2 px-4 py-2 text-left text-red-700 hover:bg-red-50 dark:text-red-200 dark:hover:bg-red-500/10"
+                            >
+                              <MdDelete className="text-red-600" /> Delete
+                            </button>
+                          </TableMenuPopover>
+                        )}
                       </div>
                     </td>
                   </tr>
                 ))}
               </tbody>
-            </table>
-          </div>
+              </table>
+            </div>
+            <TablePagination
+              page={page}
+              pageSize={pageSize}
+              total={users.length}
+              onPageChange={setPage}
+              onPageSizeChange={(size) => {
+                setPageSize(size);
+                setPage(1);
+              }}
+              pageSizeOptions={[10]}
+            />
+          </>
         )}
       </section>
 
@@ -623,10 +808,20 @@ export default function Users() {
             ) : selectedUserOrders.length === 0 ? (
               <p className="rounded-xl bg-white/60 p-5 text-sm dark:bg-white/5">No orders found for this user.</p>
             ) : (
-              <div className="overflow-x-auto rounded-2xl border border-[#d8c4a5] dark:border-white/10">
-                <table className="min-w-full text-sm">
-                  <thead className="bg-[#8B1E3F]/8 text-left text-[#5a1b2b] dark:bg-[#D4AF37]/10 dark:text-[#f6dfaf]">
-                    <tr>
+              <>
+                <div className="admin-table-wrap overflow-x-auto">
+                  <table className="admin-table min-w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-[#e6d8c5] text-xs uppercase tracking-[0.18em] text-[#7f5a4f] dark:border-white/10 dark:text-[#e7c98b]">
+                      <th className="px-4 py-3 font-semibold">
+                        <input
+                          type="checkbox"
+                          checked={selectedUserOrders.length > 0 && selectedUserOrderIds.length === selectedUserOrders.length}
+                          onChange={(event) => toggleAllUserOrders(event.target.checked)}
+                          className="h-4 w-4 rounded-[4px] border border-[#d7c3a3]"
+                        />
+                      </th>
+                      <th className="px-4 py-3 font-semibold">S.No</th>
                       <th className="px-4 py-3 font-semibold">Order Id</th>
                       <th className="px-4 py-3 font-semibold">Items</th>
                       <th className="px-4 py-3 font-semibold">Total</th>
@@ -636,8 +831,17 @@ export default function Users() {
                     </tr>
                   </thead>
                   <tbody>
-                    {selectedUserOrders.map((order) => (
-                      <tr key={order._id} className="border-t border-[#e8d7bf] dark:border-white/10">
+                    {pagedUserOrders.map((order, index) => (
+                      <tr key={order._id} className="border-b border-[#f0e3d1] align-top last:border-none dark:border-white/10">
+                        <td className="px-4 py-3">
+                          <input
+                            type="checkbox"
+                            checked={selectedUserOrderIds.includes(order._id)}
+                            onChange={(event) => toggleUserOrderSelection(order._id, event.target.checked)}
+                            className="h-4 w-4 rounded-[4px] border border-[#d7c3a3]"
+                          />
+                        </td>
+                        <td className="px-4 py-3 text-sm text-[#6f3945] dark:text-[#f7e3c0]">{(ordersPage - 1) * ordersPageSize + index + 1}</td>
                         <td className="px-4 py-3">{order._id}</td>
                         <td className="px-4 py-3">{order.itemCount || order.items?.length || 0}</td>
                         <td className="px-4 py-3">Rs {Number(order.totalAmount || 0).toFixed(2)}</td>
@@ -647,8 +851,20 @@ export default function Users() {
                       </tr>
                     ))}
                   </tbody>
-                </table>
-              </div>
+                  </table>
+                </div>
+                <TablePagination
+                  page={ordersPage}
+                  pageSize={ordersPageSize}
+                  total={selectedUserOrders.length}
+                  onPageChange={setOrdersPage}
+                  onPageSizeChange={(size) => {
+                    setOrdersPageSize(size);
+                    setOrdersPage(1);
+                  }}
+                  pageSizeOptions={[10]}
+                />
+              </>
             )}
           </div>
         </div>
@@ -667,10 +883,20 @@ export default function Users() {
             ) : selectedUserCart.length === 0 ? (
               <p className="rounded-xl bg-white/60 p-5 text-sm dark:bg-white/5">No cart items found for this user.</p>
             ) : (
-              <div className="overflow-x-auto rounded-2xl border border-[#d8c4a5] dark:border-white/10">
-                <table className="min-w-full text-sm">
-                  <thead className="bg-[#8B1E3F]/8 text-left text-[#5a1b2b] dark:bg-[#D4AF37]/10 dark:text-[#f6dfaf]">
-                    <tr>
+              <>
+                <div className="admin-table-wrap overflow-x-auto">
+                  <table className="admin-table min-w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-[#e6d8c5] text-xs uppercase tracking-[0.18em] text-[#7f5a4f] dark:border-white/10 dark:text-[#e7c98b]">
+                      <th className="px-4 py-3 font-semibold">
+                        <input
+                          type="checkbox"
+                          checked={selectedUserCart.length > 0 && selectedUserCartIds.length === selectedUserCart.length}
+                          onChange={(event) => toggleAllUserCartItems(event.target.checked)}
+                          className="h-4 w-4 rounded-[4px] border border-[#d7c3a3]"
+                        />
+                      </th>
+                      <th className="px-4 py-3 font-semibold">S.No</th>
                       <th className="px-4 py-3 font-semibold">Product</th>
                       <th className="px-4 py-3 font-semibold">Type</th>
                       <th className="px-4 py-3 font-semibold">Quantity</th>
@@ -679,8 +905,17 @@ export default function Users() {
                     </tr>
                   </thead>
                   <tbody>
-                    {selectedUserCart.map((item) => (
-                      <tr key={item._id} className="border-t border-[#e8d7bf] dark:border-white/10">
+                    {pagedUserCart.map((item, index) => (
+                      <tr key={item._id} className="border-b border-[#f0e3d1] align-top last:border-none dark:border-white/10">
+                        <td className="px-4 py-3">
+                          <input
+                            type="checkbox"
+                            checked={selectedUserCartIds.includes(item._id)}
+                            onChange={(event) => toggleUserCartSelection(item._id, event.target.checked)}
+                            className="h-4 w-4 rounded-[4px] border border-[#d7c3a3]"
+                          />
+                        </td>
+                        <td className="px-4 py-3 text-sm text-[#6f3945] dark:text-[#f7e3c0]">{(cartPage - 1) * cartPageSize + index + 1}</td>
                         <td className="px-4 py-3">{item.product?.title || item.product?.name || "-"}</td>
                         <td className="px-4 py-3">{item.productType || "-"}</td>
                         <td className="px-4 py-3">{item.quantity}</td>
@@ -689,8 +924,20 @@ export default function Users() {
                       </tr>
                     ))}
                   </tbody>
-                </table>
-              </div>
+                  </table>
+                </div>
+                <TablePagination
+                  page={cartPage}
+                  pageSize={cartPageSize}
+                  total={selectedUserCart.length}
+                  onPageChange={setCartPage}
+                  onPageSizeChange={(size) => {
+                    setCartPageSize(size);
+                    setCartPage(1);
+                  }}
+                  pageSizeOptions={[10]}
+                />
+              </>
             )}
           </div>
         </div>

@@ -3,6 +3,7 @@ import { Routes, Route } from "react-router-dom";
 import AdminLogin from "./pages/AdminLogin";
 import AdminLayout from "./layout/AdminLayout";
 import PrivateRoute from "./routes/PrivateRoute";
+import DeliveryRoute from "./routes/DeliveryRoute";
 
 // Example pages
 import Dashboard from "./pages/Dashboard";
@@ -20,6 +21,9 @@ import Offers from "./pages/Offers";
 import Legal from "./pages/Legal";
 import CustomSamagri from "./pages/CustomSamagri";
 import Notifications from "./pages/Notifications";
+import DeliveryBoys from "./pages/DeliveryBoys";
+import DeliveryLogin from "./pages/DeliveryLogin";
+import DeliveryDashboard from "./pages/DeliveryDashboard";
 
 
 function App() {
@@ -27,6 +31,15 @@ function App() {
     <Routes>
       {/* Public Route */}
       <Route path="/" element={<AdminLogin />} />
+      <Route path="/delivery/login" element={<DeliveryLogin />} />
+      <Route
+        path="/delivery"
+        element={
+          <DeliveryRoute>
+            <DeliveryDashboard />
+          </DeliveryRoute>
+        }
+      />
 
       {/* Protected Routes with Layout */}
       <Route
@@ -53,6 +66,7 @@ function App() {
         <Route path="legal" element={<Legal />} />
         <Route path="custom-samagri" element={<CustomSamagri />} />
         <Route path="notifications" element={<Notifications />} />
+        <Route path="delivery-boys" element={<DeliveryBoys />} />
       </Route>
     </Routes>
   );

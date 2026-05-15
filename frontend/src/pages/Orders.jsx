@@ -1,6 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { FiEdit2, FiEye, FiMoreVertical, FiSearch, FiTrash2, FiX } from "react-icons/fi";
 import API from "../api/axios";
+import TablePagination from "../components/TablePagination";
+import TableMenuPopover from "../components/TableMenuPopover";
+
+const apiOrigin = (API.defaults.baseURL || "http://localhost:8000/api").replace(/\/api\/?$/, "");
+const formatImageUrl = (path) => {
+  if (!path) return "";
+  if (/^(https?:|data:|blob:)/i.test(path)) return path;
+  return `${apiOrigin}/${String(path).replace(/\\/g, "/").replace(/^\/+/, "")}`;
+};
 
 const EMPTY_FORM = {
   user: "",
@@ -40,6 +49,7 @@ const ORDER_STATUSES = [
   "Placed",
   "Confirmed",
   "Preparing",
+  "Accepted",
   "Out for Delivery",
   "Delivered",
   "Cancelled",
@@ -89,14 +99,65 @@ const parseSafeJson = (value, fallback) => {
   }
 };
 
+const cleanPhone = (value) => String(value || "").replace(/\D/g, "");
+
+const formatWhatsAppNumber = (value) => {
+  const digits = cleanPhone(value);
+  if (!digits) return "";
+  if (digits.length === 10) return `91${digits}`;
+  if (digits.length === 11 && digits.startsWith("0")) return `91${digits.slice(1)}`;
+  return digits;
+};
+
+const buildWhatsAppLink = (phone, message) => {
+  const normalized = formatWhatsAppNumber(phone);
+  if (!normalized) return "";
+  const text = message ? `?text=${encodeURIComponent(message)}` : "";
+  return `https://wa.me/${normalized}${text}`;
+};
+
+const getDeliveryPortalOrigin = () => {
+  if (process.env.REACT_APP_DELIVERY_PORTAL_URL) {
+    return process.env.REACT_APP_DELIVERY_PORTAL_URL.replace(/\/$/, "");
+  }
+
+  if (typeof window !== "undefined") {
+    return window.location.origin;
+  }
+
+  return "";
+};
+
+const buildDeliveryLink = (origin, path, params = {}) => {
+  if (!origin) return "";
+  const url = new URL(path, origin);
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && String(value).length) {
+      url.searchParams.set(key, value);
+    }
+  });
+  return url.toString();
+};
+
+const buildOrderAddress = (order) =>
+  [
+    order?.address?.fullAddress,
+    order?.address?.city,
+    order?.address?.state,
+    order?.address?.pincode,
+  ]
+    .filter(Boolean)
+    .join(", ");
+
 export default function Orders() {
   const [orders, setOrders] = useState([]);
   const [pagination, setPagination] = useState({
     total: 0,
     currentPage: 1,
     totalPages: 1,
-    limit: 20,
+    limit: 10,
   });
+  const [pageSize, setPageSize] = useState(10);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -118,6 +179,11 @@ export default function Orders() {
   const [deletingOrderId, setDeletingOrderId] = useState("");
   const [selectedOrderIds, setSelectedOrderIds] = useState([]);
   const [openMenuId, setOpenMenuId] = useState("");
+  const [menuAnchorRect, setMenuAnchorRect] = useState(null);
+  const [deliveryBoys, setDeliveryBoys] = useState([]);
+  const [deliveryBoysLoading, setDeliveryBoysLoading] = useState(false);
+  const [deliveryBoySelection, setDeliveryBoySelection] = useState("");
+  const [deliveryAssigningId, setDeliveryAssigningId] = useState("");
 
   const fetchOrders = useCallback(
     async ({ search = "", status = "all", paymentStatus = "all", paymentMethod = "all", page = 1 } = {}) => {
@@ -132,7 +198,7 @@ export default function Orders() {
             paymentStatus,
             paymentMethod,
             page,
-            limit: 20,
+            limit: pageSize,
           },
         });
 
@@ -144,7 +210,7 @@ export default function Orders() {
           total: Number(incomingPagination.total || incomingOrders.length || 0),
           currentPage: Number(incomingPagination.currentPage || page),
           totalPages: Number(incomingPagination.totalPages || 1),
-          limit: Number(incomingPagination.limit || 20),
+          limit: Number(incomingPagination.limit || pageSize),
         });
 
         setTrackingUpdates((current) => {
@@ -162,8 +228,22 @@ export default function Orders() {
         setLoading(false);
       }
     },
-    []
+    [pageSize]
   );
+
+  const fetchDeliveryBoys = useCallback(async () => {
+    try {
+      setDeliveryBoysLoading(true);
+      const res = await API.get("/admin/delivery-boys", {
+        params: { status: "active" },
+      });
+      setDeliveryBoys(res.data?.data?.deliveryBoys || []);
+    } catch (err) {
+      setDeliveryBoys([]);
+    } finally {
+      setDeliveryBoysLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -184,7 +264,21 @@ export default function Orders() {
     paymentStatusFilter,
     paymentMethodFilter,
     pagination.currentPage,
+    pageSize,
   ]);
+
+  useEffect(() => {
+    fetchDeliveryBoys();
+  }, [fetchDeliveryBoys]);
+
+  useEffect(() => {
+    if (!selectedOrder) {
+      setDeliveryBoySelection("");
+      return;
+    }
+
+    setDeliveryBoySelection(selectedOrder.deliveryBoy?._id || "");
+  }, [selectedOrder]);
 
 useEffect(() => {
   if (!orders.length) {
@@ -205,7 +299,7 @@ useEffect(() => {
 
   useEffect(() => {
     const handleClick = (event) => {
-      if (!event.target.closest("[data-order-menu]")) {
+      if (!event.target.closest("[data-order-menu], [data-table-menu-popover]")) {
         setOpenMenuId("");
       }
     };
@@ -213,6 +307,12 @@ useEffect(() => {
     document.addEventListener("click", handleClick);
     return () => document.removeEventListener("click", handleClick);
   }, []);
+
+  useEffect(() => {
+    if (!openMenuId) {
+      setMenuAnchorRect(null);
+    }
+  }, [openMenuId]);
 
 
   const summary = useMemo(() => {
@@ -468,6 +568,39 @@ useEffect(() => {
     }
   };
 
+  const handleAssignDeliveryBoy = async () => {
+    if (!selectedOrder?._id) return;
+    if (!deliveryBoySelection) {
+      setError("Please select a delivery boy.");
+      setSuccess("");
+      return;
+    }
+
+    try {
+      setDeliveryAssigningId(selectedOrder._id);
+      setError("");
+      setSuccess("");
+
+      const res = await API.patch(`/admin/orders/${selectedOrder._id}/assign-delivery`, {
+        deliveryBoyId: deliveryBoySelection,
+      });
+
+      const updated = res.data?.data?.order;
+      if (updated?._id) {
+        setOrders((current) =>
+          current.map((entry) => (entry._id === updated._id ? updated : entry))
+        );
+        setSelectedOrder(updated);
+      }
+
+      setSuccess("Delivery boy assigned successfully.");
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to assign delivery boy.");
+    } finally {
+      setDeliveryAssigningId("");
+    }
+  };
+
   const openOrderDetails = (order) => {
     if (!order?._id) return;
     setSelectedOrder(order);
@@ -478,6 +611,268 @@ useEffect(() => {
     if (nextPage < 1 || nextPage > pagination.totalPages) return;
     setPagination((current) => ({ ...current, currentPage: nextPage }));
   };
+
+  const selectedDeliveryBoy = useMemo(
+    () => deliveryBoys.find((entry) => entry._id === deliveryBoySelection) || null,
+    [deliveryBoys, deliveryBoySelection]
+  );
+
+  const deliveryPortalOrigin = getDeliveryPortalOrigin();
+  const orderIdShort = selectedOrder ? String(selectedOrder._id).slice(-8) : "";
+  const orderAddress = selectedOrder ? buildOrderAddress(selectedOrder) : "";
+  const mapLink = orderAddress
+    ? `https://maps.google.com/?q=${encodeURIComponent(orderAddress)}`
+    : "";
+  const orderIdParam = selectedOrder?._id || "";
+  const deliveryBoyParam = selectedDeliveryBoy?._id || selectedOrder?.deliveryBoy?._id || "";
+
+  const loginLink = buildDeliveryLink(deliveryPortalOrigin, "/delivery/login", {
+    orderId: orderIdParam,
+    deliveryBoyId: deliveryBoyParam,
+  });
+
+  const deliveryMessage = selectedOrder
+    ? [
+        "*New Delivery Assigned*",
+        "",
+        `*Order ID:* #${orderIdShort}`,
+        `*Customer:* ${selectedOrder.user?.name || selectedOrder.address?.name || "-"}`,
+        `*Phone:* ${selectedOrder.user?.phone || selectedOrder.address?.phone || "-"}`,
+        `*Address:* ${orderAddress || "-"}`,
+        mapLink ? `*Google Map:* ${mapLink}` : "",
+        "",
+        "*Login:*",
+        loginLink ? loginLink : "",
+      ]
+        .filter(Boolean)
+        .join("\n")
+    : "";
+
+  const deliveryWhatsAppLink = buildWhatsAppLink(
+    selectedDeliveryBoy?.phone || selectedOrder?.deliveryBoy?.phone,
+    deliveryMessage
+  );
+
+  const orderDetailsCard = selectedOrder ? (
+    <div className="rounded-2xl border border-[#d8c4a5] bg-[#fffdf8] p-4 dark:border-white/10 dark:bg-[#171b23]">
+      {loadingOrderDetails ? (
+        <p className="rounded-xl bg-white/60 p-5 text-sm dark:bg-white/5">Loading details...</p>
+      ) : (
+        <div className="space-y-3">
+          <div className="flex items-start justify-between">
+            <div>
+              <h4 className="text-lg font-bold">Order #{String(selectedOrder._id).slice(-8)}</h4>
+              <p className="text-xs text-[#7b5a4b] dark:text-[#dbcdb8]/70">
+                Booked on {selectedOrder.createdAt ? new Date(selectedOrder.createdAt).toLocaleString() : "-"}
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${orderStatusBadgeClass(selectedOrder.orderStatus)}`}>
+                {selectedOrder.orderStatus || "Placed"}
+              </span>
+              <button
+                type="button"
+                onClick={() => openEdit(selectedOrder)}
+                className="rounded-lg border border-[#d7bf9b] p-2 text-[#6f3945] hover:bg-[#8B1E3F]/10 dark:border-white/20 dark:text-[#f7e3c0]"
+                title="Edit"
+              >
+                <FiEdit2 className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => handleDeleteOrder(selectedOrder)}
+                disabled={deletingOrderId === selectedOrder._id}
+                className="rounded-lg border border-red-300 p-2 text-red-600 hover:bg-red-50 disabled:opacity-60 dark:border-red-500/40 dark:text-red-200 dark:hover:bg-red-500/10"
+                title="Delete"
+              >
+                <FiTrash2 className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedOrder(null)}
+                className="rounded-lg border border-[#d7bf9b] p-2 text-[#6f3945] hover:bg-[#8B1E3F]/10 dark:border-white/20 dark:text-[#f7e3c0]"
+                title="Close"
+              >
+                <FiX className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-4 gap-2 pb-1 text-center text-[11px]">
+            {["Booked", "Assigning", "On The Way", "Completed"].map((step, idx) => {
+              const done = idx === 0 || String(selectedOrder.orderStatus || "").toLowerCase() === "delivered";
+              return (
+                <div key={step} className={`rounded-lg border px-2 py-1 ${done ? "border-[#d8c4a5] bg-[#fff3dd] text-[#6f3945]" : "border-[#e8d7bf] bg-white text-[#8b6b5b] dark:border-white/10 dark:bg-white/5 dark:text-[#dbcdb8]/70"}`}>
+                  {step}
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="rounded-xl border border-[#e7d7c1] bg-white p-3 dark:border-white/10 dark:bg-white/5">
+            <p className="mb-2 text-sm font-semibold">Customer Details</p>
+            <p className="text-sm font-semibold">{selectedOrder.user?.name || selectedOrder.address?.name || "-"}</p>
+            <p className="text-xs text-[#7b5a4b] dark:text-[#dbcdb8]/70">{selectedOrder.user?.phone || selectedOrder.address?.phone || "-"}</p>
+            <p className="mt-2 text-xs text-[#7b5a4b] dark:text-[#dbcdb8]/70">
+              {[selectedOrder.address?.fullAddress, selectedOrder.address?.city, selectedOrder.address?.state, selectedOrder.address?.pincode]
+                .filter(Boolean)
+                .join(", ") || "-"}
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-[#e7d7c1] bg-white p-3 dark:border-white/10 dark:bg-white/5">
+            <p className="mb-2 text-sm font-semibold">Delivery Assignment</p>
+            <div className="space-y-2 text-sm">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="text-[#7b5a4b] dark:text-[#dbcdb8]/70">Assigned</span>
+                <span className="font-semibold">
+                  {selectedOrder.deliveryBoy?.fullName || "Not assigned"}
+                </span>
+              </div>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="text-[#7b5a4b] dark:text-[#dbcdb8]/70">Phone</span>
+                <span className="font-semibold">{selectedOrder.deliveryBoy?.phone || "-"}</span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <select
+                  value={deliveryBoySelection}
+                  onChange={(event) => setDeliveryBoySelection(event.target.value)}
+                  className="h-10 flex-1 rounded-lg border border-[#d7c3a3] bg-white px-3 text-sm text-black outline-none dark:border-white/20 dark:bg-[#181c24] dark:text-white"
+                >
+                  <option value="">Select delivery boy</option>
+                  {deliveryBoysLoading && <option value="">Loading...</option>}
+                  {deliveryBoys.map((deliveryBoy) => (
+                    <option key={deliveryBoy._id} value={deliveryBoy._id}>
+                      {deliveryBoy.fullName} ({deliveryBoy.phone})
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={handleAssignDeliveryBoy}
+                  disabled={deliveryAssigningId === selectedOrder._id || deliveryBoysLoading}
+                  className="rounded-lg bg-[#8B1E3F] px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                >
+                  {deliveryAssigningId === selectedOrder._id ? "Assigning..." : "Assign"}
+                </button>
+                <a
+                  href={deliveryWhatsAppLink || "#"}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={(event) => {
+                    if (!deliveryWhatsAppLink) {
+                      event.preventDefault();
+                    }
+                  }}
+                  className={`rounded-lg border px-3 py-2 text-sm font-semibold ${
+                    deliveryWhatsAppLink
+                      ? "border-[#d7bf9b] text-[#6f3945] hover:bg-[#8B1E3F]/10 dark:border-white/20 dark:text-[#f7e3c0]"
+                      : "border-[#e6d8c5] text-[#b29b88] opacity-60"
+                  }`}
+                >
+                  WhatsApp
+                </a>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-[#e7d7c1] bg-white p-3 dark:border-white/10 dark:bg-white/5">
+            <p className="mb-2 text-sm font-semibold">Pooja Details</p>
+            <div className="grid grid-cols-[120px_1fr] gap-y-1 text-sm">
+              <span className="text-[#7b5a4b] dark:text-[#dbcdb8]/70">Type</span>
+              <strong>{selectedOrder.items?.[0]?.productType || "Pooja"}</strong>
+              <span className="text-[#7b5a4b] dark:text-[#dbcdb8]/70">Date & Time</span>
+              <strong>{selectedOrder.createdAt ? new Date(selectedOrder.createdAt).toLocaleString() : "-"}</strong>
+              <span className="text-[#7b5a4b] dark:text-[#dbcdb8]/70">Guests</span>
+              <strong>{selectedOrder.address?.name ? "8 - 10 People" : "-"}</strong>
+              <span className="text-[#7b5a4b] dark:text-[#dbcdb8]/70">Instruction</span>
+              <strong>Bring essentials as requested.</strong>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-[#e7d7c1] bg-white p-3 dark:border-white/10 dark:bg-white/5">
+            <div className="mb-2 flex items-center justify-between">
+              <p className="text-sm font-semibold">Items ({(selectedOrder.items || []).length})</p>
+            </div>
+            <div className="grid grid-cols-5 gap-2">
+              {(selectedOrder.items || []).slice(0, 5).map((item, index) => {
+                const imagePath =
+                  item.product?.thumbnail ||
+                  item.product?.products?.[0] ||
+                  item.product?.media?.image?.[0];
+                return (
+                  <div key={`${selectedOrder._id}-${index}`} className="rounded-lg border border-[#efe1cf] bg-[#fff9ef] p-1.5 dark:border-white/10 dark:bg-white/5">
+                    {imagePath ? (
+                      <img
+                        src={formatImageUrl(imagePath)}
+                        alt={item.product?.title || "Item"}
+                        className="h-11 w-full rounded object-cover"
+                      />
+                    ) : (
+                      <div className="grid h-11 place-items-center rounded bg-[#f2e8d8] text-[10px] text-[#7b5a4b] dark:bg-white/10 dark:text-[#dbcdb8]/70">
+                        No Img
+                      </div>
+                    )}
+                    <p className="mt-1 truncate text-[10px] font-semibold">
+                      {item.product?.title || item.productType}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-[#e7d7c1] bg-white p-3 dark:border-white/10 dark:bg-white/5">
+            <p className="mb-2 text-sm font-semibold">Payment Summary</p>
+            <div className="space-y-1 text-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-[#7b5a4b] dark:text-[#dbcdb8]/70">Item Total</span>
+                <strong>Rs {Number(selectedOrder.totalAmount || 0).toFixed(2)}</strong>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-[#7b5a4b] dark:text-[#dbcdb8]/70">Delivery</span>
+                <strong>Rs {Number(selectedOrder.deliveryFee || 0).toFixed(2)}</strong>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-[#7b5a4b] dark:text-[#dbcdb8]/70">Platform Fee</span>
+                <strong>Rs {Number(selectedOrder.platformFee || 0).toFixed(2)}</strong>
+              </div>
+              <div className="mt-2 flex items-center justify-between border-t border-[#eddcc6] pt-2 dark:border-white/10">
+                <span className="font-semibold">Total Amount</span>
+                <strong>Rs {Number(selectedOrder.totalAmount || 0).toFixed(2)}</strong>
+              </div>
+              <div className="mt-2 inline-flex rounded-md bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-200">
+                {selectedOrder.paymentStatus || "Pending"}
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-[#e7d7c1] bg-white p-3 dark:border-white/10 dark:bg-white/5">
+            <p className="mb-2 text-sm font-semibold">Actions</p>
+            <div className="flex items-center gap-2">
+              <select
+                value={trackingUpdates[selectedOrder._id] || selectedOrder.orderStatus || "Placed"}
+                onChange={(event) => handleChangeTrackingSelection(selectedOrder._id, event.target.value)}
+                className="h-10 flex-1 rounded-lg border border-[#d7c3a3] bg-white px-3 text-sm text-black outline-none dark:border-white/20 dark:bg-[#181c24] dark:text-white"
+              >
+                {ORDER_STATUSES.map((status) => (
+                  <option key={status} value={status}>{status}</option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={() => handleUpdateTracking(selectedOrder)}
+                disabled={trackingLoadingId === selectedOrder._id}
+                className="rounded-lg bg-[#8B1E3F] px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
+              >
+                {trackingLoadingId === selectedOrder._id ? "Updating..." : "Update"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  ) : null;
 
   return (
     <div className="space-y-5 text-[#2f1618] dark:text-[#fff3dc]">
@@ -720,7 +1115,7 @@ useEffect(() => {
               : "No orders found."}
           </p>
         ) : (
-          <div className={selectedOrder ? "grid gap-4 xl:grid-cols-[1.2fr_0.8fr]" : "space-y-3"}>
+          <div className="space-y-3">
             <div className="space-y-3">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <span className="text-xs text-[#7b5a4b] dark:text-[#dbcdb8]/70">
@@ -736,11 +1131,11 @@ useEffect(() => {
                 </button>
               </div>
 
-              <div className="overflow-x-auto rounded-2xl border border-[#d8c4a5] bg-white/60 dark:border-white/10 dark:bg-white/5">
-                <table className="min-w-full text-sm">
-                  <thead className="bg-[#8B1E3F]/8 text-left text-[#5a1b2b] dark:bg-[#D4AF37]/10 dark:text-[#f6dfaf]">
-                    <tr>
-                      <th className="px-4 py-3 font-semibold">
+              <div className="admin-table-wrap overflow-x-auto">
+                <table className="admin-table min-w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-[#e6d8c5] text-xs uppercase tracking-[0.18em] text-[#7f5a4f] dark:border-white/10 dark:text-[#e7c98b]">
+                      <th className="px-4  py-3 font-semibold">
                         <input
                           type="checkbox"
                           checked={orders.length > 0 && selectedOrderIds.length === orders.length}
@@ -764,16 +1159,16 @@ useEffect(() => {
                       <tr
                         key={order._id}
                         onClick={() => openOrderDetails(order)}
-                        className={`border-t border-[#e8d7bf] transition hover:bg-[#8B1E3F]/5 dark:border-white/10 ${
+                        className={`border-b border-[#f0e3d1] align-top transition hover:bg-[#8B1E3F]/5 last:border-none dark:border-white/10 ${
                           selectedOrder?._id === order._id ? "bg-[#8B1E3F]/8" : ""
                         }`}
                       >
-                        <td className="px-4 py-3" onClick={(event) => event.stopPropagation()}>
+                        <td className="px-4 text-center py-3" onClick={(event) => event.stopPropagation()}>
                           <input
                             type="checkbox"
                             checked={selectedOrderIds.includes(order._id)}
                             onChange={(event) => toggleOrderSelection(order._id, event.target.checked)}
-                            className="h-4 w-4 rounded-[4px] border border-[#d7c3a3]"
+                            className="h-4 w-4 text rounded-[4px] border border-[#d7c3a3]"
                           />
                         </td>
                         <td className="px-4 py-3 text-sm text-[#6f3945] dark:text-[#f7e3c0]">
@@ -809,13 +1204,23 @@ useEffect(() => {
                           <div className="relative inline-flex">
                             <button
                               type="button"
-                              onClick={() => setOpenMenuId(openMenuId === order._id ? "" : order._id)}
+                              onClick={(event) => {
+                                const nextId = openMenuId === order._id ? "" : order._id;
+                                setOpenMenuId(nextId);
+                                setMenuAnchorRect(nextId ? event.currentTarget.getBoundingClientRect() : null);
+                              }}
                               className="grid h-9 w-9 place-items-center rounded-lg border border-[#d7bf9b] text-[#6f3945] hover:bg-[#8B1E3F]/10 dark:border-white/20 dark:text-[#f7e3c0]"
                             >
                               <FiMoreVertical />
                             </button>
                             {openMenuId === order._id && (
-                              <div className="absolute right-0 top-11 z-50 w-44 overflow-hidden rounded-xl border border-[#d9c3a2] bg-white text-sm shadow-lg dark:border-white/10 dark:bg-[#1b1f27]">
+                              <TableMenuPopover
+                                open
+                                anchorRect={menuAnchorRect}
+                                preferUp={index >= orders.length - 3}
+                                onClose={() => setOpenMenuId("")}
+                                className="w-44 overflow-hidden rounded-xl border border-[#d9c3a2] bg-white text-sm shadow-lg dark:border-white/10 dark:bg-[#1b1f27]"
+                              >
                                 <button
                                   type="button"
                                   onClick={() => {
@@ -856,7 +1261,7 @@ useEffect(() => {
                                 >
                                   <FiTrash2 className="text-red-600" /> Delete
                                 </button>
-                              </div>
+                              </TableMenuPopover>
                             )}
                           </div>
                         </td>
@@ -866,111 +1271,24 @@ useEffect(() => {
                 </table>
               </div>
 
-              <div className="mt-1 flex items-center justify-end gap-2 text-sm">
-                <button
-                  type="button"
-                  onClick={() => handlePageChange(pagination.currentPage - 1)}
-                  disabled={pagination.currentPage <= 1}
-                  className="rounded-lg border border-[#d7bf9b] px-3 py-1.5 disabled:opacity-50 dark:border-white/20"
-                >
-                  Prev
-                </button>
-                <span className="text-xs opacity-80">
-                  Page {pagination.currentPage} / {Math.max(1, pagination.totalPages)}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => handlePageChange(pagination.currentPage + 1)}
-                  disabled={pagination.currentPage >= pagination.totalPages}
-                  className="rounded-lg border border-[#d7bf9b] px-3 py-1.5 disabled:opacity-50 dark:border-white/20"
-                >
-                  Next
-                </button>
-              </div>
+              <TablePagination
+                page={pagination.currentPage}
+                pageSize={pageSize}
+                total={pagination.total}
+                onPageChange={handlePageChange}
+                onPageSizeChange={(size) => {
+                  setPageSize(size);
+                  handlePageChange(1);
+                }}
+                pageSizeOptions={[10]}
+              />
             </div>
 
             {selectedOrder && (
-              <div className="rounded-2xl border border-[#d8c4a5] bg-white/55 p-4 dark:border-white/10 dark:bg-white/5">
-                {loadingOrderDetails ? (
-                  <p className="rounded-xl bg-white/60 p-5 text-sm dark:bg-white/5">Loading details...</p>
-                ) : (
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <h4 className="text-lg font-bold">Order #{String(selectedOrder._id).slice(-8)}</h4>
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => openEdit(selectedOrder)}
-                          className="rounded-lg border border-[#d7bf9b] p-2 text-[#6f3945] hover:bg-[#8B1E3F]/10 dark:border-white/20 dark:text-[#f7e3c0]"
-                          title="Edit"
-                        >
-                          <FiEdit2 className="h-4 w-4" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteOrder(selectedOrder)}
-                          disabled={deletingOrderId === selectedOrder._id}
-                          className="rounded-lg border border-red-300 p-2 text-red-600 hover:bg-red-50 disabled:opacity-60 dark:border-red-500/40 dark:text-red-200 dark:hover:bg-red-500/10"
-                          title="Delete"
-                        >
-                          <FiTrash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="grid gap-2 text-sm sm:grid-cols-2">
-                      <div className="rounded-xl bg-white/65 px-3 py-2 dark:bg-white/5"><span className="block text-xs opacity-70">Customer</span><strong>{selectedOrder.user?.name || "-"}</strong></div>
-                      <div className="rounded-xl bg-white/65 px-3 py-2 dark:bg-white/5"><span className="block text-xs opacity-70">Phone</span><strong>{selectedOrder.user?.phone || "-"}</strong></div>
-                      <div className="rounded-xl bg-white/65 px-3 py-2 dark:bg-white/5"><span className="block text-xs opacity-70">Payment</span><strong>{selectedOrder.paymentMethod} / {selectedOrder.paymentStatus}</strong></div>
-                      <div className="rounded-xl bg-white/65 px-3 py-2 dark:bg-white/5"><span className="block text-xs opacity-70">Amount</span><strong>Rs {Number(selectedOrder.totalAmount || 0).toFixed(2)}</strong></div>
-                    </div>
-
-                    <div className="rounded-xl border border-[#d8c4a5] p-3 dark:border-white/10">
-                      <p className="mb-2 text-xs uppercase tracking-[0.2em] text-[var(--admin-primary)]">Address</p>
-                      <p className="text-sm">
-                        {[selectedOrder.address?.name, selectedOrder.address?.phone, selectedOrder.address?.fullAddress, selectedOrder.address?.city, selectedOrder.address?.state, selectedOrder.address?.pincode]
-                          .filter(Boolean)
-                          .join(", ") || "-"}
-                      </p>
-                    </div>
-
-                    <div className="rounded-xl border border-[#d8c4a5] p-3 dark:border-white/10">
-                      <p className="mb-2 text-xs uppercase tracking-[0.2em] text-[var(--admin-primary)]">Update Tracking</p>
-                      <div className="flex items-center gap-2">
-                        <select
-                          value={trackingUpdates[selectedOrder._id] || selectedOrder.orderStatus || "Placed"}
-                          onChange={(event) => handleChangeTrackingSelection(selectedOrder._id, event.target.value)}
-                          className="h-11 w-[100%] rounded-xl border border-[#d7c3a3] bg-white text-black px-3 text-sm outline-none 
-           dark:bg-[#181c24] dark:text-white dark:border-white/20"
-                        >
-                          {ORDER_STATUSES.map((status) => (
-                            <option key={status} value={status}>{status}</option>
-                          ))}
-                        </select>
-                        <button
-                          type="button"
-                          onClick={() => handleUpdateTracking(selectedOrder)}
-                          disabled={trackingLoadingId === selectedOrder._id}
-                          className="rounded-lg bg-[#8B1E3F] px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
-                        >
-                          {trackingLoadingId === selectedOrder._id ? "Updating..." : "Update"}
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="rounded-xl border border-[#d8c4a5] p-3 dark:border-white/10">
-                      <p className="mb-2 text-xs uppercase tracking-[0.2em] text-[var(--admin-primary)]">Items</p>
-                      <div className="space-y-2">
-                        {(selectedOrder.items || []).map((item, index) => (
-                          <div key={`${selectedOrder._id}-${index}`} className="rounded-lg bg-white/70 px-3 py-2 text-sm dark:bg-white/5">
-                            <div className="font-semibold">{item.product?.title || item.product?.name || item.productType}</div>
-                            <div className="text-xs opacity-75">Qty: {item.quantity} | Price: Rs {Number(item.price || 0).toFixed(2)}</div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                )}
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+                <div className="max-h-[90vh] w-full max-w-4xl overflow-y-auto">
+                  {orderDetailsCard}
+                </div>
               </div>
             )}
           </div>

@@ -214,11 +214,18 @@ export default function Navbar({ onMenuClick, onToggleSidebar, sidebarCollapsed 
                 ) : bellSummary.length ? (
                   <div className="space-y-2">
                     {bellSummary.map((item) => (
-                      <button
-                        type="button"
+                      <div
                         key={item.id}
+                        role="button"
+                        tabIndex={0}
                         onClick={() => handleBellItemOpen(item.id)}
-                        className="w-full rounded-xl border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] p-3 text-left transition hover:border-[var(--admin-primary)]/50 hover:bg-[var(--admin-surface)]"
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            handleBellItemOpen(item.id);
+                          }
+                        }}
+                        className="w-full cursor-pointer rounded-xl border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] p-3 text-left transition hover:border-[var(--admin-primary)]/50 hover:bg-[var(--admin-surface)]"
                       >
                         <div className="flex items-start justify-between gap-2">
                           <div>
@@ -255,7 +262,7 @@ export default function Navbar({ onMenuClick, onToggleSidebar, sidebarCollapsed 
                             </button>
                           </div>
                         </div>
-                      </button>
+                      </div>
                     ))}
                   </div>
                 ) : (

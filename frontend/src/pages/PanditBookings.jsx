@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import API from "../api/axios";
-import { FiEye, FiSearch, FiTrash2, FiX } from "react-icons/fi";
+import { FiEye, FiMoreVertical, FiSearch, FiTrash2, FiX } from "react-icons/fi";
+import TablePagination from "../components/TablePagination";
+import TableMenuPopover from "../components/TableMenuPopover";
 
 const statusBadgeClass = (status) => {
   if (status === "confirmed") {
@@ -49,6 +51,11 @@ export default function PanditBookings() {
   const [deletingBookingId, setDeletingBookingId] = useState("");
   const [statusUpdates, setStatusUpdates] = useState({});
   const [paymentUpdates, setPaymentUpdates] = useState({});
+  const [openMenuId, setOpenMenuId] = useState("");
+  const [menuAnchorRect, setMenuAnchorRect] = useState(null);
+  const [selectedBookingIds, setSelectedBookingIds] = useState([]);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   const fetchBookings = useCallback(async (searchValue = "", statusValue = "all") => {
     try {
@@ -95,6 +102,23 @@ export default function PanditBookings() {
 
     return () => clearTimeout(timer);
   }, [fetchBookings, searchTerm, statusFilter]);
+
+  useEffect(() => {
+    const handleClick = (event) => {
+      if (!event.target.closest("[data-booking-menu], [data-table-menu-popover]")) {
+        setOpenMenuId("");
+      }
+    };
+
+    document.addEventListener("click", handleClick);
+    return () => document.removeEventListener("click", handleClick);
+  }, []);
+
+  useEffect(() => {
+    if (!openMenuId) {
+      setMenuAnchorRect(null);
+    }
+  }, [openMenuId]);
 
   const handleUpdateBooking = async (booking) => {
     if (!booking?._id) return;
@@ -152,6 +176,23 @@ export default function PanditBookings() {
     }
   };
 
+  const toggleBookingSelection = (bookingId, checked) => {
+    setSelectedBookingIds((current) => {
+      if (checked) {
+        return current.includes(bookingId) ? current : [...current, bookingId];
+      }
+      return current.filter((id) => id !== bookingId);
+    });
+  };
+
+  const toggleAllBookings = (checked) => {
+    if (checked) {
+      setSelectedBookingIds(bookings.map((booking) => booking._id));
+      return;
+    }
+    setSelectedBookingIds([]);
+  };
+
   const summary = useMemo(() => {
     const requested = bookings.filter((entry) => entry.bookingStatus === "requested").length;
     const confirmed = bookings.filter((entry) => entry.bookingStatus === "confirmed").length;
@@ -162,6 +203,15 @@ export default function PanditBookings() {
       confirmed,
     };
   }, [bookings]);
+
+  const pagedBookings = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return bookings.slice(start, start + pageSize);
+  }, [bookings, page, pageSize]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [bookings.length]);
 
   return (
     <div className="space-y-4">
@@ -237,10 +287,20 @@ export default function PanditBookings() {
             {searchTerm || statusFilter !== "all" ? "No bookings match the current filter." : "No bookings found."}
           </p>
         ) : (
-          <div className="overflow-x-auto rounded-2xl border border-[#d8c4a5] dark:border-white/10">
-            <table className="min-w-full text-sm">
-              <thead className="bg-[#8B1E3F]/8 text-left text-[#5a1b2b] dark:bg-[#D4AF37]/10 dark:text-[#f6dfaf]">
-                <tr>
+          <>
+            <div className="admin-table-wrap overflow-x-auto">
+              <table className="admin-table min-w-full text-sm">
+              <thead>
+                <tr className="border-b border-[#e6d8c5] text-xs uppercase tracking-[0.18em] text-[#7f5a4f] dark:border-white/10 dark:text-[#e7c98b]">
+                  <th className="px-4 py-3 font-semibold">
+                    <input
+                      type="checkbox"
+                      checked={bookings.length > 0 && selectedBookingIds.length === bookings.length}
+                      onChange={(event) => toggleAllBookings(event.target.checked)}
+                      className="h-4 w-4 rounded-[4px] border border-[#d7c3a3]"
+                    />
+                  </th>
+                  <th className="px-4 py-3 font-semibold">S.No</th>
                   <th className="px-4 py-3 font-semibold">Ritual</th>
                   <th className="px-4 py-3 font-semibold">User</th>
                   <th className="px-4 py-3 font-semibold">Pandit</th>
@@ -248,13 +308,22 @@ export default function PanditBookings() {
                   <th className="px-4 py-3 font-semibold">Amount</th>
                   <th className="px-4 py-3 font-semibold">Status</th>
                   <th className="px-4 py-3 font-semibold">Update</th>
-                  <th className="px-4 py-3 font-semibold">Actions</th>
+                  <th className="px-4 py-3 font-semibold text-right">Actions</th>
                 </tr>
               </thead>
 
               <tbody>
-                {bookings.map((booking) => (
-                  <tr key={booking._id} className="border-t border-[#e8d7bf] dark:border-white/10">
+                {pagedBookings.map((booking, index) => (
+                  <tr key={booking._id} className="border-b border-[#f0e3d1] align-top last:border-none dark:border-white/10">
+                    <td className="px-4 py-3 text-center">
+                      <input
+                        type="checkbox"
+                        checked={selectedBookingIds.includes(booking._id)}
+                        onChange={(event) => toggleBookingSelection(booking._id, event.target.checked)}
+                        className="h-4 w-4 rounded-[4px] border border-[#d7c3a3]"
+                      />
+                    </td>
+                    <td className="px-4 py-3 text-sm text-[#6f3945] dark:text-[#f7e3c0]">{(page - 1) * pageSize + index + 1}</td>
                     <td className="px-4 py-3 text-[#2f1618] dark:text-[#fff3dc]">{booking.ritual?.name || "-"}</td>
                     <td className="px-4 py-3">{booking.user?.name || booking.user?.phone || "-"}</td>
                     <td className="px-4 py-3">{booking.pandit?.fullName || "-"}</td>
@@ -307,32 +376,70 @@ export default function PanditBookings() {
                         </button>
                       </div>
                     </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
+                    <td className="px-4 py-3 text-right" data-booking-menu>
+                      <div className="relative inline-flex">
                         <button
                           type="button"
-                          onClick={() => setSelectedBooking(booking)}
-                          className="grid h-9 w-9 place-items-center rounded-lg bg-blue-100 text-blue-700 hover:bg-blue-200"
-                          aria-label="View booking"
+                          onClick={(event) => {
+                            const nextId = openMenuId === booking._id ? "" : booking._id;
+                            setOpenMenuId(nextId);
+                            setMenuAnchorRect(nextId ? event.currentTarget.getBoundingClientRect() : null);
+                          }}
+                          className="grid h-9 w-9 place-items-center rounded-lg border border-[#d7bf9b] text-[#6f3945] hover:bg-[#8B1E3F]/10 dark:border-white/20 dark:text-[#f7e3c0]"
+                          aria-label="Booking actions"
                         >
-                          <FiEye />
+                          <FiMoreVertical />
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteBooking(booking)}
-                          disabled={deletingBookingId === booking._id}
-                          className="grid h-9 w-9 place-items-center rounded-lg border border-red-300 text-red-600 hover:bg-red-50 disabled:opacity-60 dark:border-red-500/40 dark:text-red-200 dark:hover:bg-red-500/10"
-                          aria-label="Delete booking"
-                        >
-                          <FiTrash2 />
-                        </button>
+                        {openMenuId === booking._id && (
+                          <TableMenuPopover
+                            open
+                            anchorRect={menuAnchorRect}
+                            preferUp={index >= pagedBookings.length - 3}
+                            onClose={() => setOpenMenuId("")}
+                            className="w-40 overflow-hidden rounded-xl border border-[#d9c3a2] bg-white text-sm shadow-lg dark:border-white/10 dark:bg-[#1b1f27]"
+                          >
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setOpenMenuId("");
+                                setSelectedBooking(booking);
+                              }}
+                              className="flex w-full items-center gap-2 px-4 py-2 text-left hover:bg-[#8B1E3F]/10"
+                            >
+                              <FiEye className="text-[#6f3945]" /> View
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setOpenMenuId("");
+                                handleDeleteBooking(booking);
+                              }}
+                              disabled={deletingBookingId === booking._id}
+                              className="flex w-full items-center gap-2 px-4 py-2 text-left text-red-700 hover:bg-red-50 disabled:opacity-60 dark:text-red-200 dark:hover:bg-red-500/10"
+                            >
+                              <FiTrash2 className="text-red-600" /> Delete
+                            </button>
+                          </TableMenuPopover>
+                        )}
                       </div>
                     </td>
                   </tr>
                 ))}
               </tbody>
-            </table>
-          </div>
+              </table>
+            </div>
+            <TablePagination
+              page={page}
+              pageSize={pageSize}
+              total={bookings.length}
+              onPageChange={setPage}
+              onPageSizeChange={(size) => {
+                setPageSize(size);
+                setPage(1);
+              }}
+              pageSizeOptions={[10]}
+            />
+          </>
         )}
       </section>
 

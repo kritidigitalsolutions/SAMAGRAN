@@ -1,6 +1,8 @@
-import { useEffect, useState } from "react";
-import { FiEdit2, FiTrash2, FiX } from "react-icons/fi";
+import { useEffect, useMemo, useState } from "react";
+import { FiEdit2, FiEye, FiMoreVertical, FiTrash2, FiX } from "react-icons/fi";
 import API from "../api/axios";
+import TablePagination from "../components/TablePagination";
+import TableMenuPopover from "../components/TableMenuPopover";
 
 const initialForm = {
   title: "",
@@ -19,6 +21,15 @@ export default function Rituals() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [imageFile, setImageFile] = useState(null);
+  const [selectedRitualIds, setSelectedRitualIds] = useState([]);
+  const [openMenuId, setOpenMenuId] = useState("");
+  const [menuAnchorRect, setMenuAnchorRect] = useState(null);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const pagedRituals = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return rituals.slice(start, start + pageSize);
+  }, [rituals, page, pageSize]);
 
   const fetchRituals = async () => {
     try {
@@ -35,6 +46,27 @@ export default function Rituals() {
   useEffect(() => {
     fetchRituals();
   }, []);
+
+  useEffect(() => {
+    setPage(1);
+  }, [rituals.length]);
+
+  useEffect(() => {
+    const handleClick = (event) => {
+      if (!event.target.closest("[data-ritual-menu], [data-table-menu-popover]")) {
+        setOpenMenuId("");
+      }
+    };
+
+    document.addEventListener("click", handleClick);
+    return () => document.removeEventListener("click", handleClick);
+  }, []);
+
+  useEffect(() => {
+    if (!openMenuId) {
+      setMenuAnchorRect(null);
+    }
+  }, [openMenuId]);
 
   const resetForm = () => {
     setForm(initialForm);
@@ -136,6 +168,62 @@ export default function Rituals() {
       setError(err.response?.data?.message || "Unable to delete ritual.");
     } finally {
       setDeletingId("");
+    }
+  };
+
+  const buildRitualPayload = (ritual, overrides = {}) => {
+    const payload = new FormData();
+    payload.append("title", String(overrides.title ?? ritual.title ?? "").trim());
+    payload.append("description", String(overrides.description ?? ritual.description ?? "").trim());
+    payload.append("status", overrides.status ?? ritual.status ?? "inactive");
+    return payload;
+  };
+
+  const handleToggleRitualStatus = async (ritual) => {
+    if (!ritual?._id) return;
+    const nextStatus = ritual.status === "active" ? "inactive" : "active";
+
+    try {
+      const payload = buildRitualPayload(ritual, { status: nextStatus });
+      await API.put(`/admin/rituals/${ritual._id}`, payload, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      setRituals((current) =>
+        current.map((entry) => (entry._id === ritual._id ? { ...entry, status: nextStatus } : entry))
+      );
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to update ritual status.");
+    }
+  };
+
+  const toggleRitualSelection = (ritualId, checked) => {
+    setSelectedRitualIds((current) => {
+      if (checked) {
+        return current.includes(ritualId) ? current : [...current, ritualId];
+      }
+      return current.filter((id) => id !== ritualId);
+    });
+  };
+
+  const toggleAllRituals = (checked) => {
+    if (checked) {
+      setSelectedRitualIds(rituals.map((ritual) => ritual._id));
+      return;
+    }
+    setSelectedRitualIds([]);
+  };
+
+  const handleDeleteSelectedRituals = async () => {
+    if (!selectedRitualIds.length) return;
+    if (!window.confirm(`Delete ${selectedRitualIds.length} selected rituals?`)) return;
+
+    try {
+      await Promise.all(selectedRitualIds.map((ritualId) => API.delete(`/admin/rituals/${ritualId}`)));
+      setRituals((current) => current.filter((entry) => !selectedRitualIds.includes(entry._id)));
+      setSelectedRitualIds([]);
+      setSuccess("Selected rituals deleted successfully.");
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to delete selected rituals.");
     }
   };
 
@@ -274,11 +362,35 @@ export default function Rituals() {
             No rituals added yet.
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-left text-sm">
+          <>
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <span className="text-xs text-[#7b5a4b] dark:text-[#dbcdb8]/70">
+                {selectedRitualIds.length} selected
+              </span>
+              <button
+                type="button"
+                onClick={handleDeleteSelectedRituals}
+                disabled={!selectedRitualIds.length}
+                className="rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-xs font-semibold text-red-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200"
+              >
+                Delete Selected
+              </button>
+            </div>
+            <div className="admin-table-wrap overflow-x-auto">
+            <table className="admin-table min-w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-[#e6d8c5] text-xs uppercase tracking-[0.18em] text-[#7f5a4f] dark:border-white/10 dark:text-[#e7c98b]">
+                  <th className="px-3 py-3 text-center">
+                    <input
+                      type="checkbox"
+                      checked={rituals.length > 0 && selectedRitualIds.length === rituals.length}
+                      onChange={(event) => toggleAllRituals(event.target.checked)}
+                      className="h-4 w-4 rounded-[4px] border border-[#d7c3a3]"
+                    />
+                  </th>
+                  <th className="serial-col px-2 py-3">S.No</th>
                   <th className="px-3 py-3">Image</th>
+                  <th className="px-3 py-3">Ritual Code</th>
                   <th className="px-3 py-3">Title</th>
                   <th className="px-3 py-3">Description</th>
                   <th className="px-3 py-3">Status</th>
@@ -286,10 +398,23 @@ export default function Rituals() {
                 </tr>
               </thead>
               <tbody>
-                {rituals.map((ritual) => (
+                {pagedRituals.map((ritual, index) => (
                   <tr key={ritual._id} className="border-b border-[#f0e3d1] align-top last:border-none dark:border-white/10">
+                    <td className="px-3 py-4 text-center">
+                      <input
+                        type="checkbox"
+                        checked={selectedRitualIds.includes(ritual._id)}
+                        onChange={(event) => toggleRitualSelection(ritual._id, event.target.checked)}
+                        className="h-4 w-4 rounded-[4px] border border-[#d7c3a3]"
+                      />
+                    </td>
+                    <td className="serial-col px-2 py-4 text-sm text-[#6f3945] dark:text-[#f7e3c0]">{(page - 1) * pageSize + index + 1}</td>
                     <td className="px-3 py-4 font-semibold">
-                      <img src={ritual.image} className="rounded" height={30} width={80} alt="" /></td>
+                      <img src={ritual.image} className="rounded" height={30} width={80} alt="" />
+                    </td>
+                    <td className="px-3 py-4 font-mono text-xs text-[#6f3945] dark:text-[#f7e3c0]">
+                      RITUAL-{String(ritual._id || "").slice(-6).toUpperCase()}
+                    </td>
                     <td className="px-3 py-4 font-semibold">{ritual.title}</td>
                     <td className="px-3 py-4 text-[#6e4b40] dark:text-[#f7e3c0]/80">{ritual.description || "-"}</td>
                     <td className="px-3 py-4">
@@ -303,32 +428,89 @@ export default function Rituals() {
                         {ritual.status}
                       </span>
                     </td>
-                    <td className="px-3 py-4">
-                      <div className="flex items-center justify-end gap-2">
+                    <td className="px-3 py-4 text-right" data-ritual-menu>
+                      <div className="relative inline-flex">
                         <button
                           type="button"
-                          onClick={() => openEdit(ritual)}
-                          className="rounded-lg border border-[#d7bf9b] p-2 text-[#6f3945] hover:bg-[#8B1E3F]/10 dark:border-white/20 dark:text-[#f7e3c0]"
-                          title="Edit"
+                          onClick={(event) => {
+                            const nextId = openMenuId === ritual._id ? "" : ritual._id;
+                            setOpenMenuId(nextId);
+                            setMenuAnchorRect(nextId ? event.currentTarget.getBoundingClientRect() : null);
+                          }}
+                          className="grid h-9 w-9 place-items-center rounded-lg border border-[#d7bf9b] text-[#6f3945] hover:bg-[#8B1E3F]/10 dark:border-white/20 dark:text-[#f7e3c0]"
                         >
-                          <FiEdit2 className="h-4 w-4" />
+                          <FiMoreVertical />
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDelete(ritual)}
-                          disabled={deletingId === ritual._id}
-                          className="rounded-lg border border-red-300 p-2 text-red-600 hover:bg-red-50 disabled:opacity-60 dark:border-red-500/40 dark:text-red-200 dark:hover:bg-red-500/10"
-                          title="Delete"
-                        >
-                          <FiTrash2 className="h-4 w-4" />
-                        </button>
+                        {openMenuId === ritual._id && (
+                          <TableMenuPopover
+                            open
+                            anchorRect={menuAnchorRect}
+                            preferUp={index >= pagedRituals.length - 3}
+                            onClose={() => setOpenMenuId("")}
+                            className="w-44 overflow-hidden rounded-xl border border-[#d9c3a2] bg-white text-sm shadow-lg dark:border-white/10 dark:bg-[#1b1f27]"
+                          >
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setOpenMenuId("");
+                                openEdit(ritual);
+                              }}
+                              className="flex w-full items-center gap-2 px-4 py-2 text-left hover:bg-[#8B1E3F]/10"
+                            >
+                              <FiEye className="text-[#6f3945]" /> View
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setOpenMenuId("");
+                                openEdit(ritual);
+                              }}
+                              className="flex w-full items-center gap-2 px-4 py-2 text-left hover:bg-[#8B1E3F]/10"
+                            >
+                              <FiEdit2 className="text-[#6f3945]" /> Edit
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setOpenMenuId("");
+                                handleToggleRitualStatus(ritual);
+                              }}
+                              className="flex w-full items-center gap-2 px-4 py-2 text-left hover:bg-[#8B1E3F]/10"
+                            >
+                              <span className="text-[#6f3945]">{ritual.status === "active" ? "Mark Inactive" : "Mark Active"}</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setOpenMenuId("");
+                                handleDelete(ritual);
+                              }}
+                              disabled={deletingId === ritual._id}
+                              className="flex w-full items-center gap-2 px-4 py-2 text-left text-red-700 hover:bg-red-50 dark:text-red-200 dark:hover:bg-red-500/10"
+                            >
+                              <FiTrash2 className="text-red-600" /> Delete
+                            </button>
+                          </TableMenuPopover>
+                        )}
                       </div>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
-          </div>
+            </div>
+            <TablePagination
+              page={page}
+              pageSize={pageSize}
+              total={rituals.length}
+              onPageChange={setPage}
+              onPageSizeChange={(size) => {
+                setPageSize(size);
+                setPage(1);
+              }}
+              pageSizeOptions={[10]}
+            />
+          </>
         )}
       </section>
     </div>

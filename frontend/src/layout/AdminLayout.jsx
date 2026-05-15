@@ -18,7 +18,7 @@ export default function AdminLayout() {
 
       <div
         className={`flex flex-1 flex-col overflow-hidden transition-all duration-300 ${
-          sidebarCollapsed ? "lg:ml-24" : "lg:ml-72"
+          sidebarCollapsed ? "lg:ml-[6.5rem]" : "lg:ml-[12.5rem]"
         }`}
       >
         <Navbar

@@ -5,6 +5,7 @@ const navItems = [
   { label: "Dashboard", path: "/dashboard", icon: "grid" },
   { label: "Users", path: "/dashboard/users", icon: "users" },
   { label: "Orders", path: "/dashboard/orders", icon: "orders" },
+  { label: "Delivery Boys", path: "/dashboard/delivery-boys", icon: "delivery" },
   { label: "Products", path: "/dashboard/items", icon: "box" },
   { label: "Kits", path: "/dashboard/kits", icon: "gift" },
   { label: "Pandits", path: "/dashboard/pandits", icon: "pandits" },
@@ -38,6 +39,17 @@ function SidebarIcon({ icon }) {
         <path d="M7 12H17" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
         <path d="M7 16H13" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
         <rect x="4" y="4" width="16" height="16" rx="3" stroke="currentColor" strokeWidth="1.8" />
+      </svg>
+    );
+  }
+
+  if (icon === "delivery") {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" className={common}>
+        <path d="M4 7H14V17H4V7Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+        <path d="M14 10H18L20 13V17H14V10Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+        <circle cx="8" cy="18" r="2" stroke="currentColor" strokeWidth="1.8" />
+        <circle cx="17" cy="18" r="2" stroke="currentColor" strokeWidth="1.8" />
       </svg>
     );
   }
@@ -207,7 +219,7 @@ export default function Sidebar({
 
   const wrapperClass = `${
     mobileOpen ? "translate-x-0" : "-translate-x-full"
-  } lg:translate-x-0 sidebar-scroll fixed inset-y-0 left-0 z-40 flex h-screen flex-col overflow-y-auto border-r border-[var(--admin-border)] bg-[var(--admin-surface)] p-4 text-[var(--admin-text)] shadow-[var(--admin-shadow)] transition-all duration-300 ${collapsed ? "w-24" : "w-72"}`;
+  } lg:translate-x-0 sidebar-scroll fixed inset-y-0 left-0 z-40 flex h-screen flex-col overflow-y-auto border-r border-[var(--admin-border)] bg-[var(--admin-surface)] p-4 text-[var(--admin-text)] shadow-[var(--admin-shadow)] transition-all duration-300 ${collapsed ? "w-[6.5rem]" : "w-[12.5rem]"}`;
 
   const handleLogout = () => {
     clearAdminSession();
@@ -225,7 +237,7 @@ export default function Sidebar({
         />
       )}
 
-      <aside className={wrapperClass}>
+      <aside className={wrapperClass} >
         <div className="mb-6 rounded-[14px] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)]">
           <div className="flex flex-col items-center">
             {!collapsed && (

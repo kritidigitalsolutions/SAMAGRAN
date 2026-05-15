@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import API from "../api/axios";
-import { FiEdit2, FiEye, FiPlus, FiSearch, FiX } from "react-icons/fi";
+import { FiEdit2, FiEye, FiMoreVertical, FiPlus, FiSearch, FiX } from "react-icons/fi";
 import { MdDelete } from "react-icons/md";
+import TablePagination from "../components/TablePagination";
+import TableMenuPopover from "../components/TableMenuPopover";
 
 const formatAddress = (pandit) => {
   const parts = [
@@ -55,6 +57,7 @@ export default function Pandits() {
   const [success, setSuccess] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [activeTab, setActiveTab] = useState("all");
   const [selectedPandit, setSelectedPandit] = useState(null);
   const [panditBookings, setPanditBookings] = useState([]);
   const [bookingsModalPandit, setBookingsModalPandit] = useState(null);
@@ -65,6 +68,14 @@ export default function Pandits() {
   const [submitting, setSubmitting] = useState(false);
   const [deletingPanditId, setDeletingPanditId] = useState("");
   const [statusUpdatingId, setStatusUpdatingId] = useState("");
+  const [openMenuId, setOpenMenuId] = useState("");
+  const [menuAnchorRect, setMenuAnchorRect] = useState(null);
+  const [selectedPanditIds, setSelectedPanditIds] = useState([]);
+  const [selectedPanditBookingIds, setSelectedPanditBookingIds] = useState([]);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [bookingsPage, setBookingsPage] = useState(1);
+  const [bookingsPageSize, setBookingsPageSize] = useState(10);
 
   const fetchPandits = useCallback(async (searchValue = "", statusValue = "all") => {
     try {
@@ -94,6 +105,27 @@ export default function Pandits() {
     return () => clearTimeout(timer);
   }, [fetchPandits, searchTerm, statusFilter]);
 
+  useEffect(() => {
+    setActiveTab(statusFilter === "pending" ? "requests" : "all");
+  }, [statusFilter]);
+
+  useEffect(() => {
+    const handleClick = (event) => {
+      if (!event.target.closest("[data-pandit-menu], [data-table-menu-popover]")) {
+        setOpenMenuId("");
+      }
+    };
+
+    document.addEventListener("click", handleClick);
+    return () => document.removeEventListener("click", handleClick);
+  }, []);
+
+  useEffect(() => {
+    if (!openMenuId) {
+      setMenuAnchorRect(null);
+    }
+  }, [openMenuId]);
+
   const summary = useMemo(() => {
     const active = pandits.filter((pandit) => pandit.status === "active").length;
     const pending = pandits.filter((pandit) => pandit.status === "pending").length;
@@ -107,6 +139,24 @@ export default function Pandits() {
     };
   }, [pandits]);
 
+  const pagedPandits = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return pandits.slice(start, start + pageSize);
+  }, [pandits, page, pageSize]);
+
+  const pagedPanditBookings = useMemo(() => {
+    const start = (bookingsPage - 1) * bookingsPageSize;
+    return panditBookings.slice(start, start + bookingsPageSize);
+  }, [panditBookings, bookingsPage, bookingsPageSize]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [pandits.length]);
+
+  useEffect(() => {
+    setBookingsPage(1);
+  }, [panditBookings.length, bookingsModalPandit?._id]);
+
   const resetForm = () => {
     setForm(initialForm);
     setEditingPanditId("");
@@ -117,6 +167,11 @@ export default function Pandits() {
     setShowForm(true);
     setError("");
     setSuccess("");
+  };
+
+  const handleTabChange = (tabKey) => {
+    setActiveTab(tabKey);
+    setStatusFilter(tabKey === "requests" ? "pending" : "all");
   };
 
   const openEdit = (pandit) => {
@@ -258,6 +313,10 @@ export default function Pandits() {
     }
   };
 
+  const handleApprovePandit = (panditId) => handleStatusUpdate(panditId, "active");
+
+  const handleRejectPandit = (panditId) => handleStatusUpdate(panditId, "blocked");
+
   const handleViewPandit = async (panditId) => {
     try {
       const res = await API.get(`/admin/pandits/${panditId}/details`);
@@ -286,19 +345,73 @@ export default function Pandits() {
     }
   };
 
+  const togglePanditSelection = (panditId, checked) => {
+    setSelectedPanditIds((current) => {
+      if (checked) {
+        return current.includes(panditId) ? current : [...current, panditId];
+      }
+      return current.filter((id) => id !== panditId);
+    });
+  };
+
+  const toggleAllPandits = (checked) => {
+    if (checked) {
+      setSelectedPanditIds(pandits.map((pandit) => pandit._id));
+      return;
+    }
+    setSelectedPanditIds([]);
+  };
+
+  const toggleAllPanditBookings = (checked) => {
+    if (checked) {
+      setSelectedPanditBookingIds(panditBookings.map((booking) => booking._id));
+      return;
+    }
+    setSelectedPanditBookingIds([]);
+  };
+
+  const togglePanditBookingSelection = (bookingId, checked) => {
+    setSelectedPanditBookingIds((current) => {
+      if (checked) {
+        return current.includes(bookingId) ? current : [...current, bookingId];
+      }
+      return current.filter((id) => id !== bookingId);
+    });
+  };
+
   return (
     <div className="space-y-4">
       <section className="rounded-[30px]  border border-[var(--admin-border)] bg-[var(--admin-surface)] p-6 shadow-[var(--admin-shadow)]">
 
         <p className="text-sm font-semibold uppercase tracking-[0.32em] text-[var(--admin-primary)]">Pandit Network</p>
         <h2 className="mt-2 text-2xl font-bold text-[#2f1618] dark:text-[#fff3dc]">All Pandits</h2>
-        <div className="relative flex justify-between">
+        <div className="relative flex flex-wrap items-start justify-between gap-4">
         <div className="mt-4 flex flex-wrap gap-3 text-xs">
           <span className="rounded-full bg-[#8B1E3F]/10 px-3 py-1 font-semibold text-[#6c1b2f] dark:bg-[#D4AF37]/20 dark:text-[#f6dfaf]">Total {summary.total}</span>
           <span className="rounded-full bg-emerald-100 px-3 py-1 font-semibold text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-200">Active {summary.active}</span>
           <span className="rounded-full bg-amber-100 px-3 py-1 font-semibold text-amber-700 dark:bg-amber-500/20 dark:text-amber-200">Pending {summary.pending}</span>
           <span className="rounded-full bg-red-100 px-3 py-1 font-semibold text-red-700 dark:bg-red-500/20 dark:text-red-200">Blocked {summary.blocked}</span>
         </div>
+        <div className="flex items-center gap-3">
+          <div className="inline-flex rounded-xl border border-[#d8c4a5] bg-white/70 p-1 text-sm dark:border-white/10 dark:bg-white/5">
+            {[
+              { key: "all", label: "All" },
+              { key: "requests", label: "Requests" },
+            ].map((tab) => (
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => handleTabChange(tab.key)}
+                className={`rounded-lg px-3 py-1.5 font-medium ${
+                  activeTab === tab.key
+                    ? "bg-[#8B1E3F] text-white"
+                    : "text-[#6f3945] hover:bg-[#8B1E3F]/10 dark:text-[#f7e3c0]"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
         <button
             type="button"
             onClick={openCreate}
@@ -307,6 +420,7 @@ export default function Pandits() {
             <FiPlus className="h-4 w-4" />
             Add Pandit
           </button>
+          </div>
         </div>
 
       </section>
@@ -452,24 +566,43 @@ export default function Pandits() {
             {searchTerm ? "No pandits match your search." : "No pandits found."}
           </p>
         ) : (
-          <div className="overflow-x-auto rounded-2xl border border-[#d8c4a5] dark:border-white/10">
-            <table className="min-w-full text-sm">
-              <thead className="bg-[#8B1E3F]/8 text-left text-[#5a1b2b] dark:bg-[#D4AF37]/10 dark:text-[#f6dfaf]">
-                <tr>
-                  <th className="px-4 py-3 font-semibold">Profile</th>
+          <>
+            <div className="admin-table-wrap overflow-x-auto">
+              <table className="admin-table min-w-full text-sm">
+              <thead>
+                <tr className="border-b border-[#e6d8c5] text-xs uppercase tracking-[0.18em] text-[#7f5a4f] dark:border-white/10 dark:text-[#e7c98b]">
+                  <th className="px-4 py-3 font-semibold">
+                    <input
+                      type="checkbox"
+                      checked={pandits.length > 0 && selectedPanditIds.length === pandits.length}
+                      onChange={(event) => toggleAllPandits(event.target.checked)}
+                      className="h-4 w-4 rounded-[4px] border border-[#d7c3a3]"
+                    />
+                  </th>
+                  <th className="px-4 py-3 font-semibold">S.No</th>
+                  <th className="px-4 py-3 font-semibold">Image</th>
                   <th className="px-4 py-3 font-semibold">Name</th>
                   <th className="px-4 py-3 font-semibold">Phone</th>
                   <th className="px-4 py-3 font-semibold">Experience</th>
                   <th className="px-4 py-3 font-semibold">City</th>
                   <th className="px-4 py-3 font-semibold">Status</th>
                   <th className="px-4 py-3 font-semibold">Update Status</th>
-                  <th className="px-4 py-3 font-semibold">Actions</th>
+                  <th className="px-4 py-3 font-semibold text-right">Actions</th>
                 </tr>
               </thead>
 
               <tbody>
-                {pandits.map((pandit) => (
-                  <tr key={pandit._id} className="border-t border-[#e8d7bf] dark:border-white/10">
+                {pagedPandits.map((pandit, index) => (
+                  <tr key={pandit._id} className="border-b border-[#f0e3d1] align-top last:border-none dark:border-white/10">
+                    <td className="px-4 py-3 text-center">
+                      <input
+                        type="checkbox"
+                        checked={selectedPanditIds.includes(pandit._id)}
+                        onChange={(event) => togglePanditSelection(pandit._id, event.target.checked)}
+                        className="h-4 w-4 text-ce rounded-[4px] border border-[#d7c3a3]"
+                      />
+                    </td>
+                    <td className="px-4 py-3 text-sm text-[#6f3945] dark:text-[#f7e3c0]">{(page - 1) * pageSize + index + 1}</td>
                     <td className="px-4 py-3">
                       {pandit.profileImage ? (
                         <img src={pandit.profileImage} alt={pandit.fullName || "Pandit"} className="h-12 w-12 rounded-xl border border-[#D4AF37]/30 object-cover" />
@@ -500,48 +633,114 @@ export default function Pandits() {
                         ))}
                       </select>
                     </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
+                    <td className="px-4 py-3 text-right" data-pandit-menu>
+                      <div className="relative inline-flex">
                         <button
                           type="button"
-                          onClick={() => handleViewPandit(pandit._id)}
-                          className="grid h-9 w-9 place-items-center rounded-lg bg-blue-100 text-blue-700 hover:bg-blue-200"
-                          aria-label={`View ${pandit.fullName || "pandit"}`}
-                        >
-                          <FiEye />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => openEdit(pandit)}
+                          onClick={(event) => {
+                            const nextId = openMenuId === pandit._id ? "" : pandit._id;
+                            setOpenMenuId(nextId);
+                            setMenuAnchorRect(nextId ? event.currentTarget.getBoundingClientRect() : null);
+                          }}
                           className="grid h-9 w-9 place-items-center rounded-lg border border-[#d7bf9b] text-[#6f3945] hover:bg-[#8B1E3F]/10 dark:border-white/20 dark:text-[#f7e3c0]"
-                          aria-label={`Edit ${pandit.fullName || "pandit"}`}
+                          aria-label="Pandit actions"
                         >
-                          <FiEdit2 />
+                          <FiMoreVertical />
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => handleViewBookings(pandit)}
-                          className="grid h-9 w-9 place-items-center rounded-lg bg-emerald-100 text-emerald-700 hover:bg-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-200"
-                          aria-label="View bookings"
-                        >
-                          B
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDeletePandit(pandit)}
-                          disabled={deletingPanditId === pandit._id}
-                          className="grid h-9 w-9 place-items-center rounded-lg bg-red-100 text-red-700 hover:bg-red-200 disabled:opacity-60"
-                          aria-label="Delete pandit"
-                        >
-                          <MdDelete />
-                        </button>
+                        {openMenuId === pandit._id && (
+                          <TableMenuPopover
+                            open
+                            anchorRect={menuAnchorRect}
+                            preferUp={index >= pagedPandits.length - 3}
+                            onClose={() => setOpenMenuId("")}
+                            className="w-48 overflow-hidden rounded-xl border border-[#d9c3a2] bg-white text-sm shadow-lg dark:border-white/10 dark:bg-[#1b1f27]"
+                          >
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setOpenMenuId("");
+                                handleViewPandit(pandit._id);
+                              }}
+                              className="flex w-full items-center gap-2 px-4 py-2 text-left hover:bg-[#8B1E3F]/10"
+                            >
+                              <FiEye className="text-[#6f3945]" /> View
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setOpenMenuId("");
+                                openEdit(pandit);
+                              }}
+                              className="flex w-full items-center gap-2 px-4 py-2 text-left hover:bg-[#8B1E3F]/10"
+                            >
+                              <FiEdit2 className="text-[#6f3945]" /> Edit
+                            </button>
+                            {pandit.status === "pending" && (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setOpenMenuId("");
+                                    handleApprovePandit(pandit._id);
+                                  }}
+                                  className="flex w-full items-center gap-2 px-4 py-2 text-left text-emerald-700 hover:bg-emerald-50 dark:text-emerald-200 dark:hover:bg-emerald-500/10"
+                                >
+                                  Approve
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setOpenMenuId("");
+                                    handleRejectPandit(pandit._id);
+                                  }}
+                                  className="flex w-full items-center gap-2 px-4 py-2 text-left text-red-700 hover:bg-red-50 dark:text-red-200 dark:hover:bg-red-500/10"
+                                >
+                                  Reject
+                                </button>
+                              </>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setOpenMenuId("");
+                                handleViewBookings(pandit);
+                              }}
+                              className="flex w-full items-center gap-2 px-4 py-2 text-left hover:bg-[#8B1E3F]/10"
+                            >
+                              Bookings
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setOpenMenuId("");
+                                handleDeletePandit(pandit);
+                              }}
+                              disabled={deletingPanditId === pandit._id}
+                              className="flex w-full items-center gap-2 px-4 py-2 text-left text-red-700 hover:bg-red-50 disabled:opacity-60 dark:text-red-200 dark:hover:bg-red-500/10"
+                            >
+                              <MdDelete className="text-red-600" /> Delete
+                            </button>
+                          </TableMenuPopover>
+                        )}
                       </div>
                     </td>
                   </tr>
                 ))}
               </tbody>
-            </table>
-          </div>
+              </table>
+            </div>
+            <TablePagination
+              page={page}
+              pageSize={pageSize}
+              total={pandits.length}
+              onPageChange={setPage}
+              onPageSizeChange={(size) => {
+                setPageSize(size);
+                setPage(1);
+              }}
+              pageSizeOptions={[10]}
+            />
+          </>
         )}
       </section>
 
@@ -668,10 +867,20 @@ export default function Pandits() {
             ) : panditBookings.length === 0 ? (
               <p className="rounded-xl bg-white/60 p-5 text-sm dark:bg-white/5">No bookings found for this pandit.</p>
             ) : (
-              <div className="overflow-x-auto rounded-2xl border border-[#d8c4a5] dark:border-white/10">
-                <table className="min-w-full text-sm">
-                  <thead className="bg-[#8B1E3F]/8 text-left text-[#5a1b2b] dark:bg-[#D4AF37]/10 dark:text-[#f6dfaf]">
-                    <tr>
+              <>
+                <div className="admin-table-wrap overflow-x-auto">
+                  <table className="admin-table min-w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-[#e6d8c5] text-xs uppercase tracking-[0.18em] text-[#7f5a4f] dark:border-white/10 dark:text-[#e7c98b]">
+                      <th className="px-4 py-3 font-semibold">
+                        <input
+                          type="checkbox"
+                          checked={panditBookings.length > 0 && selectedPanditBookingIds.length === panditBookings.length}
+                          onChange={(event) => toggleAllPanditBookings(event.target.checked)}
+                          className="h-4 w-4 rounded-[4px] border border-[#d7c3a3]"
+                        />
+                      </th>
+                      <th className="px-4 py-3 font-semibold">S.No</th>
                       <th className="px-4 py-3 font-semibold">Ritual</th>
                       <th className="px-4 py-3 font-semibold">User</th>
                       <th className="px-4 py-3 font-semibold">Date & Slot</th>
@@ -681,8 +890,17 @@ export default function Pandits() {
                     </tr>
                   </thead>
                   <tbody>
-                    {panditBookings.map((booking) => (
-                      <tr key={booking._id} className="border-t border-[#e8d7bf] dark:border-white/10">
+                    {pagedPanditBookings.map((booking, index) => (
+                      <tr key={booking._id} className="border-b border-[#f0e3d1] align-top last:border-none dark:border-white/10">
+                        <td className="px-4 py-3">
+                          <input
+                            type="checkbox"
+                            checked={selectedPanditBookingIds.includes(booking._id)}
+                            onChange={(event) => togglePanditBookingSelection(booking._id, event.target.checked)}
+                            className="h-4 w-4 rounded-[4px] border border-[#d7c3a3]"
+                          />
+                        </td>
+                        <td className="px-4 py-3 text-sm text-[#6f3945] dark:text-[#f7e3c0]">{(bookingsPage - 1) * bookingsPageSize + index + 1}</td>
                         <td className="px-4 py-3">{booking.ritual?.name || "-"}</td>
                         <td className="px-4 py-3">{booking.user?.name || booking.user?.phone || "-"}</td>
                         <td className="px-4 py-3">{booking.bookingDate} | {booking.timeSlot?.label || "-"}</td>
@@ -692,8 +910,20 @@ export default function Pandits() {
                       </tr>
                     ))}
                   </tbody>
-                </table>
-              </div>
+                  </table>
+                </div>
+                <TablePagination
+                  page={bookingsPage}
+                  pageSize={bookingsPageSize}
+                  total={panditBookings.length}
+                  onPageChange={setBookingsPage}
+                  onPageSizeChange={(size) => {
+                    setBookingsPageSize(size);
+                    setBookingsPage(1);
+                  }}
+                  pageSizeOptions={[10]}
+                />
+              </>
             )}
           </div>
         </div>

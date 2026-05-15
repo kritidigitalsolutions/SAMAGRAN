@@ -1,6 +1,8 @@
-import { useEffect, useState } from "react";
-import { FiEdit2, FiTrash2, FiX } from "react-icons/fi";
+import { useEffect, useMemo, useState } from "react";
+import { FiEdit2, FiEye, FiMoreVertical, FiTrash2, FiX } from "react-icons/fi";
 import API from "../api/axios";
+import TablePagination from "../components/TablePagination";
+import TableMenuPopover from "../components/TableMenuPopover";
 
 const initialForm = {
   name: "",
@@ -32,6 +34,15 @@ export default function Temples() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [imageFile, setImageFile] = useState(null);
+  const [selectedTempleIds, setSelectedTempleIds] = useState([]);
+  const [openMenuId, setOpenMenuId] = useState("");
+  const [menuAnchorRect, setMenuAnchorRect] = useState(null);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const pagedTemples = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return temples.slice(start, start + pageSize);
+  }, [temples, page, pageSize]);
 
   const fetchtemples = async () => {
     try {
@@ -48,6 +59,27 @@ export default function Temples() {
   useEffect(() => {
     fetchtemples();
   }, []);
+
+  useEffect(() => {
+    setPage(1);
+  }, [temples.length]);
+
+  useEffect(() => {
+    const handleClick = (event) => {
+      if (!event.target.closest("[data-temple-menu], [data-table-menu-popover]")) {
+        setOpenMenuId("");
+      }
+    };
+
+    document.addEventListener("click", handleClick);
+    return () => document.removeEventListener("click", handleClick);
+  }, []);
+
+  useEffect(() => {
+    if (!openMenuId) {
+      setMenuAnchorRect(null);
+    }
+  }, [openMenuId]);
 
   const resetForm = () => {
     setForm(initialForm);
@@ -182,6 +214,76 @@ export default function Temples() {
       setError(err.response?.data?.message || "Unable to delete temple.");
     } finally {
       setDeletingId("");
+    }
+  };
+
+  const buildTemplePayload = (temple, overrides = {}) => {
+    const payload = new FormData();
+    payload.append("name", String(overrides.name ?? temple.name ?? "").trim());
+    payload.append("description", String(overrides.description ?? temple.description ?? "").trim());
+    payload.append("contactPhone", String(overrides.contactPhone ?? temple.contactPhone ?? "").trim());
+    payload.append("contactPerson", String(overrides.contactPerson ?? temple.contactPerson ?? "").trim());
+    payload.append("openingTime", String(overrides.openingTime ?? temple.openingTime ?? "").trim());
+    payload.append("closingTime", String(overrides.closingTime ?? temple.closingTime ?? "").trim());
+    payload.append(
+      "facilities",
+      String(overrides.facilitiesText ?? (Array.isArray(temple.facilities) ? temple.facilities.join(", ") : temple.facilities || ""))
+    );
+    payload.append("status", overrides.status ?? temple.status ?? "inactive");
+    payload.append("address[line1]", String(overrides.address?.line1 ?? temple.address?.line1 ?? "").trim());
+    payload.append("address[line2]", String(overrides.address?.line2 ?? temple.address?.line2 ?? "").trim());
+    payload.append("address[city]", String(overrides.address?.city ?? temple.address?.city ?? "").trim());
+    payload.append("address[state]", String(overrides.address?.state ?? temple.address?.state ?? "").trim());
+    payload.append("address[pinCode]", String(overrides.address?.pinCode ?? temple.address?.pinCode ?? "").trim());
+    payload.append("address[landmark]", String(overrides.address?.landmark ?? temple.address?.landmark ?? "").trim());
+    return payload;
+  };
+
+  const handleToggleTempleStatus = async (temple) => {
+    if (!temple?._id) return;
+    const nextStatus = temple.status === "active" ? "inactive" : "active";
+
+    try {
+      const payload = buildTemplePayload(temple, { status: nextStatus });
+      await API.put(`/admin/temples/${temple._id}`, payload, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      settemples((current) =>
+        current.map((entry) => (entry._id === temple._id ? { ...entry, status: nextStatus } : entry))
+      );
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to update temple status.");
+    }
+  };
+
+  const toggleTempleSelection = (templeId, checked) => {
+    setSelectedTempleIds((current) => {
+      if (checked) {
+        return current.includes(templeId) ? current : [...current, templeId];
+      }
+      return current.filter((id) => id !== templeId);
+    });
+  };
+
+  const toggleAllTemples = (checked) => {
+    if (checked) {
+      setSelectedTempleIds(temples.map((temple) => temple._id));
+      return;
+    }
+    setSelectedTempleIds([]);
+  };
+
+  const handleDeleteSelectedTemples = async () => {
+    if (!selectedTempleIds.length) return;
+    if (!window.confirm(`Delete ${selectedTempleIds.length} selected temples?`)) return;
+
+    try {
+      await Promise.all(selectedTempleIds.map((templeId) => API.delete(`/admin/temples/${templeId}`)));
+      settemples((current) => current.filter((entry) => !selectedTempleIds.includes(entry._id)));
+      setSelectedTempleIds([]);
+      setSuccess("Selected temples deleted successfully.");
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to delete selected temples.");
     }
   };
 
@@ -446,11 +548,35 @@ export default function Temples() {
             No temples added yet.
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-left text-sm">
+          <>
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <span className="text-xs text-[#7b5a4b] dark:text-[#dbcdb8]/70">
+                {selectedTempleIds.length} selected
+              </span>
+              <button
+                type="button"
+                onClick={handleDeleteSelectedTemples}
+                disabled={!selectedTempleIds.length}
+                className="rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-xs font-semibold text-red-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200"
+              >
+                Delete Selected
+              </button>
+            </div>
+            <div className="admin-table-wrap overflow-x-auto">
+            <table className="admin-table min-w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-[#e6d8c5] text-xs uppercase tracking-[0.18em] text-[#7f5a4f] dark:border-white/10 dark:text-[#e7c98b]">
+                  <th className="px-3 py-3 text-center">
+                    <input
+                      type="checkbox"
+                      checked={temples.length > 0 && selectedTempleIds.length === temples.length}
+                      onChange={(event) => toggleAllTemples(event.target.checked)}
+                      className="h-4 w-4 rounded-[4px] border border-[#d7c3a3]"
+                    />
+                  </th>
+                  <th className="serial-col px-2 py-3">S.No</th>
                   <th className="px-3 py-3">Images</th>
+                  <th className="px-3 py-3">Temple Code</th>
                   <th className="px-3 py-3">Name</th>
                   <th className="px-3 py-3">City</th>
                   <th className="px-3 py-3">Phone</th>
@@ -459,9 +585,21 @@ export default function Temples() {
                 </tr>
               </thead>
               <tbody>
-                {temples.map((temple) => (
+                {pagedTemples.map((temple, index) => (
                   <tr key={temple._id} className="border-b border-[#f0e3d1] align-top last:border-none dark:border-white/10">
-                    <td className="px-3 py-4 "><img src={temple.image} className="rounded" width={80} height={30} alt="" /></td>
+                    <td className="px-3 py-4 text-center">
+                      <input
+                        type="checkbox"
+                        checked={selectedTempleIds.includes(temple._id)}
+                        onChange={(event) => toggleTempleSelection(temple._id, event.target.checked)}
+                        className="h-4 w-4 rounded-[4px] border border-[#d7c3a3]"
+                      />
+                    </td>
+                    <td className="serial-col px-2 py-4 text-sm text-[#6f3945] dark:text-[#f7e3c0]">{(page - 1) * pageSize + index + 1}</td>
+                    <td className="px-3 py-4"><img src={temple.image} className="rounded" width={80} height={30} alt="" /></td>
+                    <td className="px-3 py-4 font-mono text-xs text-[#6f3945] dark:text-[#f7e3c0]">
+                      TEMPLE-{String(temple._id || "").slice(-6).toUpperCase()}
+                    </td>
                     <td className="px-3 py-4">
                       <p className="font-semibold">{temple.name}</p>
                       <p className="text-xs text-[#6e4b40] dark:text-[#f7e3c0]/80">{temple.address?.line1 || temple.address?.landmark || "-"}</p>
@@ -479,32 +617,89 @@ export default function Temples() {
                         {temple.status}
                       </span>
                     </td>
-                    <td className="px-3 py-4">
-                      <div className="flex items-center justify-end gap-2">
+                    <td className="px-3 py-4 text-right" data-temple-menu>
+                      <div className="relative inline-flex">
                         <button
                           type="button"
-                          onClick={() => openEdit(temple)}
-                          className="rounded-lg border border-[#d7bf9b] p-2 text-[#6f3945] hover:bg-[#8B1E3F]/10 dark:border-white/20 dark:text-[#f7e3c0]"
-                          title="Edit"
+                          onClick={(event) => {
+                            const nextId = openMenuId === temple._id ? "" : temple._id;
+                            setOpenMenuId(nextId);
+                            setMenuAnchorRect(nextId ? event.currentTarget.getBoundingClientRect() : null);
+                          }}
+                          className="grid h-9 w-9 place-items-center rounded-lg border border-[#d7bf9b] text-[#6f3945] hover:bg-[#8B1E3F]/10 dark:border-white/20 dark:text-[#f7e3c0]"
                         >
-                          <FiEdit2 className="h-4 w-4" />
+                          <FiMoreVertical />
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDelete(temple)}
-                          disabled={deletingId === temple._id}
-                          className="rounded-lg border border-red-300 p-2 text-red-600 hover:bg-red-50 disabled:opacity-60 dark:border-red-500/40 dark:text-red-200 dark:hover:bg-red-500/10"
-                          title="Delete"
-                        >
-                          <FiTrash2 className="h-4 w-4" />
-                        </button>
+                        {openMenuId === temple._id && (
+                          <TableMenuPopover
+                            open
+                            anchorRect={menuAnchorRect}
+                            preferUp={index >= pagedTemples.length - 3}
+                            onClose={() => setOpenMenuId("")}
+                            className="w-44 overflow-hidden rounded-xl border border-[#d9c3a2] bg-white text-sm shadow-lg dark:border-white/10 dark:bg-[#1b1f27]"
+                          >
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setOpenMenuId("");
+                                openEdit(temple);
+                              }}
+                              className="flex w-full items-center gap-2 px-4 py-2 text-left hover:bg-[#8B1E3F]/10"
+                            >
+                              <FiEye className="text-[#6f3945]" /> View
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setOpenMenuId("");
+                                openEdit(temple);
+                              }}
+                              className="flex w-full items-center gap-2 px-4 py-2 text-left hover:bg-[#8B1E3F]/10"
+                            >
+                              <FiEdit2 className="text-[#6f3945]" /> Edit
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setOpenMenuId("");
+                                handleToggleTempleStatus(temple);
+                              }}
+                              className="flex w-full items-center gap-2 px-4 py-2 text-left hover:bg-[#8B1E3F]/10"
+                            >
+                              <span className="text-[#6f3945]">{temple.status === "active" ? "Mark Inactive" : "Mark Active"}</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setOpenMenuId("");
+                                handleDelete(temple);
+                              }}
+                              disabled={deletingId === temple._id}
+                              className="flex w-full items-center gap-2 px-4 py-2 text-left text-red-700 hover:bg-red-50 dark:text-red-200 dark:hover:bg-red-500/10"
+                            >
+                              <FiTrash2 className="text-red-600" /> Delete
+                            </button>
+                          </TableMenuPopover>
+                        )}
                       </div>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
-          </div>
+            </div>
+            <TablePagination
+              page={page}
+              pageSize={pageSize}
+              total={temples.length}
+              onPageChange={setPage}
+              onPageSizeChange={(size) => {
+                setPageSize(size);
+                setPage(1);
+              }}
+              pageSizeOptions={[10]}
+            />
+          </>
         )}
       </section>
     </div>

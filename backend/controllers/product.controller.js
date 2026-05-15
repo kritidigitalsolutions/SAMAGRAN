@@ -137,6 +137,7 @@ export const getProductsUser = async (req, res) => {
 
       return {
         id: item._id,
+        itemCode: item.itemCode || "",
         title: item.title,
         description: item.description || "",
         details: item.details || {},
@@ -229,6 +230,7 @@ export const getSingleProductUser = async (req, res) => {
       success: true,
       data: {
         id: item._id,
+        itemCode: item.itemCode || "",
         title: item.title,
         description: item.description || "",
         details: item.details || {},

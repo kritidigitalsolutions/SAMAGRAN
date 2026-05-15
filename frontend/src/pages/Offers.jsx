@@ -1,6 +1,8 @@
-import { useEffect, useState } from "react";
-import { FiEdit2, FiTrash2, FiX, FiPlus } from "react-icons/fi";
+import { useEffect, useMemo, useState } from "react";
+import { FiEdit2, FiEye, FiMoreVertical, FiTrash2, FiX, FiPlus } from "react-icons/fi";
 import API from "../api/axios";
+import TablePagination from "../components/TablePagination";
+import TableMenuPopover from "../components/TableMenuPopover";
 
 const initialForm = {
   title: "",
@@ -25,6 +27,15 @@ export default function Offers() {
   const [form, setForm] = useState(initialForm);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [selectedOfferIds, setSelectedOfferIds] = useState([]);
+  const [openMenuId, setOpenMenuId] = useState("");
+  const [menuAnchorRect, setMenuAnchorRect] = useState(null);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const pagedOffers = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return offers.slice(start, start + pageSize);
+  }, [offers, page, pageSize]);
 
   const fetchOffers = async () => {
     try {
@@ -41,6 +52,27 @@ export default function Offers() {
   useEffect(() => {
     fetchOffers();
   }, []);
+
+  useEffect(() => {
+    setPage(1);
+  }, [offers.length]);
+
+  useEffect(() => {
+    const handleClick = (event) => {
+      if (!event.target.closest("[data-offer-menu], [data-table-menu-popover]")) {
+        setOpenMenuId("");
+      }
+    };
+
+    document.addEventListener("click", handleClick);
+    return () => document.removeEventListener("click", handleClick);
+  }, []);
+
+  useEffect(() => {
+    if (!openMenuId) {
+      setMenuAnchorRect(null);
+    }
+  }, [openMenuId]);
 
   const resetForm = () => {
     setForm(initialForm);
@@ -151,6 +183,71 @@ export default function Offers() {
     }
   };
 
+  const buildOfferPayload = (offer, overrides = {}) => ({
+    title: String(overrides.title ?? offer.title ?? "").trim(),
+    description: String(overrides.description ?? offer.description ?? "").trim(),
+    offerType: overrides.offerType ?? offer.offerType ?? "discount",
+    discountType: overrides.discountType ?? offer.discountType ?? "flat",
+    value: Number(overrides.value ?? offer.value ?? 0),
+    minOrderAmount: Number(overrides.minOrderAmount ?? offer.minOrderAmount ?? 0),
+    maxBenefit: Number(overrides.maxBenefit ?? offer.maxBenefit ?? 0),
+    isActive: overrides.isActive ?? offer.isActive ?? false,
+    startsAt: (overrides.startsAt ?? offer.startsAt)
+      ? new Date(overrides.startsAt ?? offer.startsAt)
+      : null,
+    expiresAt: (overrides.expiresAt ?? offer.expiresAt)
+      ? new Date(overrides.expiresAt ?? offer.expiresAt)
+      : null,
+  });
+
+  const handleToggleOfferStatus = async (offer) => {
+    if (!offer?._id) return;
+    const nextStatus = !offer.isActive;
+
+    try {
+      const payload = buildOfferPayload(offer, { isActive: nextStatus });
+      await API.put(`/admin/offers/${offer._id}`, payload);
+      setOffers((current) =>
+        current.map((entry) =>
+          entry._id === offer._id ? { ...entry, isActive: nextStatus } : entry
+        )
+      );
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to update offer status.");
+    }
+  };
+
+  const toggleOfferSelection = (offerId, checked) => {
+    setSelectedOfferIds((current) => {
+      if (checked) {
+        return current.includes(offerId) ? current : [...current, offerId];
+      }
+      return current.filter((id) => id !== offerId);
+    });
+  };
+
+  const toggleAllOffers = (checked) => {
+    if (checked) {
+      setSelectedOfferIds(offers.map((offer) => offer._id));
+      return;
+    }
+    setSelectedOfferIds([]);
+  };
+
+  const handleDeleteSelectedOffers = async () => {
+    if (!selectedOfferIds.length) return;
+    if (!window.confirm(`Delete ${selectedOfferIds.length} selected offers?`)) return;
+
+    try {
+      await Promise.all(selectedOfferIds.map((offerId) => API.delete(`/admin/offers/${offerId}`)));
+      setOffers((current) => current.filter((entry) => !selectedOfferIds.includes(entry._id)));
+      setSelectedOfferIds([]);
+      setSuccess("Selected offers deleted successfully.");
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to delete selected offers.");
+    }
+  };
+
   return (
     <div className="space-y-6 text-[#2f1618] dark:text-[#fff3dc]">
       <section className="rounded-3xl border border-[var(--admin-border)] bg-[var(--admin-surface)] p-6 shadow-[var(--admin-shadow)]">
@@ -162,6 +259,20 @@ export default function Offers() {
           >
             <FiPlus size={18} />
             Add Offer
+          </button>
+        </div>
+
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <span className="text-xs text-[#7b5a4b] dark:text-[#dbcdb8]/70">
+            {selectedOfferIds.length} selected
+          </span>
+          <button
+            type="button"
+            onClick={handleDeleteSelectedOffers}
+            disabled={!selectedOfferIds.length}
+            className="rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-xs font-semibold text-red-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200"
+          >
+            Delete Selected
           </button>
         </div>
 
@@ -181,26 +292,49 @@ export default function Offers() {
         ) : offers.length === 0 ? (
           <div className="py-8 text-center">No offers yet. Create one to get started.</div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+          <>
+          <div className="admin-table-wrap overflow-x-auto">
+            <table className="admin-table w-full text-sm">
               <thead>
-                <tr className="border-b border-[var(--admin-border)]">
+                <tr className="border-b border-[#e6d8c5] text-xs uppercase tracking-[0.18em] text-[#7f5a4f] dark:border-white/10 dark:text-[#e7c98b]">
+                  <th className="px-4 py-3 text-center font-semibold">
+                    <input
+                      type="checkbox"
+                      checked={offers.length > 0 && selectedOfferIds.length === offers.length}
+                      onChange={(event) => toggleAllOffers(event.target.checked)}
+                      className="h-4 w-4 rounded-[4px] border border-[#d7c3a3]"
+                    />
+                  </th>
+                  <th className="serial-col px-2 py-3 text-left font-semibold">S.No</th>
+                  <th className="px-4 py-3 text-left font-semibold">Offer Code</th>
                   <th className="px-4 py-3 text-left font-semibold">Title</th>
                   <th className="px-4 py-3 text-left font-semibold">Type</th>
-                  <th className="px-4 py-3 text-left font-semibold">Benefit</th>
+                  <th className="px-4 py-3 text-left font-semibold">Value</th>
                   <th className="px-4 py-3 text-left font-semibold">Min Amount</th>
                   <th className="px-4 py-3 text-left font-semibold">Expires</th>
                   <th className="px-4 py-3 text-left font-semibold">Status</th>
-                  <th className="px-4 py-3 text-left font-semibold">Actions</th>
+                  <th className="px-4 py-3 text-right font-semibold">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {offers.map((offer) => (
+                {pagedOffers.map((offer, index) => (
                   <tr
                     key={offer._id}
                     className="border-b border-[var(--admin-border)] hover:bg-[var(--admin-surface-soft)]"
                   >
-                    <td className="px-4 py-3 font-semibold">{offer.title}</td>
+                    <td className="px-4 py-3 text-center">
+                      <input
+                        type="checkbox"
+                        checked={selectedOfferIds.includes(offer._id)}
+                        onChange={(event) => toggleOfferSelection(offer._id, event.target.checked)}
+                        className="h-4 w-4 rounded-[4px] border border-[#d7c3a3]"
+                      />
+                    </td>
+                    <td className="serial-col px-2 py-3 text-sm text-[#6f3945] dark:text-[#f7e3c0]">{(page - 1) * pageSize + index + 1}</td>
+                    <td className="px-4 py-3 font-mono text-xs text-[#6f3945] dark:text-[#f7e3c0]">
+                      OFFER-{String(offer._id || "").slice(-6).toUpperCase()}
+                    </td>
+                    <td className="px-4 py-3 font-semibold text-[#D4AF37]">{offer.title}</td>
                     <td className="px-4 py-3">
                       <span
                         className={`inline-block rounded-full px-3 py-1 text-xs font-medium ${
@@ -213,9 +347,7 @@ export default function Offers() {
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      {offer.discountType === "percent"
-                        ? `${offer.value}%`
-                        : `₹${offer.value}`}
+                      {offer.discountType === "percent" ? `${offer.value}%` : `₹${offer.value}`}
                     </td>
                     <td className="px-4 py-3">₹{offer.minOrderAmount || 0}</td>
                     <td className="px-4 py-3">
@@ -232,23 +364,70 @@ export default function Offers() {
                         {offer.isActive ? "Active" : "Inactive"}
                       </span>
                     </td>
-                    <td className="px-4 py-3">
-                      <div className="flex gap-2">
+                    <td className="px-4 py-3 text-right" data-offer-menu>
+                      <div className="relative inline-flex">
                         <button
-                          onClick={() => openEdit(offer)}
-                          className="rounded-lg bg-blue-600/20 p-2 text-blue-600 transition-all hover:bg-blue-600/30 dark:text-blue-400"
-                          title="Edit offer"
+                          type="button"
+                          onClick={(event) => {
+                            const nextId = openMenuId === offer._id ? "" : offer._id;
+                            setOpenMenuId(nextId);
+                            setMenuAnchorRect(nextId ? event.currentTarget.getBoundingClientRect() : null);
+                          }}
+                          className="grid h-9 w-9 place-items-center rounded-lg border border-[#d7bf9b] text-[#6f3945] hover:bg-[#8B1E3F]/10 dark:border-white/20 dark:text-[#f7e3c0]"
                         >
-                          <FiEdit2 size={16} />
+                          <FiMoreVertical />
                         </button>
-                        <button
-                          onClick={() => handleDelete(offer)}
-                          disabled={deletingId === offer._id}
-                          className="rounded-lg bg-red-600/20 p-2 text-red-600 transition-all hover:bg-red-600/30 disabled:opacity-50 dark:text-red-400"
-                          title="Delete offer"
-                        >
-                          <FiTrash2 size={16} />
-                        </button>
+                        {openMenuId === offer._id && (
+                          <TableMenuPopover
+                            open
+                            anchorRect={menuAnchorRect}
+                            preferUp={index >= pagedOffers.length - 3}
+                            onClose={() => setOpenMenuId("")}
+                            className="w-44 overflow-hidden rounded-xl border border-[#d9c3a2] bg-white text-sm shadow-lg dark:border-white/10 dark:bg-[#1b1f27]"
+                          >
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setOpenMenuId("");
+                                openEdit(offer);
+                              }}
+                              className="flex w-full items-center gap-2 px-4 py-2 text-left hover:bg-[#8B1E3F]/10"
+                            >
+                              <FiEye className="text-[#6f3945]" /> View
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setOpenMenuId("");
+                                openEdit(offer);
+                              }}
+                              className="flex w-full items-center gap-2 px-4 py-2 text-left hover:bg-[#8B1E3F]/10"
+                            >
+                              <FiEdit2 className="text-[#6f3945]" /> Edit
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setOpenMenuId("");
+                                handleToggleOfferStatus(offer);
+                              }}
+                              className="flex w-full items-center gap-2 px-4 py-2 text-left hover:bg-[#8B1E3F]/10"
+                            >
+                              <span className="text-[#6f3945]">{offer.isActive ? "Mark Inactive" : "Mark Active"}</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setOpenMenuId("");
+                                handleDelete(offer);
+                              }}
+                              disabled={deletingId === offer._id}
+                              className="flex w-full items-center gap-2 px-4 py-2 text-left text-red-700 hover:bg-red-50 dark:text-red-200 dark:hover:bg-red-500/10"
+                            >
+                              <FiTrash2 className="text-red-600" /> Delete
+                            </button>
+                          </TableMenuPopover>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -256,6 +435,18 @@ export default function Offers() {
               </tbody>
             </table>
           </div>
+          <TablePagination
+            page={page}
+            pageSize={pageSize}
+            total={offers.length}
+            onPageChange={setPage}
+            onPageSizeChange={(size) => {
+              setPageSize(size);
+              setPage(1);
+            }}
+            pageSizeOptions={[10]}
+          />
+          </>
         )}
       </section>
 

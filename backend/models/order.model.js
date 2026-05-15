@@ -127,6 +127,21 @@ const orderSchema = new mongoose.Schema(
       default: null,
     },
 
+    deliveryBoy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "DeliveryBoy",
+      default: null,
+    },
+    deliveryAssignedAt: {
+      type: Date,
+      default: null,
+    },
+    deliveryAssignedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Admin",
+      default: null,
+    },
+
     razorpayOrderId: {
       type: String,
       default: null,
@@ -145,6 +160,10 @@ const orderSchema = new mongoose.Schema(
     orderStatus: {
       type: String,
       default: "Placed",
+    },
+    inventoryAdjusted: {
+      type: Boolean,
+      default: false,
     },
     cancellationRequests: {
       type: [

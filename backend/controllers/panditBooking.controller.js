@@ -1238,21 +1238,56 @@ const normalizeSamagriType = (value = "") => {
 };
 
 const normalizeRejectReasonType = (value = "") => {
-  const normalized = String(value || "").trim().toLowerCase();
+  const raw = String(value || "").trim().toLowerCase();
+  if (!raw) return "";
 
-  if (["time_slot_already_booked", "time_slot", "slot_booked"].includes(normalized)) {
+  const normalized = raw
+    .replace(/[^a-z0-9\s_-]/g, "")
+    .replace(/\s+/g, "_")
+    .replace(/_+/g, "_");
+
+  if (
+    [
+      "time_slot_already_booked",
+      "time_slot",
+      "slot_booked",
+      "time_slot_booked",
+      "time_slot_is_booked",
+    ].includes(normalized)
+  ) {
     return "time_slot_already_booked";
   }
 
-  if (["location_too_far", "location_far", "far"].includes(normalized)) {
+  if (
+    [
+      "location_too_far",
+      "location_far",
+      "location_is_too_far",
+      "far",
+    ].includes(normalized)
+  ) {
     return "location_too_far";
   }
 
-  if (["pooja_not_performed", "not_performed", "not_my_pooja"].includes(normalized)) {
+  if (
+    [
+      "pooja_not_performed",
+      "not_performed",
+      "pooja_not_done",
+      "not_my_pooja",
+    ].includes(normalized)
+  ) {
     return "pooja_not_performed";
   }
 
-  if (["unavailable_personal", "personal", "unavailable"].includes(normalized)) {
+  if (
+    [
+      "unavailable_personal",
+      "personal",
+      "unavailable",
+      "not_available",
+    ].includes(normalized)
+  ) {
     return "unavailable_personal";
   }
 
@@ -1431,12 +1466,7 @@ export const rejectPanditBooking = async (req, res) => {
       });
     }
 
-    if (!resolvedNote) {
-      return res.status(400).json({
-        success: false,
-        message: "note is required when rejecting a booking",
-      });
-    }
+    const effectiveNote = resolvedNote || "Auto note: rejection submitted by pandit app.";
 
     if (resolvedReasonType === "other" && !resolvedOtherReason) {
       return res.status(400).json({
@@ -1481,7 +1511,7 @@ export const rejectPanditBooking = async (req, res) => {
       samagriType: "",
       rejectReasonType: resolvedReasonType,
       rejectReasonText: resolvedReasonType === "other" ? resolvedOtherReason : "",
-      note: resolvedNote,
+      note: effectiveNote,
       decidedAt: new Date(),
     };
 
@@ -1491,8 +1521,8 @@ export const rejectPanditBooking = async (req, res) => {
         : `Rejected by pandit: ${resolvedReasonType}`;
 
     booking.notes = booking.notes
-      ? `${booking.notes}\n${rejectSummary}\nPandit note: ${resolvedNote}`
-      : `${rejectSummary}\nPandit note: ${resolvedNote}`;
+      ? `${booking.notes}\n${rejectSummary}\nPandit note: ${effectiveNote}`
+      : `${rejectSummary}\nPandit note: ${effectiveNote}`;
 
     await booking.save();
 

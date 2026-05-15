@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import API from "../api/axios";
+import TablePagination from "../components/TablePagination";
 import {
   Area,
   AreaChart,
@@ -33,6 +34,9 @@ export default function Dashboard() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [selectedRecentOrderIds, setSelectedRecentOrderIds] = useState([]);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 60000);
@@ -125,7 +129,31 @@ export default function Dashboard() {
       .slice(0, 5);
   }, [orders]);
 
-  const recentOrders = useMemo(() => orders.slice(0, 8), [orders]);
+  const recentOrders = useMemo(() => orders, [orders]);
+  const pagedRecentOrders = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return recentOrders.slice(start, start + pageSize);
+  }, [recentOrders, page, pageSize]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [recentOrders.length]);
+  const toggleRecentOrderSelection = (orderId, checked) => {
+    setSelectedRecentOrderIds((current) => {
+      if (checked) {
+        return current.includes(orderId) ? current : [...current, orderId];
+      }
+      return current.filter((id) => id !== orderId);
+    });
+  };
+
+  const toggleAllRecentOrders = (checked) => {
+    if (checked) {
+      setSelectedRecentOrderIds(recentOrders.map((order) => order._id));
+      return;
+    }
+    setSelectedRecentOrderIds([]);
+  };
 
   const greeting = getGreeting(now.getHours());
   const formattedDate = now.toLocaleDateString("en-IN", {
@@ -264,10 +292,12 @@ export default function Dashboard() {
           {loading && <span className="text-xs text-[var(--admin-muted)]">Loading...</span>}
         </div>
 
-        <div className="overflow-x-auto rounded-2xl border border-[#d8c4a5] dark:border-white/10">
-          <table className="min-w-full text-sm">
-            <thead className="bg-[#8B1E3F]/8 text-left text-[#5a1b2b] dark:bg-[#D4AF37]/10 dark:text-[#f6dfaf]">
-              <tr>
+        <div className="admin-table-wrap overflow-x-auto">
+          <table className="admin-table min-w-full text-sm">
+            <thead>
+              <tr className="border-b border-[#e6d8c5] text-xs uppercase tracking-[0.18em] text-[#7f5a4f] dark:border-white/10 dark:text-[#e7c98b]">
+                
+                <th className="px-4 py-3 font-semibold">S.No</th>
                 <th className="px-4 py-3 font-semibold">Order ID</th>
                 <th className="px-4 py-3 font-semibold">User</th>
                 <th className="px-4 py-3 font-semibold">City</th>
@@ -278,8 +308,10 @@ export default function Dashboard() {
             </thead>
             <tbody>
               {recentOrders.length ? (
-                recentOrders.map((order) => (
-                  <tr key={order._id} className="border-t border-[#e8d7bf] dark:border-white/10">
+                pagedRecentOrders.map((order, index) => (
+                  <tr key={order._id} className="border-b border-[#f0e3d1] align-top last:border-none dark:border-white/10">
+                    
+                    <td className="px-4 py-3 text-sm text-[#6f3945] dark:text-[#f7e3c0]">{(page - 1) * pageSize + index + 1}</td>
                     <td className="px-4 py-3 font-semibold">#{String(order._id).slice(-6)}</td>
                     <td className="px-4 py-3">{order?.user?.name || "-"}</td>
                     <td className="px-4 py-3">{order?.address?.city || "-"}</td>
@@ -298,6 +330,17 @@ export default function Dashboard() {
             </tbody>
           </table>
         </div>
+        <TablePagination
+          page={page}
+          pageSize={pageSize}
+          total={recentOrders.length}
+          onPageChange={setPage}
+          onPageSizeChange={(size) => {
+            setPageSize(size);
+            setPage(1);
+          }}
+          pageSizeOptions={[10]}
+        />
       </section>
     </div>
   );

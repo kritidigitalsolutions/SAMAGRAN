@@ -1,8 +1,19 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import API from "../api/axios";
+import TablePagination from "../components/TablePagination";
+import TableMenuPopover from "../components/TableMenuPopover";
 import "./Items.css";
 import "./AddItem.css";
-import { FiEye, FiEdit, FiMoreVertical, FiPlus, FiSearch, FiTrash2, FiX } from "react-icons/fi";
+import {
+  FiEye,
+  FiEdit,
+  FiFilter,
+  FiMoreVertical,
+  FiPlus,
+  FiSearch,
+  FiTrash2,
+  FiX,
+} from "react-icons/fi";
 
 const apiOrigin = (API.defaults.baseURL || "http://localhost:8000/api").replace(
   /\/api\/?$/,
@@ -24,7 +35,7 @@ const buildItemForm = () => ({
   categoryName: "",
   subCategoryName: "",
   brand: "",
-  sku: "",
+  subBrand: "",
   unit: "",
   weight: "",
   dimensions: "",
@@ -63,7 +74,7 @@ const formatCurrency = (value, currency = "INR") =>
 
 const productDetailFields = [
   { name: "brand", label: "Brand" },
-  { name: "sku", label: "SKU / Product Code" },
+  { name: "subBrand", label: "Sub Brand" },
   { name: "unit", label: "Unit / Pack Size" },
   { name: "weight", label: "Weight" },
   { name: "dimensions", label: "Dimensions" },
@@ -98,6 +109,7 @@ const normalizeItem = (item = {}, fallback = {}) => {
     title: item.title ?? fallback.title ?? "",
     description: item.description ?? fallback.description ?? "",
     slug: item.slug ?? fallback.slug,
+    itemCode: item.itemCode || fallback.itemCode || "",
     category: {
       name: item.category?.name || fallback.category?.name || "",
       subCategory:
@@ -204,7 +216,7 @@ const buildEditForm = (item = {}) => ({
   categoryName: item.category?.name || "",
   subCategoryName: item.category?.subCategory || "",
   brand: item.details?.brand || "",
-  sku: item.details?.sku || "",
+  subBrand: item.details?.subBrand || "",
   unit: item.details?.unit || "",
   weight: item.details?.weight || "",
   dimensions: item.details?.dimensions || "",
@@ -244,7 +256,7 @@ function ImageSlider({ images = [], title }) {
   }
 
   return (
-    <div className="item-image"> 
+    <div className="item-image">
       <img src={imageUrls[activeIndex]} alt={title} />
       {imageUrls.length > 1 && (
         <>
@@ -283,11 +295,19 @@ export default function Items() {
   const [actionError, setActionError] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [cityFilter, setCityFilter] = useState("all");
-  const [gstFilter, setGstFilter] = useState("all");
+  const [brandFilter, setBrandFilter] = useState("all");
+  const [subBrandFilter, setSubBrandFilter] = useState("all");
+  const [hsnFilter, setHsnFilter] = useState("all");
+  const [gstPercentFilter, setGstPercentFilter] = useState("all");
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [subCategoryFilter, setSubCategoryFilter] = useState("all");
   const [actionLoading, setActionLoading] = useState("");
   const [selectedItemIds, setSelectedItemIds] = useState([]);
   const [openMenuId, setOpenMenuId] = useState("");
+  const [menuAnchorRect, setMenuAnchorRect] = useState(null);
+  const [showFilters, setShowFilters] = useState(false);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   const [createForm, setCreateForm] = useState(buildItemForm());
   const [createImages, setCreateImages] = useState([]);
@@ -301,60 +321,108 @@ export default function Items() {
   const [editImages, setEditImages] = useState([]);
   const [editPreview, setEditPreview] = useState([]);
 
-const fetchItems = useCallback(async () => {
-  try {
-    setLoading(true);
-    setError("");
+  const fetchItems = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError("");
 
-    const res = await API.get("/items", {
-      params: {
-        limit: 100,
-        status: "all",
-        ...(searchTerm.trim() ? { search: searchTerm.trim() } : {}),
-      },
-    });
+      const res = await API.get("/items", {
+        params: {
+          limit: 100,
+          status: statusFilter,
+          ...(searchTerm.trim() ? { search: searchTerm.trim() } : {}),
+          ...(brandFilter !== "all" ? { brand: brandFilter } : {}),
+          ...(subBrandFilter !== "all" ? { subBrand: subBrandFilter } : {}),
+          ...(hsnFilter !== "all" ? { hsnCode: hsnFilter } : {}),
+          ...(gstPercentFilter !== "all"
+            ? { gstPercent: gstPercentFilter }
+            : {}),
+          ...(categoryFilter !== "all" ? { category: categoryFilter } : {}),
+          ...(subCategoryFilter !== "all"
+            ? { subCategory: subCategoryFilter }
+            : {}),
+        },
+      });
 
-    const list = res.data?.data?.products || [];
-    setItems(list.map((item) => normalizeItem(item)));
-  } catch (err) {
-    setError(
-      err.response?.data?.message || "Unable to load items right now."
-    );
-  } finally {
-    setLoading(false);
-  }
-}, [searchTerm]);
+      const list = res.data?.data?.products || [];
+      setItems(list.map((item) => normalizeItem(item)));
+    } catch (err) {
+      setError(
+        err.response?.data?.message || "Unable to load items right now.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [
+    searchTerm,
+    statusFilter,
+    brandFilter,
+    subBrandFilter,
+    hsnFilter,
+    gstPercentFilter,
+    categoryFilter,
+    subCategoryFilter,
+  ]);
   useEffect(() => {
     const timer = setTimeout(fetchItems, 300);
     return () => clearTimeout(timer);
   }, [fetchItems]);
 
-  const cityOptions = useMemo(() => {
-    return [
-      "all",
-      ...Array.from(
-        new Set(items.map((item) => item.compliance?.city).filter(Boolean)),
-      ).sort(),
-    ];
+  const brandOptions = useMemo(() => {
+    return Array.from(
+      new Set(items.map((item) => item.details?.brand).filter(Boolean)),
+    ).sort();
   }, [items]);
 
-  const filteredItems = useMemo(() => {
-    return items.filter((item) => {
-      const itemStatus = String(item.status || "").toLowerCase();
-      const itemCity = item.compliance?.city || "";
-      const isPriceIncludesGst = Boolean(item.pricing?.priceIncludesGst);
+  const subBrandOptions = useMemo(() => {
+    return Array.from(
+      new Set(items.map((item) => item.details?.subBrand).filter(Boolean)),
+    ).sort();
+  }, [items]);
 
-      if (statusFilter !== "all" && itemStatus !== statusFilter) return false;
-      if (cityFilter !== "all" && itemCity !== cityFilter) return false;
-      if (gstFilter === "include" && !isPriceIncludesGst) return false;
-      if (gstFilter === "exclude" && isPriceIncludesGst) return false;
-      return true;
-    });
-  }, [items, statusFilter, cityFilter, gstFilter]);
+  const hsnOptions = useMemo(() => {
+    return Array.from(
+      new Set(items.map((item) => item.compliance?.hsnCode).filter(Boolean)),
+    ).sort();
+  }, [items]);
+
+  const gstPercentOptions = useMemo(() => {
+    return Array.from(
+      new Set(items.map((item) => Number(item.pricing?.gstPercent || 0))),
+    )
+      .filter((value) => Number.isFinite(value))
+      .sort((a, b) => a - b);
+  }, [items]);
+
+  const categoryOptions = useMemo(() => {
+    return Array.from(
+      new Set(items.map((item) => item.category?.name).filter(Boolean)),
+    ).sort();
+  }, [items]);
+
+  const subCategoryOptions = useMemo(() => {
+    return Array.from(
+      new Set(items.map((item) => item.category?.subCategory).filter(Boolean)),
+    ).sort();
+  }, [items]);
+
+  const filteredItems = items;
+  const pagedItems = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return filteredItems.slice(start, start + pageSize);
+  }, [filteredItems, page, pageSize]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [filteredItems.length]);
+
+  const handleSelectChange = (setter) => (event) => {
+    setter(event.target.value);
+  };
 
   useEffect(() => {
     const handleClick = (event) => {
-      if (!event.target.closest("[data-item-menu]")) {
+      if (!event.target.closest("[data-item-menu], [data-table-menu-popover]")) {
         setOpenMenuId("");
       }
     };
@@ -362,6 +430,12 @@ const fetchItems = useCallback(async () => {
     document.addEventListener("click", handleClick);
     return () => document.removeEventListener("click", handleClick);
   }, []);
+
+  useEffect(() => {
+    if (!openMenuId) {
+      setMenuAnchorRect(null);
+    }
+  }, [openMenuId]);
 
   const handleCreateChange = (event) => {
     const { name, value, type, checked } = event.target;
@@ -503,7 +577,10 @@ const fetchItems = useCallback(async () => {
 
       formData.append("discountType", editForm.discountType || "percent");
       if (editForm.discountValue !== "") {
-        formData.append("discountValue", String(Number(editForm.discountValue)));
+        formData.append(
+          "discountValue",
+          String(Number(editForm.discountValue)),
+        );
       }
       formData.append("discountIsActive", String(editForm.discountIsActive));
       formData.append("discountStartsAt", editForm.discountStartsAt || "");
@@ -598,16 +675,23 @@ const fetchItems = useCallback(async () => {
 
   const handleDeleteSelectedItems = async () => {
     if (!selectedItemIds.length) return;
-    if (!window.confirm(`Remove ${selectedItemIds.length} selected items?`)) return;
+    if (!window.confirm(`Remove ${selectedItemIds.length} selected items?`))
+      return;
 
     try {
       setActionLoading("delete-selected");
       setActionError("");
-      await Promise.all(selectedItemIds.map((itemId) => API.delete(`/items/${itemId}`)));
-      setItems((current) => current.filter((entry) => !selectedItemIds.includes(entry._id)));
+      await Promise.all(
+        selectedItemIds.map((itemId) => API.delete(`/items/${itemId}`)),
+      );
+      setItems((current) =>
+        current.filter((entry) => !selectedItemIds.includes(entry._id)),
+      );
       setSelectedItemIds([]);
     } catch (err) {
-      setActionError(err.response?.data?.message || "Unable to delete selected items.");
+      setActionError(
+        err.response?.data?.message || "Unable to delete selected items.",
+      );
     } finally {
       setActionLoading("");
     }
@@ -632,10 +716,12 @@ const fetchItems = useCallback(async () => {
 
       const updated = normalizeItem(res.data?.data || {}, item);
       setItems((current) =>
-        current.map((entry) => (entry._id === item._id ? updated : entry))
+        current.map((entry) => (entry._id === item._id ? updated : entry)),
       );
     } catch (err) {
-      setActionError(err.response?.data?.message || "Unable to update item status.");
+      setActionError(
+        err.response?.data?.message || "Unable to update item status.",
+      );
     } finally {
       setActionLoading("");
     }
@@ -947,60 +1033,181 @@ const fetchItems = useCallback(async () => {
         </section>
       )}
 
-      <div className="items-search-bar">
-        <FiSearch />
-        <input
-          type="search"
-          value={searchTerm}
-          onChange={(event) => setSearchTerm(event.target.value)}
-          placeholder="Search items, brand, SKU, category, tags"
-          aria-label="Search items"
-        />
-        {searchTerm && (
-          <button
-            type="button"
-            onClick={() => setSearchTerm("")}
-            aria-label="Clear item search"
-          >
-            <FiX />
-          </button>
-        )}
+      <div className="items-toolbar">
+        <div className="items-search-bar">
+          <FiSearch />
+          <input
+            type="search"
+            value={searchTerm}
+            onChange={(event) => setSearchTerm(event.target.value)}
+            placeholder="Search items, brand, sub brand, item code"
+            aria-label="Search items"
+          />
+          {searchTerm && (
+            <button
+              type="button"
+              onClick={() => setSearchTerm("")}
+              aria-label="Clear item search"
+            >
+              <FiX />
+            </button>
+          )}
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setShowFilters((current) => !current)}
+          className="items-filter-toggle"
+        >
+          <FiFilter />
+          Filters
+        </button>
       </div>
 
-      <div className="grid gap-2 sm:grid-cols-3">
-        <select
-          value={statusFilter}
-          onChange={(event) => setStatusFilter(event.target.value)}
-          className="h-11 rounded-xl border border-[#d7c3a3] bg-white text-black px-3 text-sm outline-none 
-           dark:bg-[#181c24] dark:text-white dark:border-white/20"
-        >
-          <option value="all">All Status</option>
-          <option value="active">Active</option>
-          <option value="inactive">Inactive</option>
-        </select>
-        <select
-          value={cityFilter}
-          onChange={(event) => setCityFilter(event.target.value)}
-          className="h-11 rounded-xl border border-[#d7c3a3] bg-white text-black px-3 text-sm outline-none 
-           dark:bg-[#181c24] dark:text-white dark:border-white/20"
-        >
-          {cityOptions.map((city) => (
-            <option key={city} value={city}>
-              {city === "all" ? "All Cities" : city}
-            </option>
-          ))}
-        </select>
-        <select
-          value={gstFilter}
-          onChange={(event) => setGstFilter(event.target.value)}
-          className="h-11 rounded-xl border border-[#d7c3a3] bg-white text-black px-3 text-sm outline-none 
-           dark:bg-[#181c24] dark:text-white dark:border-white/20"
-        >
-          <option value="all">All GST Modes</option>
-          <option value="include">Price Includes GST</option>
-          <option value="exclude">Price Excludes GST</option>
-        </select>
-      </div>
+      {showFilters && (
+        <div className="items-filter-panel">
+          <div className="items-filter-grid">
+            <label className="items-filter">
+              <span>Status</span>
+              <select
+                value={statusFilter}
+                onChange={handleSelectChange(setStatusFilter)}
+                className="items-filter-input"
+              >
+                <option value="all">All</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            </label>
+            <label className="items-filter">
+              <span>Brand</span>
+              <select
+                value={brandFilter}
+                onChange={handleSelectChange(setBrandFilter)}
+                className="items-filter-input"
+              >
+                <option value="all">All</option>
+                {brandOptions.length ? (
+                  brandOptions.map((brand) => (
+                    <option key={brand} value={brand}>
+                      {brand}
+                    </option>
+                  ))
+                ) : (
+                  <option value="" disabled>
+                    No brands
+                  </option>
+                )}
+              </select>
+            </label>
+            <label className="items-filter">
+              <span>Sub Brand</span>
+              <select
+                value={subBrandFilter}
+                onChange={handleSelectChange(setSubBrandFilter)}
+                className="items-filter-input"
+              >
+                <option value="all">All</option>
+                {subBrandOptions.length ? (
+                  subBrandOptions.map((brand) => (
+                    <option key={brand} value={brand}>
+                      {brand}
+                    </option>
+                  ))
+                ) : (
+                  <option value="" disabled>
+                    No sub brands
+                  </option>
+                )}
+              </select>
+            </label>
+            <label className="items-filter">
+              <span>Category</span>
+              <select
+                value={categoryFilter}
+                onChange={handleSelectChange(setCategoryFilter)}
+                className="items-filter-input"
+              >
+                <option value="all">All</option>
+                {categoryOptions.length ? (
+                  categoryOptions.map((category) => (
+                    <option key={category} value={category}>
+                      {category}
+                    </option>
+                  ))
+                ) : (
+                  <option value="" disabled>
+                    No categories
+                  </option>
+                )}
+              </select>
+            </label>
+            <label className="items-filter">
+              <span>Sub Category</span>
+              <select
+                value={subCategoryFilter}
+                onChange={handleSelectChange(setSubCategoryFilter)}
+                className="items-filter-input"
+              >
+                <option value="all">All</option>
+                {subCategoryOptions.length ? (
+                  subCategoryOptions.map((category) => (
+                    <option key={category} value={category}>
+                      {category}
+                    </option>
+                  ))
+                ) : (
+                  <option value="" disabled>
+                    No sub categories
+                  </option>
+                )}
+              </select>
+            </label>
+            <label className="items-filter">
+              <span>HSN Code</span>
+              <select
+                value={hsnFilter}
+                onChange={handleSelectChange(setHsnFilter)}
+                className="items-filter-input"
+              >
+                <option value="all">All</option>
+                {hsnOptions.length ? (
+                  hsnOptions.map((hsn) => (
+                    <option key={hsn} value={hsn}>
+                      {hsn}
+                    </option>
+                  ))
+                ) : (
+                  <option value="" disabled>
+                    No HSN codes
+                  </option>
+                )}
+              </select>
+            </label>
+            <label className="items-filter">
+              <span>GST %</span>
+              <select
+                value={gstPercentFilter}
+                onChange={handleSelectChange(setGstPercentFilter)}
+                className="items-filter-input"
+              >
+                <option value="all">All</option>
+                {gstPercentOptions.length ? (
+                  gstPercentOptions.map((gst) => (
+                    <option key={gst} value={String(gst)}>
+                      {gst}%
+                    </option>
+                  ))
+                ) : (
+                  <option value="" disabled>
+                    No GST
+                  </option>
+                )}
+              </select>
+            </label>
+          </div>
+        </div>
+      )}
 
       <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
         <span className="text-xs text-[#7b5a4b] dark:text-[#dbcdb8]/70">
@@ -1009,7 +1216,9 @@ const fetchItems = useCallback(async () => {
         <button
           type="button"
           onClick={handleDeleteSelectedItems}
-          disabled={!selectedItemIds.length || actionLoading === "delete-selected"}
+          disabled={
+            !selectedItemIds.length || actionLoading === "delete-selected"
+          }
           className="rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-xs font-semibold text-red-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200"
         >
           Delete Selected
@@ -1028,54 +1237,64 @@ const fetchItems = useCallback(async () => {
       )}
 
       {!loading && !error && filteredItems.length > 0 && (
-        <div className="overflow-x-auto rounded-2xl border mt-4 border-[#d8c4a5] bg-white/65 text-black dark:bg-[#181c24] dark:border-[#303745]">
-          <table className="min-w-full text-sm">
-            <thead className="dark:bg-[#2b2a25] text-left dark:text-[#f5deae] text-[#5c4a23]">
-              <tr>
-                <th className="px-4 py-3 font-semibold">
-                  <input
-                    type="checkbox"
-                    checked={filteredItems.length > 0 && selectedItemIds.length === filteredItems.length}
-                    onChange={(event) => toggleAllItems(event.target.checked)}
-                    className="h-4 w-4 rounded-[4px] border border-[#d7c3a3]"
-                  />
-                </th>
-                <th className="px-4 py-3 font-semibold">S.No</th>
-                <th className="px-4 py-3 font-semibold">Item Code</th>
-                <th className="px-4 py-3 font-semibold">Product</th>
-                <th className="px-4 py-3 font-semibold">Category / Subcategory</th>
-                <th className="px-4 py-3 font-semibold">Brand</th>
-                <th className="px-4 py-3 font-semibold">SKU</th>
-                <th className="px-4 py-3 font-semibold">MRP</th>
-                <th className="px-4 py-3 font-semibold">Base</th>
-                <th className="px-4 py-3 font-semibold">GST %</th>
-                <th className="px-4 py-3 font-semibold">GST Amt</th>
-                <th className="px-4 py-3 font-semibold">Selling</th>
-                <th className="px-4 py-3 font-semibold">HSN</th>
-                <th className="px-4 py-3 font-semibold">Stock</th>
-                <th className="px-4 py-3 font-semibold">City</th>
-                <th className="px-4 py-3 font-semibold">Status</th>
-                <th className="px-4 py-3 font-semibold text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredItems.map((item, index) => (
-                <tr
-                  key={item._id}
-                  className="border-t-[1px] dark:border-[#53535398] text-black dark:text-white"
-                >
-                  <td className="px-4 py-3">
+        <>
+          <div className="items-table-wrap">
+            <table className="items-table">
+              <thead className="dark:bg-[#2b2a25] text-left dark:text-[#f5deae] text-[#5c4a23]">
+                <tr>
+                  <th className="px-4 py-3 font-semibold">
                     <input
                       type="checkbox"
-                      checked={selectedItemIds.includes(item._id)}
-                      onChange={(event) => toggleItemSelection(item._id, event.target.checked)}
+                      checked={
+                        filteredItems.length > 0 &&
+                        selectedItemIds.length === filteredItems.length
+                      }
+                      onChange={(event) => toggleAllItems(event.target.checked)}
                       className="h-4 w-4 rounded-[4px] border border-[#d7c3a3]"
                     />
-                  </td>
-                  <td className="px-4 py-3 text-sm text-[#6f3945] dark:text-[#f7e3c0]">{index + 1}</td>
-                  <td className="px-4 py-3 font-mono text-xs text-[#6f3945] dark:text-[#f7e3c0]">ITEM-{String(item._id || "").slice(-6).toUpperCase()}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-3">
+                  </th>
+                  <th className="px-4 py-3 font-semibold">S.No</th>
+                  <th className="px-4 py-3 font-semibold">Image</th>
+                  <th className="px-4 py-3 font-semibold">Item Code</th>
+                  {/* <th className="px-4 py-3 font-semibold">Product</th> */}
+                  <th className="px-4 py-3 font-semibold">Category</th>
+                  <th className="px-4 py-3 font-semibold">Subcategory</th>
+                  <th className="px-4 py-3 font-semibold">Brand</th>
+                  <th className="px-4 py-3 font-semibold">Sub Brand</th>
+                  <th className="px-4 py-3 font-semibold">MRP</th>
+                  {/* <th className="px-4 py-3 font-semibold">Base</th> */}
+                  <th className="px-4 py-3 font-semibold">GST %</th>
+                  {/* <th className="px-4 py-3 font-semibold">GST Amt</th> */}
+                  <th className="px-4 py-3 font-semibold">Selling</th>
+                  <th className="px-4 py-3 font-semibold">HSN</th>
+                  <th className="px-4 py-3 font-semibold">Stock</th>
+                  <th className="px-4 py-3 font-semibold">City</th>
+                  <th className="px-4 py-3 font-semibold">Status</th>
+                  <th className="px-4 py-3 font-semibold text-right">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {pagedItems.map((item, index) => (
+                  <tr
+                    key={item._id}
+                    className="border-t-[1px] dark:border-[#53535398] text-black dark:text-white"
+                  >
+                    <td className="px-4 py-3">
+                      <input
+                        type="checkbox"
+                        checked={selectedItemIds.includes(item._id)}
+                        onChange={(event) =>
+                          toggleItemSelection(item._id, event.target.checked)
+                        }
+                        className="h-4 w-4 rounded-[4px] border border-[#d7c3a3]"
+                      />
+                    </td>
+                    <td className="px-4 py-3 text-sm text-[#6f3945] dark:text-[#f7e3c0]">
+                      {(page - 1) * pageSize + index + 1}
+                    </td>
+                    <td className="px-4 py-3 flex flex-row gap-2">
                       {formatImageUrl(item.thumbnail) ? (
                         <img
                           src={formatImageUrl(item.thumbnail)}
@@ -1086,114 +1305,166 @@ const fetchItems = useCallback(async () => {
                         <div className="h-10 w-10 rounded-lg bg-[#8B1E3F]/10" />
                       )}
                       <div>
-                        <p className="font-semibold">{item.title}</p>
+                        <p
+                          className="font-semibold items-title-ellipsis"
+                          title={item.title}
+                        >
+                          {item.title}
+                        </p>
                         <p className="text-xs opacity-70">
                           {item.pricing?.priceIncludesGst
                             ? "Incl GST"
                             : "Excl GST"}
                         </p>
                       </div>
+                    </td>
+                    <td className="px-4 py-3 font-mono text-xs text-[#6f3945] dark:text-[#f7e3c0]">
+                      {item.itemCode ||
+                        `ITEM-${String(item._id || "")
+                          .slice(-6)
+                          .toUpperCase()}`}
+                    </td>
+                    {/* <td className="px-4 py-3">
+                    <div>
+                      <p className="font-semibold items-title-ellipsis" title={item.title}>
+                        {item.title}
+                      </p>
+                      <p className="text-xs opacity-70">
+                        {item.pricing?.priceIncludesGst
+                          ? "Incl GST"
+                          : "Excl GST"}
+                      </p>
                     </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    {item.category?.name || "Uncategorized"}
-                    {item.category?.subCategory ? ` / ${item.category.subCategory}` : ""}
-                  </td>
-                  <td className="px-4 py-3">{item.details?.brand || "-"}</td>
-                  <td className="px-4 py-3">{item.details?.sku || "-"}</td>
-                  <td className="px-4 py-3">
-                    {formatCurrency(item.pricing?.mrp)}
-                  </td>
-                  <td className="px-4 py-3">
+                  </td> */}
+                    <td className="px-4 py-3">
+                      {item.category?.name || "Uncategorized"}
+                    </td>
+                    <td className="px-4 py-3">
+                      {item.category?.subCategory || "-"}
+                    </td>
+                    <td className="px-4 py-3">{item.details?.brand || "-"}</td>
+                    <td className="px-4 py-3">
+                      {item.details?.subBrand || "-"}
+                    </td>
+                    <td className="px-4 py-3">
+                      {formatCurrency(item.pricing?.mrp)}
+                    </td>
+                    {/* <td className="px-4 py-3">
                     {formatCurrency(item.pricing?.basePrice)}
-                  </td>
-                  <td className="px-4 py-3">
-                    {Number(item.pricing?.gstPercent || 0)}%
-                  </td>
-                  <td className="px-4 py-3">
+                  </td> */}
+                    <td className="px-4 py-3">
+                      {Number(item.pricing?.gstPercent || 0)}%
+                    </td>
+                    {/* <td className="px-4 py-3">
                     {formatCurrency(item.pricing?.gstAmount)}
-                  </td>
-                  <td className="px-4 py-3 font-semibold">
-                    {formatCurrency(item.pricing?.price)}
-                  </td>
-                  <td className="px-4 py-3">
-                    {item.compliance?.hsnCode || "-"}
-                  </td>
-                  <td className="px-4 py-3">{item.stock?.quantity ?? "-"}</td>
-                  <td className="px-4 py-3">{item.compliance?.city || "-"}</td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-                        item.status === "active"
-                          ? "bg-emerald-100 text-emerald-700"
-                          : "bg-slate-200 text-slate-700"
-                      }`}
-                    >
-                      {item.status || "active"}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-right" data-item-menu>
-                    <div className="relative inline-flex">
-                      <button
-                        type="button"
-                        onClick={() => setOpenMenuId(openMenuId === item._id ? "" : item._id)}
-                        className="grid h-9 w-9 place-items-center rounded-lg border border-[#d7bf9b] text-[#6f3945] hover:bg-[#8B1E3F]/10 dark:border-white/20 dark:text-[#f7e3c0]"
+                  </td> */}
+                    <td className="px-4 py-3 font-semibold">
+                      {formatCurrency(item.pricing?.price)}
+                    </td>
+                    <td className="px-4 py-3">
+                      {item.compliance?.hsnCode || "-"}
+                    </td>
+                    <td className="px-4 py-3">{item.stock?.quantity ?? "-"}</td>
+                    <td className="px-4 py-3">
+                      {item.compliance?.city || "-"}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
+                          item.status === "active"
+                            ? "bg-emerald-100 text-emerald-700"
+                            : "bg-slate-200 text-slate-700"
+                        }`}
                       >
-                        <FiMoreVertical />
-                      </button>
-                      {openMenuId === item._id && (
-                        <div className="absolute right-0 top-11 z-50 w-44 overflow-hidden rounded-xl border border-[#d9c3a2] bg-white text-sm shadow-lg dark:border-white/10 dark:bg-[#1b1f27]">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setOpenMenuId("");
-                              openViewModal(item);
-                            }}
-                            className="flex w-full items-center gap-2 px-4 py-2 text-left hover:bg-[#8B1E3F]/10"
+                        {item.status || "active"}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-right" data-item-menu>
+                      <div className="relative inline-flex">
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            const nextId = openMenuId === item._id ? "" : item._id;
+                            setOpenMenuId(nextId);
+                            setMenuAnchorRect(nextId ? event.currentTarget.getBoundingClientRect() : null);
+                          }}
+                          className="grid h-9 w-9 place-items-center rounded-lg border border-[#d7bf9b] text-[#6f3945] hover:bg-[#8B1E3F]/10 dark:border-white/20 dark:text-[#f7e3c0]"
+                        >
+                          <FiMoreVertical />
+                        </button>
+                        {openMenuId === item._id && (
+                          <TableMenuPopover
+                            open
+                            anchorRect={menuAnchorRect}
+                            preferUp={index >= pagedItems.length - 3}
+                            onClose={() => setOpenMenuId("")}
+                            className="w-44 overflow-hidden rounded-xl border border-[#d9c3a2] bg-white text-sm shadow-lg dark:border-white/10 dark:bg-[#1b1f27]"
                           >
-                            <FiEye className="text-[#6f3945]" /> View
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setOpenMenuId("");
-                              openEditModal(item);
-                            }}
-                            className="flex w-full items-center gap-2 px-4 py-2 text-left hover:bg-[#8B1E3F]/10"
-                          >
-                            <FiEdit className="text-[#6f3945]" /> Edit
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setOpenMenuId("");
-                              handleToggleItemStatus(item);
-                            }}
-                            className="flex w-full items-center gap-2 px-4 py-2 text-left hover:bg-[#8B1E3F]/10"
-                          >
-                            <span className="text-[#6f3945]">
-                              {item.status === "inactive" ? "Mark Active" : "Mark Inactive"}
-                            </span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setOpenMenuId("");
-                              handleDeleteItem(item);
-                            }}
-                            className="flex w-full items-center gap-2 px-4 py-2 text-left text-red-700 hover:bg-red-50 dark:text-red-200 dark:hover:bg-red-500/10"
-                          >
-                            <FiTrash2 className="text-red-600" /> Delete
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setOpenMenuId("");
+                                openViewModal(item);
+                              }}
+                              className="flex w-full items-center gap-2 px-4 py-2 text-left hover:bg-[#8B1E3F]/10"
+                            >
+                              <FiEye className="text-[#6f3945]" /> View
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setOpenMenuId("");
+                                openEditModal(item);
+                              }}
+                              className="flex w-full items-center gap-2 px-4 py-2 text-left hover:bg-[#8B1E3F]/10"
+                            >
+                              <FiEdit className="text-[#6f3945]" /> Edit
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setOpenMenuId("");
+                                handleToggleItemStatus(item);
+                              }}
+                              className="flex w-full items-center gap-2 px-4 py-2 text-left hover:bg-[#8B1E3F]/10"
+                            >
+                              <span className="text-[#6f3945]">
+                                {item.status === "inactive"
+                                  ? "Mark Active"
+                                  : "Mark Inactive"}
+                              </span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setOpenMenuId("");
+                                handleDeleteItem(item);
+                              }}
+                              className="flex w-full items-center gap-2 px-4 py-2 text-left text-red-700 hover:bg-red-50 dark:text-red-200 dark:hover:bg-red-500/10"
+                            >
+                              <FiTrash2 className="text-red-600" /> Delete
+                            </button>
+                          </TableMenuPopover>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <TablePagination
+            page={page}
+            pageSize={pageSize}
+            total={filteredItems.length}
+            onPageChange={setPage}
+            onPageSizeChange={(size) => {
+              setPageSize(size);
+              setPage(1);
+            }}
+            pageSizeOptions={[10]}
+          />
+        </>
       )}
 
       {viewItem && (

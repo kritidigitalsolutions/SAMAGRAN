@@ -181,6 +181,93 @@
   background: rgba(212,175,55,0.14);
 }
 
+.items-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.items-filter-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 44px;
+  padding: 0 16px;
+  border-radius: 10px;
+  border: 1px solid rgba(139,30,63,0.2);
+  background: rgba(139,30,63,0.08);
+  color: #8b1e3f;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.items-filter-toggle:hover {
+  background: rgba(139,30,63,0.16);
+}
+
+.dark .items-filter-toggle {
+  border-color: rgba(212,175,55,0.28);
+  background: rgba(212,175,55,0.12);
+  color: #f4d984;
+}
+
+/* ================= FILTERS ================= */
+.items-filter-panel {
+  margin-top: 8px;
+  padding: 12px 0 4px;
+  border-bottom: 1px solid rgba(139,30,63,0.14);
+}
+
+.dark .items-filter-panel {
+  border-bottom-color: rgba(212,175,55,0.2);
+}
+
+.items-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin-top: 0;
+}
+
+.items-filter {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #5b332c;
+}
+
+.items-filter span {
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #8b1e3f;
+}
+
+.items-filter-input {
+  min-height: 44px;
+  border-radius: 6px;
+  border: 1px solid rgba(139,30,63,0.16);
+  padding: 10px 12px;
+  background: #fff;
+  color: black;
+}
+
+.dark .items-filter {
+  color: rgba(248,237,215,0.8);
+}
+
+.dark .items-filter span {
+  color: #d4af37;
+}
+
+.dark .items-filter-input {
+  border-color: rgba(212,175,55,0.22);
+  background: #0f1218;
+  color: white;
+}
+
 /* ================= CARD ================= */
 .item-card {
   position: relative;
@@ -436,6 +523,143 @@
   cursor: not-allowed;
   opacity: 0.55;
   transform: none;
+}
+
+/* ================= TABLE ================= */
+.items-table-wrap {
+  margin-top: 16px;
+  border: 1px solid #d8c4a5;
+  background: rgba(255, 255, 255, 0.72);
+  color: #2f1618;
+  height: auto;
+  max-height: none;
+  overflow-x: auto;
+  overflow-y: visible;
+}
+
+.dark .items-table-wrap {
+  border-color: #303745;
+  background: #181c24;
+  color: #fff3dc;
+}
+
+.items-table {
+  width: 100%;
+  min-width: 1200px;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 13px;
+}
+
+.items-table thead {
+  background: #fdf6ea;
+  color: #5c4a23;
+}
+
+.dark .items-table thead {
+  background: #2b2a25;
+  color: #f5deae;
+}
+
+.items-table th,
+.items-table td {
+  border-right: 1px solid rgba(92,74,35,0.12);
+  border-bottom: 1px solid rgba(92,74,35,0.12);
+}
+
+.items-table th:last-child,
+.items-table td:last-child {
+  border-right: none;
+}
+
+.dark .items-table th,
+.dark .items-table td {
+  border-right-color: rgba(255,255,255,0.08);
+  border-bottom-color: rgba(255,255,255,0.08);
+}
+
+.items-title-ellipsis {
+  max-width: 180px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ================= RESPONSIVE ================= */
+@media (max-width: 1280px) {
+  .items-page {
+    padding: 22px;
+  }
+
+  .items-header {
+    align-items: flex-start;
+  }
+
+  .items-table {
+    min-width: 1050px;
+    font-size: 12.5px;
+  }
+
+  .items-table th,
+  .items-table td {
+    padding: 10px 12px !important;
+  }
+
+  .items-title-ellipsis {
+    max-width: 140px;
+  }
+}
+
+@media (max-width: 1120px) {
+  .items-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .items-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .items-search-bar {
+    width: 100%;
+    margin-top: 8px;
+  }
+
+  .items-filter-grid {
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  }
+
+  .items-table {
+    min-width: 900px;
+    font-size: 12px;
+    table-layout: fixed;
+  }
+
+  .items-table th,
+  .items-table td {
+    white-space: normal;
+    word-break: break-word;
+  }
+
+  .items-title-ellipsis {
+    max-width: 120px;
+  }
+}
+
+@media (max-width: 980px) {
+  .items-page {
+    padding: 18px;
+  }
+
+  .items-table {
+    min-width: 760px;
+  }
+
+  .items-table th,
+  .items-table td {
+    padding: 8px 10px !important;
+  }
 }
 
 /* ================= EDIT MODAL ================= */

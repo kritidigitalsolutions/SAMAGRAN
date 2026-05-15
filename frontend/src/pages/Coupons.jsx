@@ -1,6 +1,8 @@
-import { useEffect, useState } from "react";
-import { FiEdit2, FiTrash2, FiX, FiPlus } from "react-icons/fi";
+import { useEffect, useMemo, useState } from "react";
+import { FiEdit2, FiEye, FiMoreVertical, FiTrash2, FiX, FiPlus } from "react-icons/fi";
 import API from "../api/axios";
+import TablePagination from "../components/TablePagination";
+import TableMenuPopover from "../components/TableMenuPopover";
 
 const initialForm = {
   code: "",
@@ -27,6 +29,15 @@ export default function Coupons() {
   const [form, setForm] = useState(initialForm);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [selectedCouponIds, setSelectedCouponIds] = useState([]);
+  const [openMenuId, setOpenMenuId] = useState("");
+  const [menuAnchorRect, setMenuAnchorRect] = useState(null);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const pagedCoupons = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return coupons.slice(start, start + pageSize);
+  }, [coupons, page, pageSize]);
 
   const fetchCoupons = async () => {
     try {
@@ -43,6 +54,27 @@ export default function Coupons() {
   useEffect(() => {
     fetchCoupons();
   }, []);
+
+  useEffect(() => {
+    setPage(1);
+  }, [coupons.length]);
+
+  useEffect(() => {
+    const handleClick = (event) => {
+      if (!event.target.closest("[data-coupon-menu], [data-table-menu-popover]")) {
+        setOpenMenuId("");
+      }
+    };
+
+    document.addEventListener("click", handleClick);
+    return () => document.removeEventListener("click", handleClick);
+  }, []);
+
+  useEffect(() => {
+    if (!openMenuId) {
+      setMenuAnchorRect(null);
+    }
+  }, [openMenuId]);
 
   const resetForm = () => {
     setForm(initialForm);
@@ -157,6 +189,73 @@ export default function Coupons() {
     }
   };
 
+  const buildCouponPayload = (coupon, overrides = {}) => ({
+    code: String(overrides.code ?? coupon.code ?? "").toUpperCase().trim(),
+    title: String(overrides.title ?? coupon.title ?? "").trim(),
+    description: String(overrides.description ?? coupon.description ?? "").trim(),
+    discountType: overrides.discountType ?? coupon.discountType ?? "flat",
+    discountValue: Number(overrides.discountValue ?? coupon.discountValue ?? 0),
+    minOrderAmount: Number(overrides.minOrderAmount ?? coupon.minOrderAmount ?? 0),
+    maxDiscount: Number(overrides.maxDiscount ?? coupon.maxDiscount ?? 0),
+    usageLimit: Number(overrides.usageLimit ?? coupon.usageLimit ?? 0),
+    perUserLimit: Number(overrides.perUserLimit ?? coupon.perUserLimit ?? 1),
+    isActive: overrides.isActive ?? coupon.isActive ?? false,
+    startsAt: (overrides.startsAt ?? coupon.startsAt)
+      ? new Date(overrides.startsAt ?? coupon.startsAt)
+      : null,
+    expiresAt: (overrides.expiresAt ?? coupon.expiresAt)
+      ? new Date(overrides.expiresAt ?? coupon.expiresAt)
+      : null,
+  });
+
+  const handleToggleCouponStatus = async (coupon) => {
+    if (!coupon?._id) return;
+    const nextStatus = !coupon.isActive;
+
+    try {
+      const payload = buildCouponPayload(coupon, { isActive: nextStatus });
+      await API.put(`/admin/coupons/${coupon._id}`, payload);
+      setCoupons((current) =>
+        current.map((entry) =>
+          entry._id === coupon._id ? { ...entry, isActive: nextStatus } : entry
+        )
+      );
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to update coupon status.");
+    }
+  };
+
+  const toggleCouponSelection = (couponId, checked) => {
+    setSelectedCouponIds((current) => {
+      if (checked) {
+        return current.includes(couponId) ? current : [...current, couponId];
+      }
+      return current.filter((id) => id !== couponId);
+    });
+  };
+
+  const toggleAllCoupons = (checked) => {
+    if (checked) {
+      setSelectedCouponIds(coupons.map((coupon) => coupon._id));
+      return;
+    }
+    setSelectedCouponIds([]);
+  };
+
+  const handleDeleteSelectedCoupons = async () => {
+    if (!selectedCouponIds.length) return;
+    if (!window.confirm(`Delete ${selectedCouponIds.length} selected coupons?`)) return;
+
+    try {
+      await Promise.all(selectedCouponIds.map((couponId) => API.delete(`/admin/coupons/${couponId}`)));
+      setCoupons((current) => current.filter((entry) => !selectedCouponIds.includes(entry._id)));
+      setSelectedCouponIds([]);
+      setSuccess("Selected coupons deleted successfully.");
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to delete selected coupons.");
+    }
+  };
+
   return (
     <div className="space-y-6 text-[#2f1618] dark:text-[#fff3dc]">
       <section className="rounded-3xl border border-[var(--admin-border)] bg-[var(--admin-surface)] p-6 shadow-[var(--admin-shadow)]">
@@ -182,30 +281,65 @@ export default function Coupons() {
           </div>
         )}
 
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <span className="text-xs text-[#7b5a4b] dark:text-[#dbcdb8]/70">
+            {selectedCouponIds.length} selected
+          </span>
+          <button
+            type="button"
+            onClick={handleDeleteSelectedCoupons}
+            disabled={!selectedCouponIds.length}
+            className="rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-xs font-semibold text-red-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200"
+          >
+            Delete Selected
+          </button>
+        </div>
+
         {loading ? (
           <div className="py-8 text-center">Loading coupons...</div>
         ) : coupons.length === 0 ? (
           <div className="py-8 text-center">No coupons yet. Create one to get started.</div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+          <>
+          <div className="admin-table-wrap overflow-x-auto">
+            <table className="admin-table w-full text-sm">
               <thead>
-                <tr className="border-b border-[var(--admin-border)]">
+                <tr className="border-b border-[#e6d8c5] text-xs uppercase tracking-[0.18em] text-[#7f5a4f] dark:border-white/10 dark:text-[#e7c98b]">
+                  <th className="px-4 py-3 text-center font-semibold">
+                    <input
+                      type="checkbox"
+                      checked={coupons.length > 0 && selectedCouponIds.length === coupons.length}
+                      onChange={(event) => toggleAllCoupons(event.target.checked)}
+                      className="h-4 w-4 rounded-[4px] border border-[#d7c3a3]"
+                    />
+                  </th>
+                  <th className="serial-col px-2 py-3 text-left font-semibold">S.No</th>
+                  <th className="px-4 py-3 text-left font-semibold">Coupon Code</th>
                   <th className="px-4 py-3 text-left font-semibold">Code</th>
                   <th className="px-4 py-3 text-left font-semibold">Title</th>
                   <th className="px-4 py-3 text-left font-semibold">Discount</th>
                   <th className="px-4 py-3 text-left font-semibold">Min Amount</th>
                   <th className="px-4 py-3 text-left font-semibold">Expires</th>
                   <th className="px-4 py-3 text-left font-semibold">Status</th>
-                  <th className="px-4 py-3 text-left font-semibold">Actions</th>
+                  <th className="px-4 py-3 text-right font-semibold">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {coupons.map((coupon) => (
+                {pagedCoupons.map((coupon, index) => (
                   <tr
                     key={coupon._id}
                     className="border-b border-[var(--admin-border)] hover:bg-[var(--admin-surface-soft)]"
                   >
+                    <td className="px-4 py-3 text-center">
+                      <input
+                        type="checkbox"
+                        checked={selectedCouponIds.includes(coupon._id)}
+                        onChange={(event) => toggleCouponSelection(coupon._id, event.target.checked)}
+                        className="h-4 w-4 rounded-[4px] border border-[#d7c3a3]"
+                      />
+                    </td>
+                    <td className="serial-col px-2 py-3 text-sm text-[#6f3945] dark:text-[#f7e3c0]">{(page - 1) * pageSize + index + 1}</td>
+                    <td className="px-4 py-3 font-mono text-xs text-[#6f3945] dark:text-[#f7e3c0]">COUPON-{String(coupon._id || "").slice(-6).toUpperCase()}</td>
                     <td className="px-4 py-3 font-semibold text-[#D4AF37]">{coupon.code}</td>
                     <td className="px-4 py-3">{coupon.title || "-"}</td>
                     <td className="px-4 py-3">
@@ -228,23 +362,70 @@ export default function Coupons() {
                         {coupon.isActive ? "Active" : "Inactive"}
                       </span>
                     </td>
-                    <td className="px-4 py-3">
-                      <div className="flex gap-2">
+                    <td className="px-4 py-3 text-right" data-coupon-menu>
+                      <div className="relative inline-flex">
                         <button
-                          onClick={() => openEdit(coupon)}
-                          className="rounded-lg bg-blue-600/20 p-2 text-blue-600 transition-all hover:bg-blue-600/30 dark:text-blue-400"
-                          title="Edit coupon"
+                          type="button"
+                          onClick={(event) => {
+                            const nextId = openMenuId === coupon._id ? "" : coupon._id;
+                            setOpenMenuId(nextId);
+                            setMenuAnchorRect(nextId ? event.currentTarget.getBoundingClientRect() : null);
+                          }}
+                          className="grid h-9 w-9 place-items-center rounded-lg border border-[#d7bf9b] text-[#6f3945] hover:bg-[#8B1E3F]/10 dark:border-white/20 dark:text-[#f7e3c0]"
                         >
-                          <FiEdit2 size={16} />
+                          <FiMoreVertical />
                         </button>
-                        <button
-                          onClick={() => handleDelete(coupon)}
-                          disabled={deletingId === coupon._id}
-                          className="rounded-lg bg-red-600/20 p-2 text-red-600 transition-all hover:bg-red-600/30 disabled:opacity-50 dark:text-red-400"
-                          title="Delete coupon"
-                        >
-                          <FiTrash2 size={16} />
-                        </button>
+                        {openMenuId === coupon._id && (
+                          <TableMenuPopover
+                            open
+                            anchorRect={menuAnchorRect}
+                            preferUp={index >= pagedCoupons.length - 3}
+                            onClose={() => setOpenMenuId("")}
+                            className="w-44 overflow-hidden rounded-xl border border-[#d9c3a2] bg-white text-sm shadow-lg dark:border-white/10 dark:bg-[#1b1f27]"
+                          >
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setOpenMenuId("");
+                                openEdit(coupon);
+                              }}
+                              className="flex w-full items-center gap-2 px-4 py-2 text-left hover:bg-[#8B1E3F]/10"
+                            >
+                              <FiEye className="text-[#6f3945]" /> View
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setOpenMenuId("");
+                                openEdit(coupon);
+                              }}
+                              className="flex w-full items-center gap-2 px-4 py-2 text-left hover:bg-[#8B1E3F]/10"
+                            >
+                              <FiEdit2 className="text-[#6f3945]" /> Edit
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setOpenMenuId("");
+                                handleToggleCouponStatus(coupon);
+                              }}
+                              className="flex w-full items-center gap-2 px-4 py-2 text-left hover:bg-[#8B1E3F]/10"
+                            >
+                              <span className="text-[#6f3945]">{coupon.isActive ? "Mark Inactive" : "Mark Active"}</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setOpenMenuId("");
+                                handleDelete(coupon);
+                              }}
+                              disabled={deletingId === coupon._id}
+                              className="flex w-full items-center gap-2 px-4 py-2 text-left text-red-700 hover:bg-red-50 dark:text-red-200 dark:hover:bg-red-500/10"
+                            >
+                              <FiTrash2 className="text-red-600" /> Delete
+                            </button>
+                          </TableMenuPopover>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -252,6 +433,18 @@ export default function Coupons() {
               </tbody>
             </table>
           </div>
+          <TablePagination
+            page={page}
+            pageSize={pageSize}
+            total={coupons.length}
+            onPageChange={setPage}
+            onPageSizeChange={(size) => {
+              setPageSize(size);
+              setPage(1);
+            }}
+            pageSizeOptions={[10]}
+          />
+          </>
         )}
       </section>
 

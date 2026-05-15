@@ -1,8 +1,10 @@
 import mongoose from "mongoose";
 import Order from "../../models/order.model.js";
 import User from "../../models/user.model.js";
+import Item from "../../models/product.model.js";
+import DeliveryBoy from "../../models/deliveryBoy.model.js";
 
-const TRACKING_STEPS = ["Placed", "Confirmed", "Preparing", "Out for Delivery", "Delivered"];
+const TRACKING_STEPS = ["Placed", "Confirmed", "Preparing", "Accepted", "Out for Delivery", "Delivered"];
 const SUPPORTED_PRODUCT_TYPES = ["Item", "FestivalKit", "DefaultKit"];
 const ADDRESS_TYPES = ["home", "work", "others"];
 const ORDER_ITEMS_POPULATE = {
@@ -47,6 +49,7 @@ const normalizeOrderStatus = (value = "Placed") => {
   if (normalized === "placed") return "Placed";
   if (normalized === "confirmed") return "Confirmed";
   if (normalized === "preparing") return "Preparing";
+  if (normalized === "accepted") return "Accepted";
   if (normalized === "out for delivery" || normalized === "out_for_delivery") {
     return "Out for Delivery";
   }
@@ -152,6 +155,48 @@ const buildTrackingPayload = (order) => {
   };
 };
 
+const applyInventoryAdjustment = async (order, nextStatus) => {
+  const previousStatus = normalizeOrderStatus(order.orderStatus);
+
+  if (previousStatus === nextStatus) {
+    return;
+  }
+
+  if (nextStatus === "Delivered" && !order.inventoryAdjusted) {
+    const updates = (order.items || [])
+      .filter((item) => item.productType === "Item" && item.product)
+      .map((item) =>
+        Item.updateOne(
+          { _id: item.product },
+          { $inc: { "stock.quantity": -Math.abs(Number(item.quantity || 1)) } }
+        )
+      );
+
+    if (updates.length) {
+      await Promise.all(updates);
+    }
+
+    order.inventoryAdjusted = true;
+  }
+
+  if (nextStatus === "Cancelled" && order.inventoryAdjusted) {
+    const updates = (order.items || [])
+      .filter((item) => item.productType === "Item" && item.product)
+      .map((item) =>
+        Item.updateOne(
+          { _id: item.product },
+          { $inc: { "stock.quantity": Math.abs(Number(item.quantity || 1)) } }
+        )
+      );
+
+    if (updates.length) {
+      await Promise.all(updates);
+    }
+
+    order.inventoryAdjusted = false;
+  }
+};
+
 const formatOrderForAdmin = (order) => ({
   ...order,
   itemCount: Array.isArray(order.items) ? order.items.length : 0,
@@ -161,6 +206,7 @@ const formatOrderForAdmin = (order) => ({
 const populateOrders = async (orders) => {
   return Order.populate(orders, [
     { path: "user", select: "name email phone" },
+    { path: "deliveryBoy", select: "fullName phone status" },
     ORDER_ITEMS_POPULATE,
   ]);
 };
@@ -261,6 +307,7 @@ export const getOrderByIdForAdmin = async (req, res) => {
 
     const order = await Order.findById(id)
       .populate("user", "name email phone")
+      .populate("deliveryBoy", "fullName phone status")
       .populate(ORDER_ITEMS_POPULATE)
       .lean();
 
@@ -365,7 +412,9 @@ export const updateOrderByAdmin = async (req, res) => {
     }
 
     if (orderStatus !== undefined) {
-      order.orderStatus = normalizeOrderStatus(orderStatus);
+      const nextStatus = normalizeOrderStatus(orderStatus);
+      await applyInventoryAdjustment(order, nextStatus);
+      order.orderStatus = nextStatus;
     }
 
     if (razorpayOrderId !== undefined) {
@@ -395,6 +444,7 @@ export const updateOrderByAdmin = async (req, res) => {
 
     const populatedOrder = await Order.findById(order._id)
       .populate("user", "name email phone")
+      .populate("deliveryBoy", "fullName phone status")
       .populate(ORDER_ITEMS_POPULATE)
       .lean();
 
@@ -434,6 +484,7 @@ export const updateOrderTrackingByAdmin = async (req, res) => {
 
     const order = await Order.findById(id)
       .populate("user", "name email phone")
+      .populate("deliveryBoy", "fullName phone status")
       .populate(ORDER_ITEMS_POPULATE);
 
     if (!order) {
@@ -443,7 +494,9 @@ export const updateOrderTrackingByAdmin = async (req, res) => {
       });
     }
 
-    order.orderStatus = normalizeOrderStatus(orderStatus);
+    const nextStatus = normalizeOrderStatus(orderStatus);
+    await applyInventoryAdjustment(order, nextStatus);
+    order.orderStatus = nextStatus;
     await order.save();
 
     const orderObject = order.toObject();
@@ -490,6 +543,65 @@ export const deleteOrderByAdmin = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: err.message || "Unable to delete order",
+    });
+  }
+};
+
+export const assignDeliveryBoyToOrder = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { deliveryBoyId } = req.body;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ success: false, message: "Invalid order id" });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(deliveryBoyId)) {
+      return res.status(400).json({ success: false, message: "Invalid delivery boy id" });
+    }
+
+    const deliveryBoy = await DeliveryBoy.findById(deliveryBoyId);
+    if (!deliveryBoy) {
+      return res.status(404).json({ success: false, message: "Delivery boy not found" });
+    }
+
+    if (deliveryBoy.status !== "active") {
+      return res.status(400).json({ success: false, message: "Delivery boy is inactive" });
+    }
+
+    const order = await Order.findById(id);
+    if (!order) {
+      return res.status(404).json({ success: false, message: "Order not found" });
+    }
+
+    order.deliveryBoy = deliveryBoy._id;
+    order.deliveryAssignedAt = new Date();
+    order.deliveryAssignedBy = req.admin?._id || null;
+    await order.save();
+
+    const populatedOrder = await Order.findById(order._id)
+      .populate("user", "name email phone")
+      .populate("deliveryBoy", "fullName phone status")
+      .populate(ORDER_ITEMS_POPULATE)
+      .lean();
+
+    return res.json({
+      success: true,
+      message: "Delivery boy assigned",
+      data: {
+        order: formatOrderForAdmin(populatedOrder),
+        deliveryBoy: {
+          id: deliveryBoy._id,
+          fullName: deliveryBoy.fullName,
+          phone: deliveryBoy.phone,
+          status: deliveryBoy.status,
+        },
+      },
+    });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      message: err.message || "Unable to assign delivery boy",
     });
   }
 };
