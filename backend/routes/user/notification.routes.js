@@ -5,7 +5,7 @@ import {
   markNotificationRead,
   deleteUserNotification,
   clearUserNotifications,
-} from "../../controllers/user/notification.controller.js";
+} from "../../controllers/notification.controller.js";
 
 const router = express.Router();
 

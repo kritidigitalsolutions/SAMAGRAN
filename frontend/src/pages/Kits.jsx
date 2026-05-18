@@ -44,9 +44,11 @@ export default function Kits() {
   const [loading, setLoading] = useState(true);
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [searchTerm, setSearchTerm] = useState("");
+  const [nameFilter, setNameFilter] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [activeTab, setActiveTab] = useState("all");
+  const [productSearch, setProductSearch] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [selectedKitIds, setSelectedKitIds] = useState([]);
@@ -79,15 +81,23 @@ export default function Kits() {
     return kits.filter((kit) => {
       const byTab = activeTab === "all" ? true : kit.kitType === activeTab;
       const byStatus = statusFilter === "all" ? true : (kit.status || "active") === statusFilter;
-      const term = searchTerm.trim().toLowerCase();
-      const bySearch =
-        !term ||
-        String(kit.name || "").toLowerCase().includes(term) ||
-        String(kit.description || "").toLowerCase().includes(term) ||
-        String(kit.category || "").toLowerCase().includes(term);
-      return byTab && byStatus && bySearch;
+      const term = nameFilter.trim().toLowerCase();
+      const byName = !term || String(kit.name || "").toLowerCase().includes(term);
+      const byCategory = categoryFilter === "all" ? true : String(kit.category || "").toLowerCase() === categoryFilter;
+      return byTab && byStatus && byName && byCategory;
     });
-  }, [kits, activeTab, statusFilter, searchTerm]);
+  }, [kits, activeTab, statusFilter, nameFilter, categoryFilter]);
+
+  const filteredProducts = useMemo(() => {
+    const term = productSearch.trim().toLowerCase();
+    if (!term) return products;
+
+    return products.filter((product) => {
+      const name = String(product.title || "").toLowerCase();
+      const category = String(product?.category?.name || "").toLowerCase();
+      return name.includes(term) || category.includes(term);
+    });
+  }, [products, productSearch]);
 
   const pagedKits = useMemo(() => {
     const start = (page - 1) * pageSize;
@@ -412,7 +422,8 @@ export default function Kits() {
   };
 
   const resetFilters = () => {
-    setSearchTerm("");
+    setNameFilter("");
+    setCategoryFilter("all");
     setStatusFilter("all");
     setActiveTab("all");
   };
@@ -546,11 +557,32 @@ export default function Kits() {
               <span className="text-xs text-[#7b5a4e] dark:text-[#f7e3c0]/70">{selectedList.length} selected</span>
             </div>
 
+            <div className="flex items-center gap-2 rounded-xl border border-[#d7c3a3] bg-white/70 px-3 dark:border-white/10 dark:bg-white/5">
+              <FiSearch className="text-[var(--admin-primary)]" />
+              <input
+                type="search"
+                value={productSearch}
+                onChange={(event) => setProductSearch(event.target.value)}
+                placeholder="Search products by name or category"
+                className="h-11 w-full bg-transparent text-sm text-[#2f1618] outline-none placeholder:text-[#8c7461] dark:text-[#fff3dc]"
+              />
+              {productSearch && (
+                <button
+                  type="button"
+                  onClick={() => setProductSearch("")}
+                  className="grid h-8 w-8 place-items-center rounded-md bg-[#8B1E3F]/10 text-[#8B1E3F] dark:bg-[var(--admin-surface)] dark:text-[var(--admin-primary)]"
+                  aria-label="Clear product search"
+                >
+                  <FiX />
+                </button>
+              )}
+            </div>
+
             {loadingProducts ? (
               <div className="rounded-xl bg-white/70 p-4 text-sm dark:bg-black/20">Loading products...</div>
             ) : (
               <div className="max-h-[620px] space-y-2 overflow-auto pr-1">
-                {products.map((product) => {
+                {filteredProducts.map((product) => {
                   const selected = Object.prototype.hasOwnProperty.call(selectedItems, product._id);
                   const quantity = selectedItems[product._id] || 1;
 
@@ -711,7 +743,7 @@ export default function Kits() {
           </button>
         </div>
 
-        <div className="mb-4 grid gap-3 md:grid-cols-[180px_180px_1fr_auto_auto]">
+        <div className="mb-4 grid gap-3 md:grid-cols-[180px_180px_220px_1fr_auto_auto]">
           <select
             value={statusFilter}
             onChange={(event) => setStatusFilter(event.target.value)}
@@ -734,13 +766,25 @@ export default function Kits() {
             <option value="special">Special</option>
           </select>
 
+          <select
+            value={categoryFilter}
+            onChange={(event) => setCategoryFilter(event.target.value)}
+            className="h-11 rounded-xl border border-[#d7c3a3] bg-white text-black px-3 text-sm outline-none 
+           dark:bg-[#181c24] dark:text-white dark:border-white/20"
+          >
+            <option value="all">All Categories</option>
+            {categoryOptions.map((option) => (
+              <option key={option} value={option.toLowerCase()}>{option}</option>
+            ))}
+          </select>
+
           <div className="flex items-center gap-2 rounded-xl border border-[#d7c3a3] bg-white/70 px-3 dark:border-white/10 dark:bg-white/5">
             <FiSearch className="text-[var(--admin-primary)]" />
             <input
               type="search"
-              value={searchTerm}
-              onChange={(event) => setSearchTerm(event.target.value)}
-              placeholder="Search kits by name or description"
+              value={nameFilter}
+              onChange={(event) => setNameFilter(event.target.value)}
+              placeholder="Search kits by name"
               className="h-11 w-full bg-transparent text-sm text-[#2f1618] outline-none placeholder:text-[#8c7461] dark:text-[#fff3dc]"
             />
           </div>
