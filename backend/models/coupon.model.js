@@ -2,6 +2,12 @@ import mongoose from "mongoose";
 
 const couponSchema = new mongoose.Schema(
   {
+    vendorId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Vendor",
+      default: null,
+      index: true,
+    },
     code: {
       type: String,
       required: true,

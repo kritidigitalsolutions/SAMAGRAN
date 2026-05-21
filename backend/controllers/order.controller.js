@@ -140,6 +140,7 @@ const resolveDiscountsAndWallet = async ({
   couponCode,
   offerId,
   walletAmount,
+  vendorId = null,
 }) => {
   let coupon = null;
   let offer = null;
@@ -147,46 +148,29 @@ const resolveDiscountsAndWallet = async ({
   let offerDiscount = 0;
   let cashbackAmount = 0;
   let welcomeCouponCode = "";
-  let autoCouponApplied = false;
   
   let walletUsed = 0;
 
-  const user = await User.findById(userId).select(
-    "welcomeCouponCode welcomeCouponRedeemed",
-  );
-  let resolvedCouponCode = couponCode;
-
-  if (!resolvedCouponCode && user?.welcomeCouponCode && !user?.welcomeCouponRedeemed) {
-    resolvedCouponCode = user.welcomeCouponCode;
-    autoCouponApplied = true;
-  }
+  const resolvedCouponCode = couponCode;
 
   if (resolvedCouponCode) {
     const normalizedCode = String(resolvedCouponCode).trim().toUpperCase();
-    coupon = await Coupon.findOne({ code: normalizedCode, isActive: true });
+    coupon = await Coupon.findOne({
+      code: normalizedCode,
+      isActive: true,
+      ...(vendorId ? { vendorId } : {}),
+    });
 
     if (!coupon || !isWithinWindow(coupon)) {
-      if (autoCouponApplied) {
-        coupon = null;
-      } else {
-        throw new Error("Invalid or inactive coupon code");
-      }
+      throw new Error("Invalid or inactive coupon code");
     }
 
     if (coupon && toMoney(baseAmount) < toMoney(coupon.minOrderAmount)) {
-      if (autoCouponApplied) {
-        coupon = null;
-      } else {
-        throw new Error("Order amount is below coupon minimum");
-      }
+      throw new Error("Order amount is below coupon minimum");
     }
 
     if (coupon && coupon.usageLimit && coupon.usedCount >= coupon.usageLimit) {
-      if (autoCouponApplied) {
-        coupon = null;
-      } else {
-        throw new Error("Coupon usage limit reached");
-      }
+      throw new Error("Coupon usage limit reached");
     }
 
     if (coupon && coupon.perUserLimit) {
@@ -196,11 +180,7 @@ const resolveDiscountsAndWallet = async ({
       });
 
       if (usageCount >= coupon.perUserLimit) {
-        if (autoCouponApplied) {
-          coupon = null;
-        } else {
-          throw new Error("Coupon usage limit reached for user");
-        }
+        throw new Error("Coupon usage limit reached for user");
       }
     }
 
@@ -211,7 +191,10 @@ const resolveDiscountsAndWallet = async ({
   }
 
   if (offerId && mongoose.Types.ObjectId.isValid(offerId)) {
-    offer = await Offer.findById(offerId);
+    offer = await Offer.findOne({
+      _id: offerId,
+      ...(vendorId ? { vendorId } : {}),
+    });
 
     if (!offer || !offer.isActive || !isWithinWindow(offer)) {
       throw new Error("Invalid or inactive offer");
@@ -264,6 +247,7 @@ const getProductDocAndPrice = async ({ userId, productType, productId }) => {
         productType: "Item",
         doc: item,
         unitPrice: toMoney(item.pricing?.price),
+        vendorId: item.vendorId || null,
       };
     }
 
@@ -306,6 +290,7 @@ const getProductDocAndPrice = async ({ userId, productType, productId }) => {
       productType: "FestivalKit",
       doc: kit,
       unitPrice: toMoney(kit.kitPrice || kit.totalPrice),
+      vendorId: kit.vendorId || null,
     };
   }
 
@@ -323,6 +308,7 @@ const getProductDocAndPrice = async ({ userId, productType, productId }) => {
       productType: "FestivalKit",
       doc: kit,
       unitPrice: toMoney(kit.kitPrice || kit.totalPrice),
+      vendorId: kit.vendorId || null,
     };
   }
 };
@@ -338,6 +324,7 @@ const resolveCheckoutItems = async ({ userId, directItems = null }) => {
   }
 
   const resolved = [];
+  let resolvedVendorId = null;
   for (const row of sourceItems) {
     const providedProductType = String(row.productType || "").trim();
     const productId = row.id || row.productId || row.product;
@@ -352,11 +339,18 @@ const resolveCheckoutItems = async ({ userId, directItems = null }) => {
       quantity = 1;
     }
 
-    const { unitPrice, doc, productType } = await getProductDocAndPrice({
+    const { unitPrice, doc, productType, vendorId } = await getProductDocAndPrice({
       userId,
       productType: providedProductType,
       productId,
     });
+
+    const itemVendorId = vendorId || doc?.vendorId || null;
+    if (!resolvedVendorId && itemVendorId) {
+      resolvedVendorId = itemVendorId;
+    } else if (resolvedVendorId && itemVendorId && String(itemVendorId) !== String(resolvedVendorId)) {
+      throw new Error("Multiple vendors in one order are not supported");
+    }
 
     if (productType === "Item" && Number(doc.stock?.quantity || 0) < quantity) {
       throw new Error(`${doc.title} is out of stock for selected quantity`);
@@ -385,6 +379,7 @@ const resolveCheckoutItems = async ({ userId, directItems = null }) => {
     orderItems,
     itemTotal,
     source: fromDirect ? "direct" : "cart",
+    vendorId: resolvedVendorId,
   };
 };
 
@@ -529,7 +524,7 @@ export const createRazorpayOrder = async (req, res) => {
     const userId = req.user._id;
     const { items = null, deliveryFee, couponCode, offerId, walletAmount } = req.body;
 
-    const { orderItems, itemTotal } = await resolveCheckoutItems({
+    const { orderItems, itemTotal, vendorId } = await resolveCheckoutItems({
       userId,
       directItems: items,
     });
@@ -560,6 +555,7 @@ export const createRazorpayOrder = async (req, res) => {
       couponCode,
       offerId,
       walletAmount,
+      vendorId,
     });
 
     if (payableAmount <= 0) {
@@ -596,6 +592,7 @@ export const createRazorpayOrder = async (req, res) => {
       notes: {
         userId: String(userId),
         itemCount: String(orderItems.length),
+        vendorId: vendorId ? String(vendorId) : "",
       },
     });
 
@@ -650,7 +647,7 @@ export const placeOrder = async (req, res) => {
 
     const normalizedPaymentMethod = normalizePaymentMethod(paymentMethod);
 
-    const { orderItems, itemTotal, source } = await resolveCheckoutItems({
+    const { orderItems, itemTotal, source, vendorId } = await resolveCheckoutItems({
       userId,
       directItems: items,
     });
@@ -667,12 +664,14 @@ export const placeOrder = async (req, res) => {
       discountTotal,
       walletUsed,
       payableAmount,
+      welcomeCouponCode,
     } = await resolveDiscountsAndWallet({
       userId,
       baseAmount: totalAmount,
       couponCode,
       offerId,
       walletAmount,
+      vendorId,
     });
 
     let finalAddress;
@@ -749,6 +748,7 @@ export const placeOrder = async (req, res) => {
 
     const order = await Order.create({
       user: userId,
+      vendorId: vendorId || null,
       items: orderItems,
       totalAmount,
       addressType: finalAddress.addressType || null,

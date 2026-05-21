@@ -2,6 +2,22 @@ import FestivalKit from "../../models/festivalKit.model.js";
 import Item from "../../models/product.model.js";
 import { uploadFileToFirebase } from "../../utils/firebaseUpload.js";
 
+const resolveVendorFilter = (req) => {
+  if (req.admin?.role === "vendor") {
+    return { vendorId: req.admin.vendorId };
+  }
+
+  return {};
+};
+
+const resolveVendorIdForCreate = (req) => {
+  if (req.admin?.role === "vendor") {
+    return req.admin.vendorId || null;
+  }
+
+  return req.body?.vendorId || null;
+};
+
 const parseItems = (items) => {
   if (!items) {
     return [];
@@ -10,7 +26,7 @@ const parseItems = (items) => {
   return typeof items === "string" ? JSON.parse(items) : items;
 };
 
-const buildKitItems = async (items) => {
+const buildKitItems = async (items, vendorFilter = {}) => {
   if (!Array.isArray(items) || !items.length) {
     const err = new Error("At least one product is required");
     err.statusCode = 400;
@@ -21,6 +37,7 @@ const buildKitItems = async (items) => {
   const products = await Item.find({
     _id: { $in: productIds },
     status: "active",
+    ...vendorFilter,
   });
 
   if (products.length !== items.length) {
@@ -100,7 +117,7 @@ export const createDefaultKit = async (req, res) => {
       });
     }
 
-    const { formattedItems, totalPrice } = await buildKitItems(items);
+    const { formattedItems, totalPrice } = await buildKitItems(items, resolveVendorFilter(req));
     const normalizedKitPrice = Number(kitPrice);
 
     const imageUrl = req.file
@@ -108,6 +125,7 @@ export const createDefaultKit = async (req, res) => {
       : "";
 
     const created = await FestivalKit.create({
+      vendorId: resolveVendorIdForCreate(req),
       kitType: "default",
       name: name.trim(),
       description: description.trim(),
@@ -141,6 +159,7 @@ export const getAdminDefaultKits = async (req, res) => {
     const { search = "", status = "all" } = req.query;
     const filter = {
       kitType: "default",
+      ...resolveVendorFilter(req),
     };
 
     if (search.trim()) {
@@ -173,6 +192,7 @@ export const getAdminDefaultKitById = async (req, res) => {
     const kit = await FestivalKit.findOne({
       _id: req.params.id,
       kitType: "default",
+      ...resolveVendorFilter(req),
     }).populate("items.product", "title pricing media category");
 
     if (!kit) {
@@ -199,6 +219,7 @@ export const updateDefaultKit = async (req, res) => {
     const kit = await FestivalKit.findOne({
       _id: req.params.id,
       kitType: "default",
+      ...resolveVendorFilter(req),
     });
 
     if (!kit) {
@@ -225,7 +246,7 @@ export const updateDefaultKit = async (req, res) => {
     let nextTotalPrice = kit.totalPrice;
 
     if (parsedItems) {
-      const computed = await buildKitItems(parsedItems);
+      const computed = await buildKitItems(parsedItems, resolveVendorFilter(req));
       nextItems = computed.formattedItems;
       nextTotalPrice = computed.totalPrice;
     }
@@ -268,6 +289,7 @@ export const deleteDefaultKit = async (req, res) => {
     const kit = await FestivalKit.findOneAndDelete({
       _id: req.params.id,
       kitType: "default",
+      ...resolveVendorFilter(req),
     });
 
     if (!kit) {

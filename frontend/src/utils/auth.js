@@ -18,6 +18,11 @@ const decodeJwtPayload = (token) => {
   }
 };
 
+const getTokenPayload = () => {
+  const token = getAdminToken();
+  return token ? decodeJwtPayload(token) : null;
+};
+
 export const clearAdminSession = () => {
   sessionStorage.removeItem(TOKEN_KEY);
   sessionStorage.removeItem(TOKEN_EXPIRY_KEY);
@@ -48,6 +53,43 @@ export const getStoredAdmin = () => {
   } catch {
     return null;
   }
+};
+
+export const getAdminRole = () => {
+  const payload = getTokenPayload();
+  if (payload?.role) {
+    if (payload.role === "super") {
+      return "super-admin";
+    }
+    if (payload.role === "vendor") {
+      return "vendor-admin";
+    }
+    return payload.role;
+  }
+  if (payload?.isVendor) {
+    return "vendor-admin";
+  }
+  const admin = getStoredAdmin();
+  if (admin?.role) {
+    if (admin.role === "super") {
+      return "super-admin";
+    }
+    if (admin.role === "vendor") {
+      return "vendor-admin";
+    }
+    return admin.role;
+  }
+  return "super-admin";
+};
+
+export const getAdminPageAccess = () => {
+  const payload = getTokenPayload();
+  if (Array.isArray(payload?.pageAccess)) {
+    return payload.pageAccess;
+  }
+  const admin = getStoredAdmin();
+  const access = admin?.pageAccess || admin?.vendor?.pageAccess || [];
+  return Array.isArray(access) ? access : [];
 };
 
 export const setStoredAdmin = (admin) => {

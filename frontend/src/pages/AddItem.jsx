@@ -60,11 +60,7 @@ export default function AddItem() {
         formData.append("images", img); // MUST MATCH BACKEND
       });
 
-      await API.post("/items/add", formData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
-      });
+      await API.post("/items/add", formData);
 
       alert("Item added successfully");
 

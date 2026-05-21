@@ -9,14 +9,17 @@ const baseURL = process.env.REACT_APP_API_URL || "http://localhost:8000/api";
 
 const API = axios.create({
   baseURL,
-  headers: {
-    "Content-Type": "application/json",
-  },
 });
 
 // ================= REQUEST INTERCEPTOR =================
 API.interceptors.request.use(
   (config) => {
+    if (config.data instanceof FormData) {
+      delete config.headers["Content-Type"];
+    } else {
+      config.headers["Content-Type"] = "application/json";
+    }
+
     const token = getAdminToken();
 
     if (token && isAdminTokenValid()) {

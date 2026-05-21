@@ -15,6 +15,12 @@ const kitItemSchema = new mongoose.Schema({
 
 const festivalKitSchema = new mongoose.Schema(
   {
+    vendorId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Vendor",
+      default: null,
+      index: true,
+    },
     kitType: {
       type: String,
       enum: ["default", "special"],

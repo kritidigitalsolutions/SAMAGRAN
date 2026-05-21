@@ -26,6 +26,14 @@ const ORDER_ITEMS_POPULATE = {
   ],
 };
 
+const resolveVendorFilter = (req) => {
+  if (req.admin?.role === "vendor") {
+    return { vendorId: req.admin.vendorId };
+  }
+
+  return {};
+};
+
 const toMoney = (value) => {
   const parsed = Number(value || 0);
   return Number.isFinite(parsed) && parsed >= 0 ? Number(parsed.toFixed(2)) : 0;
@@ -223,7 +231,9 @@ export const getAllOrdersForAdmin = async (req, res) => {
       limit = 20,
     } = req.query;
 
-    const filter = {};
+    const filter = {
+      ...resolveVendorFilter(req),
+    };
 
     if (status !== "all") {
       filter.orderStatus = normalizeOrderStatus(status);
@@ -305,7 +315,7 @@ export const getOrderByIdForAdmin = async (req, res) => {
       });
     }
 
-    const order = await Order.findById(id)
+    const order = await Order.findOne({ _id: id, ...resolveVendorFilter(req) })
       .populate("user", "name email phone")
       .populate("deliveryBoy", "fullName phone status")
       .populate(ORDER_ITEMS_POPULATE)
@@ -343,7 +353,7 @@ export const updateOrderByAdmin = async (req, res) => {
       });
     }
 
-    const order = await Order.findById(id);
+    const order = await Order.findOne({ _id: id, ...resolveVendorFilter(req) });
     if (!order) {
       return res.status(404).json({
         success: false,
@@ -482,7 +492,7 @@ export const updateOrderTrackingByAdmin = async (req, res) => {
       });
     }
 
-    const order = await Order.findById(id)
+    const order = await Order.findOne({ _id: id, ...resolveVendorFilter(req) })
       .populate("user", "name email phone")
       .populate("deliveryBoy", "fullName phone status")
       .populate(ORDER_ITEMS_POPULATE);
@@ -527,7 +537,7 @@ export const deleteOrderByAdmin = async (req, res) => {
       });
     }
 
-    const order = await Order.findByIdAndDelete(id);
+    const order = await Order.findOneAndDelete({ _id: id, ...resolveVendorFilter(req) });
     if (!order) {
       return res.status(404).json({
         success: false,
@@ -569,7 +579,7 @@ export const assignDeliveryBoyToOrder = async (req, res) => {
       return res.status(400).json({ success: false, message: "Delivery boy is inactive" });
     }
 
-    const order = await Order.findById(id);
+    const order = await Order.findOne({ _id: id, ...resolveVendorFilter(req) });
     if (!order) {
       return res.status(404).json({ success: false, message: "Order not found" });
     }

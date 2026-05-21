@@ -485,11 +485,7 @@ export default function Items() {
       });
       createImages.forEach((file) => formData.append("images", file));
 
-      await API.post("/items/add", formData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
-      });
+      await API.post("/items/add", formData);
 
       setCreateForm(buildItemForm());
       setCreateImages([]);
@@ -617,11 +613,7 @@ export default function Items() {
         formData.append("images", file);
       });
 
-      const res = await API.put(`/items/${editItem._id}`, formData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
-      });
+      const res = await API.put(`/items/${editItem._id}`, formData);
       const updated = normalizeItem(res.data?.data || {}, editItem);
 
       setItems((current) =>
@@ -708,11 +700,7 @@ export default function Items() {
       const formData = new FormData();
       formData.append("status", nextStatus);
 
-      const res = await API.put(`/items/${item._id}`, formData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
-      });
+      const res = await API.put(`/items/${item._id}`, formData);
 
       const updated = normalizeItem(res.data?.data || {}, item);
       setItems((current) =>

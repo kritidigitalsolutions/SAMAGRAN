@@ -45,6 +45,11 @@ const notificationSchema = new mongoose.Schema(
       ref: "Admin",
       default: null,
     },
+    vendorId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Vendor",
+      default: null,
+    },
   },
   { timestamps: true }
 );

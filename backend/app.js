@@ -96,11 +96,15 @@ import adminCouponRoutes from "./routes/admin/coupon.routes.js";
 import adminOfferRoutes from "./routes/admin/offer.routes.js";
 import adminNotificationRoutes from "./routes/admin/notification.routes.js";
 import adminDeliveryBoyRoutes from "./routes/admin/deliveryBoy.routes.js";
+import adminVendorRoutes from "./routes/admin/vendor.routes.js";
+import vendorProfileRoutes from "./routes/admin/vendorProfile.routes.js";
+import vendorFinanceRoutes from "./routes/admin/vendorFinance.routes.js";
 
 import authRoutes from "./routes/user/auth.routes.js";
 import panditAuthRoutes from "./routes/pandit/pandit.auth.routes.js";
 import deliveryAuthRoutes from "./routes/delivery/delivery.auth.routes.js";
 import deliveryRoutes from "./routes/delivery/delivery.routes.js";
+import vendorAuthRoutes from "./routes/vendor/vendor.auth.routes.js";
 
 
 // User Routs
@@ -201,6 +205,9 @@ app.use("/api/admin/coupons", adminCouponRoutes);
 app.use("/api/admin/offers", adminOfferRoutes);
 app.use("/api/admin/notifications", adminNotificationRoutes);
 app.use("/api/admin", adminDeliveryBoyRoutes);
+app.use("/api/admin", adminVendorRoutes);
+app.use("/api/admin", vendorProfileRoutes);
+app.use("/api/admin", vendorFinanceRoutes);
 
 // ############ User Routes ##########################
 
@@ -208,6 +215,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/pandit/auth", panditAuthRoutes);
 app.use("/api/delivery/auth", deliveryAuthRoutes);
 app.use("/api/delivery", deliveryRoutes);
+app.use("/api/vendor/auth", vendorAuthRoutes);
 
 // user routs for user side
 app.use("/api/user", userRoutes);

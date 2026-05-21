@@ -88,6 +88,7 @@ export default function Navbar({ onMenuClick, onToggleSidebar, sidebarCollapsed 
     return () => document.removeEventListener("mousedown", handleOutsideClick);
   }, []);
 
+  const isVendor = admin?.role === "vendor";
   const adminName = admin?.name || admin?.email?.split("@")[0] || "Admin";
   const adminInitials = adminName
     .split(" ")
@@ -283,7 +284,9 @@ export default function Navbar({ onMenuClick, onToggleSidebar, sidebarCollapsed 
               </div>
               <div>
                 <p className="text-sm font-semibold text-[var(--admin-text)]">{adminName}</p>
-                <p className="text-xs text-[var(--admin-muted)]">Admin account</p>
+                <p className="text-xs text-[var(--admin-muted)]">
+                  {isVendor ? "Vendor account" : "Admin account"}
+                </p>
               </div>
               <span className="text-[var(--admin-primary)]">
                 <ChevronIcon />
@@ -300,9 +303,17 @@ export default function Navbar({ onMenuClick, onToggleSidebar, sidebarCollapsed 
       </span>
     </button>
 
-    <button className="flex w-full items-center rounded-xl px-4 py-3 text-sm font-medium text-[var(--admin-text)]">
-      Account Settings
-    </button>
+    {isVendor && (
+      <button
+        onClick={() => {
+          setProfileOpen(false);
+          navigate("/dashboard/settings");
+        }}
+        className="flex w-full items-center rounded-xl px-4 py-3 text-sm font-medium text-[var(--admin-text)]"
+      >
+        Account Settings
+      </button>
+    )}
 
     <button
       onClick={handleLogout}

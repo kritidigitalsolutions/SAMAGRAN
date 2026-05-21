@@ -2,6 +2,12 @@ import mongoose from "mongoose";
 
 const offerSchema = new mongoose.Schema(
   {
+    vendorId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Vendor",
+      default: null,
+      index: true,
+    },
     title: {
       type: String,
       trim: true,

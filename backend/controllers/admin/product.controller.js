@@ -3,6 +3,23 @@ import { uploadFileToFirebase } from "../../utils/firebaseUpload.js";
 
 const escapeRegex = (value = "") => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
+const resolveVendorFilter = (req) => {
+  if (req.admin?.role === "vendor") {
+    return { vendorId: req.admin.vendorId };
+  }
+
+  return {};
+};
+
+const resolveVendorIdForCreate = (req) => {
+  if (req.admin?.role === "vendor") {
+    return req.admin.vendorId || null;
+  }
+
+  const vendorId = req.body?.vendorId;
+  return vendorId || null;
+};
+
 const generateSlug = (title) => {
   return title.toLowerCase().replace(/ /g, "-");
 };
@@ -149,11 +166,18 @@ export const addProduct = async (req, res) => {
 
     const imageUrls = req.files?.length
       ? await Promise.all(
-          req.files.map((file) => uploadFileToFirebase(file, { folder: "products" }))
+          req.files.map(async (file) => {
+            try {
+              return await uploadFileToFirebase(file, { folder: "products" });
+            } catch {
+              return "";
+            }
+          })
         )
       : [];
 
     const item = await Item.create({
+      vendorId: resolveVendorIdForCreate(req),
       title,
       slug: generateSlug(title),
       category: {
@@ -227,7 +251,9 @@ export const getProducts = async (req, res) => {
 
     const skip = (page - 1) * limit;
 
-    let query = {};
+    let query = {
+      ...resolveVendorFilter(req),
+    };
 
     if (status !== "all") {
       query.status = status;
@@ -366,7 +392,10 @@ export const getProducts = async (req, res) => {
 
 export const getSingleProduct = async (req, res) => {
   try {
-    const item = await Item.findById(req.params.id);
+    const item = await Item.findOne({
+      _id: req.params.id,
+      ...resolveVendorFilter(req),
+    });
 
     if (!item) {
       return res.status(404).json({
@@ -453,7 +482,10 @@ export const getSingleProduct = async (req, res) => {
 
 export const updateProduct = async (req, res) => {
   try {
-    const item = await Item.findById(req.params.id);
+    const item = await Item.findOne({
+      _id: req.params.id,
+      ...resolveVendorFilter(req),
+    });
 
     if (!item) {
       return res.status(404).json({
@@ -585,9 +617,13 @@ export const updateProduct = async (req, res) => {
       const existingImages = parseExistingImages(req.body.existingImages);
       const uploadedImages = hasNewUploads
         ? await Promise.all(
-            req.files.map((file) =>
-              uploadFileToFirebase(file, { folder: "products" })
-            )
+            req.files.map(async (file) => {
+              try {
+                return await uploadFileToFirebase(file, { folder: "products" });
+              } catch {
+                return "";
+              }
+            })
           )
         : [];
 
@@ -669,8 +705,8 @@ export const updateProduct = async (req, res) => {
 
 export const deleteProduct = async (req, res) => {
   try {
-    const item = await Item.findByIdAndUpdate(
-      req.params.id,
+    const item = await Item.findOneAndUpdate(
+      { _id: req.params.id, ...resolveVendorFilter(req) },
       { status: "inactive" },
       { new: true }
     );

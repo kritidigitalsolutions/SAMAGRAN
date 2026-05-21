@@ -1,5 +1,6 @@
 // controllers/admin.controller.js
 import Admin from "../../models/admin.model.js";
+import Vendor from "../../models/vendor.model.js";
 import bcrypt from "bcryptjs";
 import generateToken from "../../utils/generateToken.js";
 import { updateDeviceToken } from "../../utils/notification.service.js";
@@ -25,8 +26,30 @@ export const adminLogin = async (req, res) => {
       return res.status(401).json({ message: "Invalid password" });
     }
 
-    // 4. Generate token (with admin flag)
-    const token = generateToken(admin._id, true);
+    let vendor = null;
+
+    if (admin.role === "vendor") {
+      if (!admin.vendorId) {
+        return res.status(403).json({ message: "Vendor account not linked" });
+      }
+
+      vendor = await Vendor.findById(admin.vendorId).lean();
+      if (!vendor) {
+        return res.status(403).json({ message: "Vendor not found" });
+      }
+
+      if (vendor.status !== "active") {
+        return res.status(403).json({ message: "Vendor not approved" });
+      }
+    }
+
+    // 4. Generate token (with admin flag + role)
+    const token = generateToken(admin._id, true, {
+      role: admin.role || "super",
+      vendorId: admin.vendorId ? String(admin.vendorId) : null,
+      pageAccess: vendor?.pageAccess || [],
+      isVendor: admin.role === "vendor",
+    });
 
     // 5. Response
     res.json({
@@ -36,6 +59,17 @@ export const adminLogin = async (req, res) => {
         id: admin._id,
         name: admin.name,
         email: admin.email,
+        role: admin.role || "super",
+        vendorId: admin.vendorId || null,
+        vendor: vendor
+          ? {
+              id: vendor._id,
+              name: vendor.name,
+              businessName: vendor.businessName,
+              status: vendor.status,
+              pageAccess: vendor.pageAccess || [],
+            }
+          : null,
       },
     });
 

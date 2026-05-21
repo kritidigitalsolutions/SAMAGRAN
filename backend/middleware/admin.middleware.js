@@ -1,6 +1,7 @@
 // middleware/admin.middleware.js
 import jwt from "jsonwebtoken";
 import Admin from "../models/admin.model.js";
+import Vendor from "../models/vendor.model.js";
 
 export const protectAdmin = async (req, res, next) => {
   try {
@@ -32,9 +33,34 @@ export const protectAdmin = async (req, res, next) => {
 
     req.admin = admin;
 
+    if (admin.role === "vendor") {
+      if (!admin.vendorId) {
+        return res.status(403).json({ message: "Vendor account not linked" });
+      }
+
+      const vendor = await Vendor.findById(admin.vendorId).lean();
+      if (!vendor) {
+        return res.status(403).json({ message: "Vendor not found" });
+      }
+
+      if (vendor.status !== "active") {
+        return res.status(403).json({ message: "Vendor not approved" });
+      }
+
+      req.vendor = vendor;
+    }
+
     next();
 
   } catch (error) {
     return res.status(401).json({ message: "Invalid or expired token" });
   }
+};
+
+export const requireSuperAdmin = (req, res, next) => {
+  if (req.admin?.role !== "super") {
+    return res.status(403).json({ message: "Super admin access required" });
+  }
+
+  return next();
 };

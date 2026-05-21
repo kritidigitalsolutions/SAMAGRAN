@@ -18,7 +18,11 @@ export const uploadFileToFirebase = async (file, { folder = "uploads" } = {}) =>
   }
 
   if (!isFirebaseReady || !firebaseBucket) {
-    throw new Error("Firebase storage is not configured on server");
+    if (file?.path) {
+      const fileName = path.basename(file.path);
+      return `/uploads/${fileName}`;
+    }
+    return "";
   }
 
   const extension = path.extname(file.originalname || file.path || "") || "";

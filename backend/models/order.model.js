@@ -25,6 +25,13 @@ const orderSchema = new mongoose.Schema(
       required: true,
     },
 
+    vendorId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Vendor",
+      default: null,
+      index: true,
+    },
+
     items: [orderItemSchema],
 
     totalAmount: Number,

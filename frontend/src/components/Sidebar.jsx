@@ -1,23 +1,35 @@
 import { NavLink, useNavigate } from "react-router-dom";
-import { clearAdminSession } from "../utils/auth";
+import { clearAdminSession, getAdminPageAccess, getAdminRole } from "../utils/auth";
 
 const navItems = [
-  { label: "Dashboard", path: "/dashboard", icon: "grid" },
-  { label: "Users", path: "/dashboard/users", icon: "users" },
-  { label: "Orders", path: "/dashboard/orders", icon: "orders" },
-  { label: "Delivery Boys", path: "/dashboard/delivery-boys", icon: "delivery" },
-  { label: "Products", path: "/dashboard/items", icon: "box" },
-  { label: "Kits", path: "/dashboard/kits", icon: "gift" },
-  { label: "Pandits", path: "/dashboard/pandits", icon: "pandits" },
-  { label: "Rituals", path: "/dashboard/rituals", icon: "rituals" },
-  { label: "Temples", path: "/dashboard/temples", icon: "temples" },
-  { label: "Pandit Bookings", path: "/dashboard/pandit-bookings", icon: "pandit-bookings" },
-  { label: "Banners", path: "/dashboard/Banners", icon: "Banners" },
-  { label: "Coupons", path: "/dashboard/coupons", icon: "coupons" },
-  { label: "Offers", path: "/dashboard/offers", icon: "offers" },
-  { label: "Legal Pages", path: "/dashboard/legal", icon: "legal" },
-  { label: "Custom Samagri", path: "/dashboard/custom-samagri", icon: "custom-samagri" },
-  { label: "Notifications", path: "/dashboard/notifications", icon: "notifications" },
+  { label: "Dashboard", path: "/dashboard", icon: "dashboard", accessKey: "dashboard" },
+  {
+    label: "Vendors",
+    path: "/dashboard/vendors",
+    icon: "vendors",
+    accessKey: "vendors",
+    role: "super-admin",
+  },
+  { label: "Products", path: "/dashboard/items", icon: "box", accessKey: "products" },
+  { label: "Kits", path: "/dashboard/kits", icon: "gift", accessKey: "kits" },
+  { label: "Users", path: "/dashboard/users", icon: "users", accessKey: "users" },
+  { label: "Orders", path: "/dashboard/orders", icon: "orders", accessKey: "orders" },
+  { label: "Delivery Boys", path: "/dashboard/delivery-boys", icon: "delivery", accessKey: "delivery-boys" },
+  { label: "Rituals", path: "/dashboard/rituals", icon: "rituals", accessKey: "rituals" },
+  { label: "Temples", path: "/dashboard/temples", icon: "temples", accessKey: "temples" },
+  { label: "Pandits", path: "/dashboard/pandits", icon: "pandits", accessKey: "pandits" },
+  { label: "Pandit Bookings", path: "/dashboard/pandit-bookings", icon: "pandit-bookings", accessKey: "pandit-bookings" },
+  { label: "Banners", path: "/dashboard/banners", icon: "banners", accessKey: "banners" },
+  { label: "Coupons", path: "/dashboard/coupons", icon: "coupons", accessKey: "coupons" },
+  { label: "Offers", path: "/dashboard/offers", icon: "offers", accessKey: "offers" },
+  { label: "Legal Pages", path: "/dashboard/legal", icon: "legal", accessKey: "legal" },
+  { label: "Custom Samagri", path: "/dashboard/custom-samagri", icon: "custom-samagri", accessKey: "custom-samagri" },
+  { label: "Notifications", path: "/dashboard/notifications", icon: "notifications", accessKey: "notifications" },
+  { label: "Settings", path: "/dashboard/settings", icon: "settings", accessKey: "settings", vendorOnly: true },
+  { label: "Transactions", path: "/dashboard/transactions", icon: "transactions", accessKey: "transactions" },
+  { label: "Earnings", path: "/dashboard/earnings", icon: "earnings", accessKey: "earnings" },
+  // { label: "Withdrawals", path: "/dashboard/withdrawals", icon: "withdrawals", accessKey: "withdrawals" },
+  { label: "Refunds & Returns", path: "/dashboard/refunds", icon: "refunds", accessKey: "refunds" },
 ];
 
 function SidebarIcon({ icon }) {
@@ -39,6 +51,28 @@ function SidebarIcon({ icon }) {
         <path d="M7 12H17" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
         <path d="M7 16H13" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
         <rect x="4" y="4" width="16" height="16" rx="3" stroke="currentColor" strokeWidth="1.8" />
+      </svg>
+    );
+  }
+
+  if (icon === "dashboard") {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" className={common}>
+        <rect x="4" y="4" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.8" />
+        <rect x="13" y="4" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.8" />
+        <rect x="4" y="13" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.8" />
+        <rect x="13" y="13" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.8" />
+      </svg>
+    );
+  }
+
+  if (icon === "vendors") {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" className={common}>
+        <path d="M7 11C8.65685 11 10 9.65685 10 8C10 6.34315 8.65685 5 7 5C5.34315 5 4 6.34315 4 8C4 9.65685 5.34315 11 7 11Z" stroke="currentColor" strokeWidth="1.8" />
+        <path d="M17 11C18.6569 11 20 9.65685 20 8C20 6.34315 18.6569 5 17 5C15.3431 5 14 6.34315 14 8C14 9.65685 15.3431 11 17 11Z" stroke="currentColor" strokeWidth="1.8" />
+        <path d="M7 13C4.79086 13 3 14.7909 3 17V19H11V17C11 14.7909 9.20914 13 7 13Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+        <path d="M17 13C14.7909 13 13 14.7909 13 17V19H21V17C21 14.7909 19.2091 13 17 13Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
       </svg>
     );
   }
@@ -190,6 +224,15 @@ function SidebarIcon({ icon }) {
     );
   }
 
+  if (icon === "settings") {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" className={common}>
+        <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.8" />
+        <path d="M19 12C19 11.5 18.94 11.02 18.83 10.56L20.55 9.25L19.05 6.75L17.05 7.55C16.67 7.22 16.25 6.94 15.78 6.72L15.5 4.5H8.5L8.22 6.72C7.75 6.94 7.33 7.22 6.95 7.55L4.95 6.75L3.45 9.25L5.17 10.56C5.06 11.02 5 11.5 5 12C5 12.5 5.06 12.98 5.17 13.44L3.45 14.75L4.95 17.25L6.95 16.45C7.33 16.78 7.75 17.06 8.22 17.28L8.5 19.5H15.5L15.78 17.28C16.25 17.06 16.67 16.78 17.05 16.45L19.05 17.25L20.55 14.75L18.83 13.44C18.94 12.98 19 12.5 19 12Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+
   return (
     <svg viewBox="0 0 24 24" fill="none" className={common}>
       <path d="M4 4H10V10H4V4Z" stroke="currentColor" strokeWidth="1.8" />
@@ -207,6 +250,24 @@ export default function Sidebar({
   setMobileOpen,
 }) {
   const navigate = useNavigate();
+  const adminRole = getAdminRole();
+  const pageAccess = getAdminPageAccess();
+
+  const filteredNavItems = navItems.filter((item) => {
+    // Super admin sees everything except vendor-only items
+    if (adminRole === "super-admin") {
+      return !item.vendorOnly;
+    }
+    // Vendors see items based on their pageAccess list
+    if (adminRole === "vendor-admin") {
+      // Hide items that are marked for super-admin only
+      if (item.role === "super-admin") {
+        return false;
+      }
+      return pageAccess.includes(item.accessKey);
+    }
+    return false;
+  });
 
   const menuClass = (isActive) =>
     `group flex items-center rounded-2xl border px-3 py-3 text-sm font-medium transition-all ${
@@ -254,7 +315,7 @@ export default function Sidebar({
         </div>
 
         <nav className="space-y-2 text-sm">
-          {navItems.map((item) => (
+          {filteredNavItems.map((item) => (
             <NavLink
               key={item.label}
               to={item.path}

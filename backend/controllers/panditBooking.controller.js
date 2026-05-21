@@ -10,16 +10,9 @@ import BookingPricing from "../models/bookingPrice.js";
 import mongoose from "mongoose";
 import { notifyAdmins } from "../utils/notification.service.js";
 
-// const STATIC_SLOT_TEMPLATE = [
-//   { label: "6:00 AM - 8:00 AM", startTime: "06:00", endTime: "08:00" },
-//   { label: "10:00 AM - 12:00 PM", startTime: "10:00", endTime: "12:00" },
-//   { label: "12:00 PM - 2:00 PM", startTime: "12:00", endTime: "14:00" },
-//   { label: "6:00 PM - 8:00 PM", startTime: "18:00", endTime: "20:00" },
-// ];
-
 const modeMap = {
-  home: "home",
-  online: "online",
+  home: "homeVisit",
+  online: "onlinePooja",
   temple: "atTemple",
 };
 
@@ -46,8 +39,8 @@ const getNextDateKeys = (days = 7) => {
 const buildPanditAvailableFor = (pandit) => {
   const availableFor = [];
 
-  if (pandit?.serviceTypes?.home) availableFor.push("Home Puja");
-  if (pandit?.serviceTypes?.online) availableFor.push("Online Puja");
+  if (pandit?.serviceTypes?.homeVisit) availableFor.push("Home Puja");
+  if (pandit?.serviceTypes?.onlinePooja) availableFor.push("Online Puja");
   if (pandit?.serviceTypes?.atTemple) availableFor.push("Temple Ritual");
   if (pandit?.serviceTypes?.travelForSpecialPoojas) availableFor.push("Travel for Special Pooja");
 
@@ -467,13 +460,15 @@ export const getPanditAvailableSlots = async (req, res) => {
     }
 
     const data = dateKeys.map((dateKey) => {
-      const blocked = bookedSlotsMap.get(dateKey) || new Set();
-
+      const blocked = Array.from(bookedSlotsMap.get(dateKey) || new Set());
       return {
         date: dateKey,
-        slots: STATIC_SLOT_TEMPLATE.map((slot) => ({
-          ...slot,
-          available: !blocked.has(slot.label) && !blocked.has(slot.startTime),
+        bookedSlots: blocked,
+        // Dynamic mode: app controls candidate slots; backend returns already booked ones.
+        slots: blocked.map((time) => ({
+          label: time,
+          time,
+          available: false,
         })),
       };
     });
@@ -1021,7 +1016,7 @@ export const confirmPanditBookingPayment = async (req, res) => {
       if (duplicatePaidByTxn) {
         return res.status(400).json({
           success: false,
-          message: "Booking payment is already confirmed",
+          message: "Booking payment is already requested",
           data: duplicatePaidByTxn,
         });
       }
@@ -1069,7 +1064,7 @@ export const confirmPanditBookingPayment = async (req, res) => {
           razorpaySignature: String(razorpaySignature || "").trim(),
           paidAt: new Date(),
         },
-        bookingStatus: "confirmed",
+        bookingStatus: "requested",
       });
 
       const booking = await PanditBooking.findById(createdBooking._id)
@@ -1079,10 +1074,10 @@ export const confirmPanditBookingPayment = async (req, res) => {
         .populate("recommendedKit", "name image kitPrice");
 
       void notifyAdmins({
-        title: "Pandit booking confirmed",
+        title: "Pandit booking requested",
         body: `${req.user.name || req.user.phone || "A user"} booked ${booking?.ritual?.name || "a ritual"}`,
         data: {
-          eventType: "pandit.booking.confirmed",
+          eventType: "pandit.booking.requested",
           bookingId: String(booking._id),
           userId: String(req.user._id),
           panditId: String(createdBooking.pandit),
@@ -1097,7 +1092,7 @@ export const confirmPanditBookingPayment = async (req, res) => {
 
       return res.json({
         success: true,
-        message: "Payment successful and booking confirmed",
+        message: "Payment successful and booking requested",
         data: booking,
       });
     }
@@ -1150,19 +1145,19 @@ export const confirmPanditBookingPayment = async (req, res) => {
     booking.payment.razorpayPaymentId = String(razorpayPaymentId || "").trim();
     booking.payment.razorpaySignature = String(razorpaySignature || "").trim();
     booking.payment.paidAt = new Date();
-    booking.bookingStatus = "confirmed";
+    booking.bookingStatus = "requested";
 
     await booking.save();
 
     res.json({
       success: true,
-      message: "Payment successful and booking confirmed",
+      message: "Payment successful and booking requested",
       data: booking,
     });
   } catch (err) {
     res.status(500).json({
       success: false,
-      message: err.message || "Unable to confirm payment",
+      message: err.message || "Unable to requested payment",
     });
   }
 };
@@ -1413,7 +1408,7 @@ export const approvePanditBooking = async (req, res) => {
       });
     }
 
-    booking.bookingStatus = "confirmed";
+    booking.bookingStatus = "requested";
     booking.panditDecision = {
       ...booking.panditDecision,
       samagriType: resolvedSamagriType,
@@ -1606,7 +1601,22 @@ export const cancelPanditBookingByUser = async (req, res) => {
 export const reschedulePanditBookingByUser = async (req, res) => {
   try {
     const { bookingId } = req.params;
-    const { reason = "", notes = "" } = req.body || {};
+    const {
+      ritualId = "",
+      ritualName = "",
+      ritualDescription = "",
+      ritualImage = "",
+      bookingMode,
+      panditId,
+      bookingDate = "",
+      dateAndTime,
+      timeSlot,
+      address,
+      templeId = "",
+      price,
+      reason = "",
+      notes = "",
+    } = req.body || {};
 
     if (!isValidObjectId(bookingId)) {
       return res.status(400).json({
@@ -1615,13 +1625,13 @@ export const reschedulePanditBookingByUser = async (req, res) => {
       });
     }
 
-    const resolvedReason = normalizeRequestReason(reason);
-    if (!resolvedReason) {
-      return res.status(400).json({
-        success: false,
-        message: "reason is required",
-      });
-    }
+    // const resolvedReason = normalizeRequestReason(reason);
+    // if (!resolvedReason) {
+    //   return res.status(400).json({
+    //     success: false,
+    //     message: "reason is required",
+    //   });
+    // }
 
     const booking = await PanditBooking.findOne({
       _id: bookingId,
@@ -1649,11 +1659,175 @@ export const reschedulePanditBookingByUser = async (req, res) => {
       });
     }
 
+    const fallbackFromTimeSlot = timeSlot
+      ? [
+          {
+            date: bookingDate || "",
+            time: timeSlot?.time || timeSlot?.label || timeSlot?.startTime || "",
+          },
+        ]
+      : [];
+
+    const normalizedDateAndTime = normalizeDateAndTimePayload(
+      dateAndTime || fallbackFromTimeSlot,
+      bookingDate,
+    );
+
+    if (normalizedDateAndTime.length) {
+      const primaryDateAndTime = normalizedDateAndTime[0];
+      const resolvedBookingDate = String(bookingDate || primaryDateAndTime?.date || "").trim();
+
+      if (!resolvedBookingDate) {
+        return res.status(400).json({
+          success: false,
+          message: "dateAndTime[0].date is required when bookingDate is not provided",
+        });
+      }
+
+      const nextPanditId = panditId || booking.pandit;
+      if (!mongoose.Types.ObjectId.isValid(nextPanditId)) {
+        return res.status(400).json({
+          success: false,
+          message: "Valid panditId is required",
+        });
+      }
+
+      const selectedPandit = await Pandit.findOne({
+        _id: nextPanditId,
+        status: "active",
+        isVerified: true,
+      });
+
+      if (!selectedPandit) {
+        return res.status(400).json({
+          success: false,
+          message: "Selected pandit is not available",
+        });
+      }
+
+      const conflicting = await PanditBooking.findOne({
+        ...getBookedSlotConflictQuery({
+          panditId: selectedPandit._id,
+          bookingDate: resolvedBookingDate,
+          slotDate: primaryDateAndTime.date,
+          slotTime: primaryDateAndTime.time,
+        }),
+        _id: { $ne: booking._id },
+      });
+
+      if (conflicting) {
+        return res.status(409).json({
+          success: false,
+          message: "Selected slot is already booked. Please choose another slot.",
+        });
+      }
+
+      booking.bookingDate = resolvedBookingDate;
+      booking.dateAndTime = { dateAndTime: normalizedDateAndTime };
+      booking.pandit = selectedPandit._id;
+    }
+
+    if (bookingMode !== undefined) {
+      booking.bookingMode = String(bookingMode || "").trim() || booking.bookingMode;
+    }
+
+    if (ritualId) {
+      if (!mongoose.Types.ObjectId.isValid(ritualId)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid ritualId",
+        });
+      }
+
+      const selectedRitual = await Ritual.findOne({
+        _id: ritualId,
+        status: "active",
+      });
+
+      if (!selectedRitual) {
+        return res.status(404).json({
+          success: false,
+          message: "Ritual not found or inactive",
+        });
+      }
+
+      booking.ritualRef = selectedRitual._id;
+      booking.ritual = {
+        name: selectedRitual.title || "",
+        description: selectedRitual.description || "",
+        image: selectedRitual.image || "",
+      };
+    } else if (ritualName || ritualDescription || ritualImage) {
+      booking.ritual = {
+        ...booking.ritual,
+        ...(ritualName ? { name: String(ritualName).trim() } : {}),
+        ...(ritualDescription ? { description: String(ritualDescription).trim() } : {}),
+        ...(ritualImage ? { image: String(ritualImage).trim() } : {}),
+      };
+    }
+
+    if (templeId) {
+      if (!mongoose.Types.ObjectId.isValid(templeId)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid templeId",
+        });
+      }
+
+      const selectedTemple = await temple.findOne({
+        _id: templeId,
+        status: "active",
+      });
+
+      if (!selectedTemple) {
+        return res.status(404).json({
+          success: false,
+          message: "Temple not found or inactive",
+        });
+      }
+
+      booking.temple = selectedTemple._id;
+      booking.templeSnapshot = {
+        name: selectedTemple.name || "",
+        image: selectedTemple.image || "",
+        city: selectedTemple.address?.city || "",
+        state: selectedTemple.address?.state || "",
+        line1: selectedTemple.address?.line1 || "",
+        landmark: selectedTemple.address?.landmark || "",
+      };
+      booking.address = {
+        name: selectedTemple.name || "",
+        phone: selectedTemple.contactPhone || "",
+        secondPhone: selectedTemple.phone || "",
+        email: selectedTemple.email || "",
+        fullAddress: [
+          String(selectedTemple.address?.line1 || "").trim(),
+          String(selectedTemple.address?.line2 || "").trim(),
+          String(selectedTemple.address?.landmark || "").trim(),
+        ]
+          .filter(Boolean)
+          .join(", "),
+        addressType: "temple",
+        city: selectedTemple.address?.city || "",
+        state: selectedTemple.address?.state || "",
+        pincode: selectedTemple.address?.pinCode || "",
+      };
+    } else if (address && typeof address === "object") {
+      booking.address = normalizeBookingAddress(address);
+    }
+
+    if (price !== undefined) {
+      booking.price = Number(price || booking.price || 0);
+    }
+
+    const resolvedReason = normalizeRequestReason(reason);
+    const resolvedNotes = normalizeRequestNotes(notes);
+
     booking.bookingStatus = "reschedule_requested";
     booking.rescheduleRequests = booking.rescheduleRequests || [];
     booking.rescheduleRequests.push({
       reason: resolvedReason,
-      notes: normalizeRequestNotes(notes),
+      notes: resolvedNotes,
       requestedBy: "user",
       requestedAt: new Date(),
     });

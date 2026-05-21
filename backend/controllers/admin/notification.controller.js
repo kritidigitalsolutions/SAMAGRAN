@@ -18,10 +18,16 @@ const buildAdminVisibilityQuery = (adminId) => ({
 
 export const getNotificationHistory = async (req, res) => {
   try {
-    const notifications = await Notification.find()
+    const filter = {};
+
+    if (req.admin?.role === "vendor" && req.admin?.vendorId) {
+      filter.vendorId = req.admin.vendorId;
+    }
+
+    const notifications = await Notification.find(filter)
       .sort({ createdAt: -1 })
       .limit(100)
-      .populate("createdBy", "name email")
+      .populate("createdBy", "name email")  
       .lean();
 
     return res.json({
@@ -67,6 +73,7 @@ export const sendAdminNotification = async (req, res) => {
         type: audienceType,
         ids: target === "all-users" ? [] : targetIds,
       },
+      vendorId: req.admin?.role === "vendor" ? req.admin.vendorId : null,
       sentCount: sendResult.sentCount || 0,
       failedCount: sendResult.failedCount || 0,
       status:
@@ -109,6 +116,10 @@ export const getAdminNotifications = async (req, res) => {
       ...buildAdminVisibilityQuery(adminId),
     };
 
+    if (req.admin?.role === "vendor" && req.admin?.vendorId) {
+      baseQuery.vendorId = req.admin.vendorId;
+    }
+
     if (status === "read") {
       baseQuery.readBy = toObjectId(adminId);
     } else if (status === "unread") {
@@ -148,11 +159,17 @@ export const getAdminNotifications = async (req, res) => {
 export const getAdminUnreadCount = async (req, res) => {
   try {
     const adminId = req.admin?._id;
-    const count = await Notification.countDocuments({
+    const baseQuery = {
       ...buildAdminAudienceQuery(adminId),
       ...buildAdminVisibilityQuery(adminId),
       readBy: { $ne: toObjectId(adminId) },
-    });
+    };
+
+    if (req.admin?.role === "vendor" && req.admin?.vendorId) {
+      baseQuery.vendorId = req.admin.vendorId;
+    }
+
+    const count = await Notification.countDocuments(baseQuery);
 
     return res.json({
       success: true,
@@ -183,6 +200,10 @@ export const markAdminNotificationRead = async (req, res) => {
       ...buildAdminAudienceQuery(adminId),
       ...buildAdminVisibilityQuery(adminId),
     };
+
+    if (req.admin?.role === "vendor" && req.admin?.vendorId) {
+      query.vendorId = req.admin.vendorId;
+    }
 
     const notification = await Notification.findOneAndUpdate(
       query,
@@ -227,6 +248,10 @@ export const deleteAdminNotification = async (req, res) => {
       ...buildAdminAudienceQuery(adminId),
       ...buildAdminVisibilityQuery(adminId),
     };
+
+    if (req.admin?.role === "vendor" && req.admin?.vendorId) {
+      query.vendorId = req.admin.vendorId;
+    }
 
     const notification = await Notification.findOneAndUpdate(
       query,

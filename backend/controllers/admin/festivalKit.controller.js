@@ -2,11 +2,27 @@ import FestivalKit from "../../models/festivalKit.model.js";
 import Item from "../../models/product.model.js";
 import { uploadFileToFirebase } from "../../utils/firebaseUpload.js";
 
+const resolveVendorFilter = (req) => {
+  if (req.admin?.role === "vendor") {
+    return { vendorId: req.admin.vendorId };
+  }
+
+  return {};
+};
+
+const resolveVendorIdForCreate = (req) => {
+  if (req.admin?.role === "vendor") {
+    return req.admin.vendorId || null;
+  }
+
+  return req.body?.vendorId || null;
+};
+
 const parseKitItems = (items) => (typeof items === "string" ? JSON.parse(items) : items);
 
-const buildKitItems = async (items) => {
+const buildKitItems = async (items, vendorFilter = {}) => {
   const productIds = items.map((i) => i.product);
-  const products = await Item.find({ _id: { $in: productIds } });
+  const products = await Item.find({ _id: { $in: productIds }, ...vendorFilter });
 
   if (products.length !== items.length) {
     const error = new Error("Some products are invalid");
@@ -85,11 +101,12 @@ export const createKit = async (req, res) => {
       });
     }
 
-    const { formattedItems, totalPrice } = await buildKitItems(items);
+    const { formattedItems, totalPrice } = await buildKitItems(items, resolveVendorFilter(req));
 
     const savings = totalPrice - kitPrice;
 
     const kit = await FestivalKit.create({
+      vendorId: resolveVendorIdForCreate(req),
       kitType: "special",
       name,
       description,
@@ -125,6 +142,7 @@ export const getAllKits = async (req, res) => {
     const { search, festivalType, status = "all" } = req.query;
     let filter = {
       kitType: "special",
+      ...resolveVendorFilter(req),
     };
 
     if (search) {
@@ -160,6 +178,7 @@ export const getSingleKit = async (req, res) => {
     const kit = await FestivalKit.findOne({
       _id: req.params.id,
       kitType: "special",
+      ...resolveVendorFilter(req),
     })
       .populate("items.product", "title pricing media category");
 
@@ -213,6 +232,7 @@ export const deleteKit = async (req, res) => {
     const kit = await FestivalKit.findOneAndDelete({
       _id: req.params.id,
       kitType: "special",
+      ...resolveVendorFilter(req),
     });
 
     if (!kit) {
@@ -240,6 +260,7 @@ export const updateKit = async (req, res) => {
     const kit = await FestivalKit.findOne({
       _id: req.params.id,
       kitType: "special",
+      ...resolveVendorFilter(req),
     });
 
     if (!kit) {
@@ -273,7 +294,7 @@ export const updateKit = async (req, res) => {
         });
       }
 
-      const computed = await buildKitItems(items);
+      const computed = await buildKitItems(items, resolveVendorFilter(req));
       nextItems = computed.formattedItems;
       nextTotalPrice = computed.totalPrice;
     }

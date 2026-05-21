@@ -5,11 +5,28 @@ const toMoney = (value) => {
   return Number.isFinite(parsed) && parsed >= 0 ? Number(parsed.toFixed(2)) : 0;
 };
 
+const resolveVendorFilter = (req) => {
+  if (req.admin?.role === "vendor") {
+    return { vendorId: req.admin.vendorId };
+  }
+
+  return {};
+};
+
+const resolveVendorIdForCreate = (req) => {
+  if (req.admin?.role === "vendor") {
+    return req.admin.vendorId || null;
+  }
+
+  return req.body?.vendorId || null;
+};
+
 export const createOffer = async (req, res) => {
   try {
     const payload = req.body || {};
 
     const offer = await Offer.create({
+      vendorId: resolveVendorIdForCreate(req),
       title: String(payload.title || "").trim(),
       description: String(payload.description || "").trim(),
       offerType: payload.offerType === "cashback" ? "cashback" : "discount",
@@ -36,7 +53,7 @@ export const createOffer = async (req, res) => {
 
 export const getOffers = async (req, res) => {
   try {
-    const offers = await Offer.find().sort({ createdAt: -1 });
+    const offers = await Offer.find(resolveVendorFilter(req)).sort({ createdAt: -1 });
     return res.json({
       success: true,
       data: offers,
@@ -54,7 +71,7 @@ export const updateOffer = async (req, res) => {
     const { id } = req.params;
     const payload = req.body || {};
 
-    const offer = await Offer.findById(id);
+    const offer = await Offer.findOne({ _id: id, ...resolveVendorFilter(req) });
     if (!offer) {
       return res.status(404).json({
         success: false,
@@ -90,7 +107,7 @@ export const updateOffer = async (req, res) => {
 export const deleteOffer = async (req, res) => {
   try {
     const { id } = req.params;
-    const offer = await Offer.findByIdAndDelete(id);
+    const offer = await Offer.findOneAndDelete({ _id: id, ...resolveVendorFilter(req) });
 
     if (!offer) {
       return res.status(404).json({

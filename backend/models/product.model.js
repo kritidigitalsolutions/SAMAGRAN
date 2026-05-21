@@ -2,6 +2,12 @@ import mongoose from "mongoose";
 
 const itemSchema = new mongoose.Schema(
   {
+    vendorId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Vendor",
+      default: null,
+      index: true,
+    },
     itemCode: { type: String, unique: true, index: true, sparse: true },
     title: { type: String, required: true },
     slug: { type: String },
