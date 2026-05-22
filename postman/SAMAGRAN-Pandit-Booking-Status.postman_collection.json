@@ -1,0 +1,161 @@
+{
+  "info": {
+    "_postman_id": "pandit-booking-status",
+    "name": "SAMAGRAN - Pandit Booking Status Management",
+    "description": "APIs for pandit to manage booking status - confirm, complete, or reject bookings",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Get Pandit's Assigned Bookings",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer YOUR_PANDIT_JWT_TOKEN",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "http://localhost:8000/api/booking-details/bookings",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8000",
+          "path": ["api", "booking-details", "bookings"]
+        },
+        "description": "Get all bookings assigned to the logged-in pandit"
+      },
+      "response": []
+    },
+    {
+      "name": "Confirm Booking",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer YOUR_PANDIT_JWT_TOKEN",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"samagriType\": \"standard\",\n  \"note\": \"I will provide standard pooja samagri\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:8000/api/booking-details/bookings/BOOKING_ID/approve",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8000",
+          "path": ["api", "booking-details", "bookings", "BOOKING_ID", "approve"]
+        },
+        "description": "Pandit confirms/approves the booking"
+      },
+      "response": []
+    },
+    {
+      "name": "Mark Booking as Completed",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer YOUR_PANDIT_JWT_TOKEN",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"completionNote\": \"Pooja completed successfully. User was very satisfied.\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:8000/api/booking-details/bookings/BOOKING_ID/complete",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8000",
+          "path": ["api", "booking-details", "bookings", "BOOKING_ID", "complete"]
+        },
+        "description": "Pandit marks the booking as completed"
+      },
+      "response": []
+    },
+    {
+      "name": "Reject/Cancel Booking",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer YOUR_PANDIT_JWT_TOKEN",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"reasonType\": \"time_slot_already_booked\",\n  \"note\": \"Already have another booking at this time\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:8000/api/booking-details/bookings/BOOKING_ID/reject",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8000",
+          "path": ["api", "booking-details", "bookings", "BOOKING_ID", "reject"]
+        },
+        "description": "Pandit rejects or cancels the booking"
+      },
+      "response": []
+    },
+    {
+      "name": "Reject with Custom Reason",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer YOUR_PANDIT_JWT_TOKEN",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"reasonType\": \"other\",\n  \"otherReason\": \"Health issue on that day\",\n  \"note\": \"Will be available next week\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:8000/api/booking-details/bookings/BOOKING_ID/reject",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8000",
+          "path": ["api", "booking-details", "bookings", "BOOKING_ID", "reject"]
+        },
+        "description": "Reject with custom reason"
+      },
+      "response": []
+    }
+  ]
+}

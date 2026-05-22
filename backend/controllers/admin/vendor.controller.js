@@ -45,7 +45,9 @@ const normalizePageAccess = (value) => {
 
 export const listVendors = async (req, res) => {
   try {
-    const { search = "", status = "all" } = req.query;
+    const { search = "", status = "all", page = 1, limit = 10 } = req.query;
+    const pageNumber = Math.max(parseInt(page, 10) || 1, 1);
+    const limitNumber = Math.max(parseInt(limit, 10) || 10, 1);
     const filter = {};
 
     if (status !== "all") {
@@ -57,9 +59,24 @@ export const listVendors = async (req, res) => {
       filter.$or = [{ name: regex }, { businessName: regex }, { email: regex }, { phone: regex }];
     }
 
-    const vendors = await Vendor.find(filter).sort({ createdAt: -1 }).lean();
+    const totalItems = await Vendor.countDocuments(filter);
+    const vendors = await Vendor.find(filter)
+      .sort({ createdAt: -1 })
+      .skip((pageNumber - 1) * limitNumber)
+      .limit(limitNumber)
+      .lean();
 
-    return res.json({ success: true, data: { vendors } });
+    const totalPages = Math.max(Math.ceil(totalItems / limitNumber), 1);
+
+    return res.json({
+      success: true,
+      data: {
+        vendors,
+        totalPages,
+        totalItems,
+        page: pageNumber,
+      },
+    });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message || "Unable to load vendors" });
   }
@@ -90,6 +107,7 @@ export const createVendor = async (req, res) => {
       address = {},
       pageAccess = [],
       notes = "",
+      role, // Extract role from request body
     } = req.body || {};
 
     if (!name || !email || !phone || !password) {
@@ -138,7 +156,7 @@ export const createVendor = async (req, res) => {
       name: String(name).trim(),
       email: String(email).trim(),
       password: hashedPassword,
-      role: "vendor",
+      role: role || "vendor", // Use provided role or default to "vendor"
       vendorId: vendor._id,
     });
 

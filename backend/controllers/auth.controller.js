@@ -3,6 +3,9 @@ import generateToken from "../utils/generateToken.js";
 import OTP from "../models/otp.model.js";
 import Coupon from "../models/coupon.model.js";
 import { notifyAdmins, updateDeviceToken } from "../utils/notification.service.js";
+import { sendOtpSms } from "../utils/sms.service.js";
+import { uploadFileToFirebase } from "../utils/firebaseUpload.js";
+import { isFirebaseReady } from "../config/firebase.js";
 
 // 📌 Helper: Phone validation
 const validatePhone = (phone) => {
@@ -63,10 +66,59 @@ const createWelcomeCouponForUser = async (user) => {
 
 export const signup = async (req, res) => {
   try {
+    console.log("🚀 SIGNUP REQUEST STARTED");
+    console.log("  Firebase Ready:", isFirebaseReady ? "✅ YES" : "⚠️ NO");
+    console.log("  Has file:", !!req.file ? "✅ YES" : "❌ NO");
+    
     let { phone, name, email, address } = req.body;
-const profileImage = req.file
-  ? `${req.protocol}://${req.get("host")}/uploads/${req.file.filename}`
-  : req.body.profileImage || null;
+    
+    let profileImage = null;
+    if (req.file) {
+      try {
+        console.log("📸 File received from request:", {
+          filename: req.file.originalname,
+          encoding: req.file.encoding,
+          mimetype: req.file.mimetype,
+          size: req.file.size,
+          destination: req.file.destination,
+          filename_saved: req.file.filename,
+          path: req.file.path,
+          hasBuffer: !!req.file.buffer,
+          hasPath: !!req.file.path,
+          fieldname: req.file.fieldname,
+        });
+        
+        console.log("📸 Uploading profile image to Firebase...", {
+          filename: req.file.originalname,
+          mimetype: req.file.mimetype,
+          size: req.file.size,
+          hasBuffer: !!req.file.buffer,
+          hasPath: !!req.file.path,
+        });
+        profileImage = await uploadFileToFirebase(req.file, { folder: "users/profile" });
+        console.log("✅ Profile image upload result:", {
+          success: !!profileImage,
+          profileImage: profileImage ? profileImage.substring(0, 80) + "..." : "NULL/EMPTY",
+          type: typeof profileImage,
+          length: profileImage?.length || 0,
+        });
+        
+        if (!profileImage || profileImage === "") {
+          console.warn("⚠️  WARNING: uploadFileToFirebase returned empty/null value");
+        }
+      } catch (uploadError) {
+        console.error("❌ Profile image upload ERROR:", {
+          error: uploadError.message,
+          stack: uploadError.stack,
+        });
+        // Continue with signup even if image upload fails
+      }
+    } else if (req.body.profileImage) {
+      profileImage = req.body.profileImage;
+      console.log("📸 Using provided profileImage URL:", profileImage);
+    } else {
+      console.log("⚠️  No profile image file provided in req.file");
+    }
 
     if (!phone) {
       return res.status(400).json({
@@ -96,7 +148,15 @@ const profileImage = req.file
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
-    await OTP.findOneAndUpdate(
+    console.log("💾 SAVING TO OTP:", {
+      phone,
+      name,
+      email,
+      address,
+      profileImage: profileImage ? profileImage.substring(0, 80) + "..." : "NULL/EMPTY ⚠️",
+    });
+
+    const otpSaveResult = await OTP.findOneAndUpdate(
       { phone },
       {
         phone,
@@ -105,21 +165,34 @@ const profileImage = req.file
         name,
         email,
         address,
-        profileImage,
+        profileImage, // This should be a Firebase URL or null
         type: "signup",
       },
-      { upsert: true, new: true }
+      { upsert: true, returnDocument: "after" }
     );
 
+    console.log("✅ OTP SAVED TO DB:", {
+      phone: otpSaveResult.phone,
+      hasProfileImage: !!otpSaveResult.profileImage,
+      profileImage: otpSaveResult.profileImage ? otpSaveResult.profileImage.substring(0, 80) + "..." : "NULL ⚠️",
+    });
+
+    // 📱 Send OTP via SMS Gateway
+    const smsSent = await sendOtpSms(phone, otp, "user");
+    
     res.json({
       success: true,
       isNewUser: true,
       message: "OTP sent for signup",
-      data: { OTP: otp },
+      data: { 
+        OTP: otp,
+        smsSent: smsSent.success,
+        smsStatus: smsSent.success ? "delivered" : "failed"
+      },
     });
-    console.log("The OTP is:", OTP)
+    console.log("The OTP is:", otp)
   } catch (err) {
-    console.error("SIGNUP ERROR:", err);
+    console.error("❌ SIGNUP ERROR:", err);
     res.status(500).json({
       success: false,
       message: "Server error",
@@ -167,14 +240,21 @@ export const login = async (req, res) => {
         // expiresAt: new Date(Date.now() + 5 * 60 * 1000),
         type: "login",
       },
-      { upsert: true, new: true }
+      { upsert: true, returnDocument: "after" }
     );
 
+    // 📱 Send OTP via SMS Gateway
+    const smsSent = await sendOtpSms(phone, otp, "user");
+    
     res.json({
       success: true,
       isNewUser:false,
       message: "OTP sent for login",
-      data: { OTP: otp },
+      data: { 
+        OTP: otp,
+        smsSent: smsSent.success,
+        smsStatus: smsSent.success ? "delivered" : "failed"
+      },
     });
     console.log(`The Login OTP is :`, otp)
   } catch (err) {
@@ -283,19 +363,46 @@ export const verifyOtp = async (req, res) => {
       });
     }
 
+    console.log("📋 OTP verified, found OTP doc:", {
+      phone: otpDoc.phone,
+      hasProfileImage: !!otpDoc.profileImage,
+      profileImage: otpDoc.profileImage ? otpDoc.profileImage.substring(0, 80) + "..." : "NULL ⚠️",
+      type: otpDoc.type,
+    });
+
     let user = await User.findOne({ phone });
     let isNewUser = false;
     let isFcmTokenUpdated = false;
 
     // Signup flow
     if (!user && otpDoc.type === "signup") {
+      console.log("👤 Creating new user with data:", {
+        phone: otpDoc.phone,
+        name: otpDoc.name,
+        profileImage: otpDoc.profileImage ? otpDoc.profileImage.substring(0, 80) + "..." : "NULL ⚠️",
+      });
+      
       user = await User.create({
         phone: otpDoc.phone,
         name: otpDoc.name,
         email: otpDoc.email,
         address: otpDoc.address,
-        profileImage: otpDoc.profileImage,
+        profileImage: otpDoc.profileImage, // THIS is key - should copy from OTP
         isProfileComplete: true,
+      });
+
+      console.log("✅ User created in DB:", {
+        _id: user._id,
+        phone: user.phone,
+        hasProfileImage: !!user.profileImage,
+        profileImage: user.profileImage ? user.profileImage.substring(0, 80) + "..." : "NULL ⚠️",
+      });
+
+      // 🔄 Fetch user again to ensure all fields including profileImage are populated
+      user = await User.findById(user._id);
+      console.log("🔄 User refreshed after create:", {
+        hasProfileImage: !!user.profileImage,
+        profileImage: user.profileImage ? user.profileImage.substring(0, 80) + "..." : "NULL ⚠️",
       });
 
       try {
@@ -338,9 +445,42 @@ export const verifyOtp = async (req, res) => {
       }
     }
 
+    // 🔄 Ensure user object has all fields including profileImage before returning
+    if (!user.profileImage && user._id) {
+      console.log("🔄 profileImage missing, doing extra refresh...");
+      const freshUser = await User.findById(user._id);
+      if (freshUser) {
+        user = freshUser;
+        console.log("🔄 User refreshed (extra), now has profileImage:", user.profileImage ? "✅ " + user.profileImage.substring(0, 80) + "..." : "❌ still missing");
+      }
+    }
+
+    // 🔄 Final refresh to ensure all fields are in the response
+    const finalUser = await User.findById(user._id);
+    if (finalUser) {
+      user = finalUser;
+      console.log("🔄 Final user refresh complete:", {
+        phone: user.phone,
+        hasProfileImage: !!user.profileImage,
+        profileImage: user.profileImage ? user.profileImage.substring(0, 80) + "..." : "NULL ⚠️",
+      });
+    }
+
     await OTP.deleteOne({ phone });
 
     const token = generateToken(user._id);
+
+    console.log("📤 FINAL RESPONSE DATA:", {
+      token: token.substring(0, 50) + "...",
+      isNewUser,
+      user: {
+        _id: user._id,
+        phone: user.phone,
+        name: user.name,
+        hasProfileImage: !!user.profileImage,
+        profileImage: user.profileImage ? user.profileImage.substring(0, 80) + "..." : "NULL ❌❌❌",
+      },
+    });
 
     res.json({
       success: true,
@@ -442,15 +582,22 @@ export const resendOtp = async (req, res) => {
         otp,
         type: "login",
       },
-      { upsert: true, new: true }
+      { upsert: true, returnDocument: "after" }
     );
+
+    // 📱 Send OTP via SMS Gateway
+    const smsSent = await sendOtpSms(phone, otp, "user");
 
     console.log("RESEND OTP:", otp);
 
     res.json({
       success: true,
       message: "OTP resent",
-      data: { OTP: otp },
+      data: { 
+        OTP: otp,
+        smsSent: smsSent.success,
+        smsStatus: smsSent.success ? "delivered" : "failed"
+      },
     });
 
   } catch (err) {

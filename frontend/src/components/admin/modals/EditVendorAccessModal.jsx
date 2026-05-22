@@ -4,14 +4,13 @@ import { toast } from "react-toastify";
 
 const ALL_PAGES = [
   "dashboard",
+  "users",
   "orders",
   "products",
   "kits",
-  "users",
-  "delivery-boys",
+  "pandits",
   "rituals",
   "temples",
-  "pandits",
   "pandit-bookings",
   "banners",
   "coupons",
@@ -20,10 +19,12 @@ const ALL_PAGES = [
   "custom-samagri",
   "notifications",
   "settings",
+  "delivery-boys",
   "transactions",
   "earnings",
   "withdrawals",
   "refunds",
+  "vendors",
 ];
 
 const EditVendorAccessModal = ({ vendor, onClose, onAccessUpdate }) => {

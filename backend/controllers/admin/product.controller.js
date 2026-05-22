@@ -1,5 +1,6 @@
 import Item from "../../models/product.model.js";
 import { uploadFileToFirebase } from "../../utils/firebaseUpload.js";
+import { notifyAdmins, notifyVendorsByIds } from "../../utils/notification.service.js";
 
 const escapeRegex = (value = "") => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
@@ -219,6 +220,34 @@ export const addProduct = async (req, res) => {
       },
       status: status || "active",
     });
+
+    // 📱 Notify vendor if product is created by vendor
+    const vendorId = resolveVendorIdForCreate(req);
+    if (vendorId) {
+      void notifyVendorsByIds({
+        vendorIds: [vendorId],
+        title: "Product added",
+        body: `Your product "${title}" has been added successfully`,
+        data: {
+          eventType: "product.created",
+          productId: String(item._id),
+          vendorId: String(vendorId),
+          title,
+        },
+      }).catch((error) => console.error("VENDOR PRODUCT NOTIFICATION ERROR:", error.message));
+    }
+
+    // 📱 Notify admins of new product
+    void notifyAdmins({
+      title: "New product added",
+      body: `"${title}" by ${vendorId ? "vendor" : "admin"}`,
+      data: {
+        eventType: "product.created",
+        productId: String(item._id),
+        vendorId: vendorId ? String(vendorId) : null,
+        title,
+      },
+    }).catch((error) => console.error("ADMIN PRODUCT NOTIFICATION ERROR:", error.message));
 
     res.status(201).json({
       success: true,
@@ -632,6 +661,21 @@ export const updateProduct = async (req, res) => {
     }
 
     await item.save();
+
+    // 📱 Notify vendor if product is updated by vendor
+    if (item.vendorId) {
+      void notifyVendorsByIds({
+        vendorIds: [item.vendorId],
+        title: "Product updated",
+        body: `Your product "${item.title}" has been updated`,
+        data: {
+          eventType: "product.updated",
+          productId: String(item._id),
+          vendorId: String(item.vendorId),
+          title: item.title,
+        },
+      }).catch((error) => console.error("VENDOR PRODUCT UPDATE NOTIFICATION ERROR:", error.message));
+    }
 
     const { price: p, mrp: m, currency, basePrice, gstPercent: gRate, gstAmount, priceIncludesGst: includesGst } = item.pricing;
 

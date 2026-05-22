@@ -120,6 +120,14 @@ const panditBookingSchema = new mongoose.Schema(
         type: String,
         default: "UPI",
       },
+      walletAmount: {
+        type: Number,
+        default: 0,
+      },
+      amountDue: {
+        type: Number,
+        default: 0,
+      },
       transactionId: {
         type: String,
         default: "",

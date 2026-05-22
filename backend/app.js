@@ -3,6 +3,7 @@ import cors from "cors";
 import bcrypt from "bcryptjs";
 import Admin from "./models/admin.model.js";
 import connectDB from "./config/db.js";
+// import { testSmsGateway } from "./utils/sms.service.js";
 
 const app = express();
 app.set("trust proxy", 1);
@@ -78,6 +79,13 @@ app.get("/", (req, res) => {
   res.send("API is running...");
 });
 
+// // Test SMS Gateway
+// app.get("/api/test-sms", async (req, res) => {
+//   console.log("\n🧪 SMS Gateway Test Endpoint Called");
+//   const result = await testSmsGateway();
+//   res.json(result);
+// });
+
 // Admin ROUTES
 import adminKitRoutes from "./routes/admin/kit.routes.js";
 import userKitRoutes from "./routes/user/kit.routes.js";
@@ -105,6 +113,7 @@ import panditAuthRoutes from "./routes/pandit/pandit.auth.routes.js";
 import deliveryAuthRoutes from "./routes/delivery/delivery.auth.routes.js";
 import deliveryRoutes from "./routes/delivery/delivery.routes.js";
 import vendorAuthRoutes from "./routes/vendor/vendor.auth.routes.js";
+import vendorProductRoutes from "./routes/vendor/product.routes.js";
 
 
 // User Routs
@@ -216,6 +225,7 @@ app.use("/api/pandit/auth", panditAuthRoutes);
 app.use("/api/delivery/auth", deliveryAuthRoutes);
 app.use("/api/delivery", deliveryRoutes);
 app.use("/api/vendor/auth", vendorAuthRoutes);
+app.use("/api/vendor/items", vendorProductRoutes);
 
 // user routs for user side
 app.use("/api/user", userRoutes);

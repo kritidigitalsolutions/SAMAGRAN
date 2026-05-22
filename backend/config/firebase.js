@@ -41,12 +41,21 @@ if (hasFirebaseCredentials) {
 
     if (hasFirebaseStorageBucket) {
       bucket = admin.storage().bucket();
+      console.log("✅ Firebase Storage initialized with bucket:", process.env.FIREBASE_STORAGE_BUCKET);
+    } else {
+      console.warn("⚠️  FIREBASE_STORAGE_BUCKET not configured");
     }
   } catch (error) {
-    console.error("Firebase initialization failed:", error.message);
+    console.error("❌ Firebase initialization failed:", error.message);
   }
 } else {
-  console.warn("Firebase env vars are missing. Firebase uploads and messaging will be unavailable.");
+  console.warn("⚠️⚠️⚠️ Firebase env vars are MISSING. Firebase uploads will NOT work:");
+  console.warn("  - FIREBASE_PROJECT_ID:", process.env.FIREBASE_PROJECT_ID ? "✓" : "❌");
+  console.warn("  - FIREBASE_PRIVATE_KEY_ID:", process.env.FIREBASE_PRIVATE_KEY_ID ? "✓" : "❌");
+  console.warn("  - FIREBASE_PRIVATE_KEY:", process.env.FIREBASE_PRIVATE_KEY ? "✓" : "❌");
+  console.warn("  - FIREBASE_CLIENT_EMAIL:", process.env.FIREBASE_CLIENT_EMAIL ? "✓" : "❌");
+  console.warn("  - FIREBASE_CLIENT_ID:", process.env.FIREBASE_CLIENT_ID ? "✓" : "❌");
+  console.warn("  - FIREBASE_STORAGE_BUCKET:", process.env.FIREBASE_STORAGE_BUCKET ? "✓" : "❌");
 }
 
 export const firebaseAdmin = admin;

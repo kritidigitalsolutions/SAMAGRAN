@@ -34,6 +34,15 @@ const vendorSchema = new mongoose.Schema(
       default: null,
     },
     approvedAt: { type: Date, default: null },
+    fcmToken: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    fcmTokenUpdatedAt: {
+      type: Date,
+      default: null,
+    },
   },
   { timestamps: true }
 );

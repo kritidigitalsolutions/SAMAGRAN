@@ -11,10 +11,10 @@ import { protectAdmin } from "../../middleware/admin.middleware.js";
 
 const router = express.Router();
 
-router.post("/add", protectAdmin, upload.array("images", 5), addProduct);
+router.post("/add", protectAdmin, upload.array("images", 10), addProduct);
 router.get("/", protectAdmin, getProducts);
 router.get("/:id", protectAdmin, getSingleProduct);
-router.put("/:id", protectAdmin, upload.array("images", 5), updateProduct);
+router.put("/:id", protectAdmin, upload.array("images", 10), updateProduct);
 router.delete("/:id", protectAdmin, deleteProduct);
 
 export default router;

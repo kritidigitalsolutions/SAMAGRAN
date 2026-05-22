@@ -93,3 +93,18 @@ export const applyCoupon = async (req, res) => {
     });
   }
 };
+
+export const getCoupons = async (req, res) => {
+  try {
+    const coupons = await Coupon.find().sort({ createdAt: -1 });
+    return res.json({
+      success: true,
+      data: coupons,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};

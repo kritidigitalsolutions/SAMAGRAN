@@ -1,6 +1,8 @@
+import mongoose from "mongoose";
 import Admin from "../models/admin.model.js";
 import User from "../models/user.model.js";
 import Pandit from "../models/pandit.model.js";
+import Vendor from "../models/vendor.model.js";
 import Notification from "../models/notification.model.js";
 import { isFcmTokenValid, sendPushNotifications } from "./fcm.service.js";
 
@@ -90,6 +92,76 @@ export const notifyPandits = async ({ title, body, data = {} }) => {
     body,
     data,
   });
+};
+
+export const notifyVendors = async ({ title, body, data = {} }) => {
+  const vendors = await Vendor.find(queryWithToken).select("fcmToken").lean();
+  const sendResult = await sendPushNotifications({
+    tokens: collectTokens(vendors),
+    title,
+    body,
+    data,
+  });
+
+  try {
+    await Notification.create({
+      title: String(title || "").trim(),
+      body: String(body || "").trim(),
+      data: data || {},
+      audience: { type: "vendor", ids: [] },
+      sentCount: sendResult.sentCount || 0,
+      failedCount: sendResult.failedCount || 0,
+      status: mapSendStatus(sendResult.status),
+      error: sendResult.error || sendResult.message || "",
+    });
+  } catch {
+    // ignore persistence errors
+  }
+
+  return sendResult;
+};
+
+export const notifyVendorsByIds = async ({ vendorIds = [], title, body, data = {} }) => {
+  if (!Array.isArray(vendorIds) || !vendorIds.length) {
+    return {
+      status: "SKIPPED",
+      message: "No vendor ids provided",
+      sentCount: 0,
+      failedCount: 0,
+      responses: [],
+    };
+  }
+
+  const vendors = await Vendor.find({
+    _id: { $in: vendorIds },
+    ...queryWithToken,
+  })
+    .select("fcmToken")
+    .lean();
+
+  const sendResult = await sendPushNotifications({
+    tokens: collectTokens(vendors),
+    title,
+    body,
+    data,
+  });
+
+  try {
+    await Notification.create({
+      title: String(title || "").trim(),
+      body: String(body || "").trim(),
+      data: data || {},
+      audience: { type: "vendor", ids: vendorIds.map((id) => new mongoose.Types.ObjectId(id)) },
+      sentCount: sendResult.sentCount || 0,
+      failedCount: sendResult.failedCount || 0,
+      status: mapSendStatus(sendResult.status),
+      error: sendResult.error || sendResult.message || "",
+    });
+  } catch {
+    // ignore persistence errors
+  }
+
+  return sendResult;
 };
 
 export const updateDeviceToken = async ({ Model, id, token }) => {

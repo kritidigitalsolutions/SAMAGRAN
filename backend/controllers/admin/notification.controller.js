@@ -111,13 +111,26 @@ export const getAdminNotifications = async (req, res) => {
     const limit = Math.max(Number(req.query.limit || 20), 1);
     const status = String(req.query.status || "all").toLowerCase();
 
-    const baseQuery = {
-      ...buildAdminAudienceQuery(adminId),
-      ...buildAdminVisibilityQuery(adminId),
-    };
-
-    if (req.admin?.role === "vendor" && req.admin?.vendorId) {
-      baseQuery.vendorId = req.admin.vendorId;
+    // For vendors, show vendor notifications; for admins, show admin notifications
+    const isVendor = req.admin?.role === "vendor" && req.admin?.vendorId;
+    
+    let baseQuery;
+    if (isVendor) {
+      // Vendors see vendor-type notifications for their vendorId
+      baseQuery = {
+        "audience.type": "vendor",
+        $or: [
+          { "audience.ids": { $size: 0 } },
+          { "audience.ids": new mongoose.Types.ObjectId(req.admin.vendorId) },
+        ],
+        deletedBy: { $ne: new mongoose.Types.ObjectId(adminId) },
+      };
+    } else {
+      // Admins see admin-type notifications
+      baseQuery = {
+        ...buildAdminAudienceQuery(adminId),
+        ...buildAdminVisibilityQuery(adminId),
+      };
     }
 
     if (status === "read") {
@@ -159,14 +172,27 @@ export const getAdminNotifications = async (req, res) => {
 export const getAdminUnreadCount = async (req, res) => {
   try {
     const adminId = req.admin?._id;
-    const baseQuery = {
-      ...buildAdminAudienceQuery(adminId),
-      ...buildAdminVisibilityQuery(adminId),
-      readBy: { $ne: toObjectId(adminId) },
-    };
-
-    if (req.admin?.role === "vendor" && req.admin?.vendorId) {
-      baseQuery.vendorId = req.admin.vendorId;
+    
+    // For vendors, count vendor-type unread notifications; for admins, count admin-type unread
+    const isVendor = req.admin?.role === "vendor" && req.admin?.vendorId;
+    
+    let baseQuery;
+    if (isVendor) {
+      baseQuery = {
+        "audience.type": "vendor",
+        $or: [
+          { "audience.ids": { $size: 0 } },
+          { "audience.ids": new mongoose.Types.ObjectId(req.admin.vendorId) },
+        ],
+        deletedBy: { $ne: new mongoose.Types.ObjectId(adminId) },
+        readBy: { $ne: toObjectId(adminId) },
+      };
+    } else {
+      baseQuery = {
+        ...buildAdminAudienceQuery(adminId),
+        ...buildAdminVisibilityQuery(adminId),
+        readBy: { $ne: toObjectId(adminId) },
+      };
     }
 
     const count = await Notification.countDocuments(baseQuery);
@@ -195,14 +221,26 @@ export const markAdminNotificationRead = async (req, res) => {
       });
     }
 
-    const query = {
-      _id: notificationId,
-      ...buildAdminAudienceQuery(adminId),
-      ...buildAdminVisibilityQuery(adminId),
-    };
-
-    if (req.admin?.role === "vendor" && req.admin?.vendorId) {
-      query.vendorId = req.admin.vendorId;
+    // For vendors, check vendor-type notifications; for admins, check admin-type notifications
+    const isVendor = req.admin?.role === "vendor" && req.admin?.vendorId;
+    
+    let query;
+    if (isVendor) {
+      query = {
+        _id: notificationId,
+        "audience.type": "vendor",
+        $or: [
+          { "audience.ids": { $size: 0 } },
+          { "audience.ids": new mongoose.Types.ObjectId(req.admin.vendorId) },
+        ],
+        deletedBy: { $ne: new mongoose.Types.ObjectId(adminId) },
+      };
+    } else {
+      query = {
+        _id: notificationId,
+        ...buildAdminAudienceQuery(adminId),
+        ...buildAdminVisibilityQuery(adminId),
+      };
     }
 
     const notification = await Notification.findOneAndUpdate(
@@ -243,14 +281,26 @@ export const deleteAdminNotification = async (req, res) => {
       });
     }
 
-    const query = {
-      _id: notificationId,
-      ...buildAdminAudienceQuery(adminId),
-      ...buildAdminVisibilityQuery(adminId),
-    };
-
-    if (req.admin?.role === "vendor" && req.admin?.vendorId) {
-      query.vendorId = req.admin.vendorId;
+    // For vendors, check vendor-type notifications; for admins, check admin-type notifications
+    const isVendor = req.admin?.role === "vendor" && req.admin?.vendorId;
+    
+    let query;
+    if (isVendor) {
+      query = {
+        _id: notificationId,
+        "audience.type": "vendor",
+        $or: [
+          { "audience.ids": { $size: 0 } },
+          { "audience.ids": new mongoose.Types.ObjectId(req.admin.vendorId) },
+        ],
+        deletedBy: { $ne: new mongoose.Types.ObjectId(adminId) },
+      };
+    } else {
+      query = {
+        _id: notificationId,
+        ...buildAdminAudienceQuery(adminId),
+        ...buildAdminVisibilityQuery(adminId),
+      };
     }
 
     const notification = await Notification.findOneAndUpdate(

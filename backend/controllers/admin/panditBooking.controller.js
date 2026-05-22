@@ -25,6 +25,25 @@ export const getAllPanditBookingsForAdmin = async (req, res) => {
       .populate("pandit", "fullName phone")
       .sort({ createdAt: -1 });
 
+    await Promise.all(
+      bookings.map(async (booking) => {
+        const payment = booking?.payment || {};
+        const walletAmount = Number(payment.walletAmount || 0);
+        const amountDue = Number(payment.amountDue || 0);
+        const dakshinaAmount = Number(booking.dakshinaAmount || 0);
+        const isWalletPaid =
+          String(payment.method || "").toUpperCase() === "WALLET" ||
+          (amountDue <= 0 && walletAmount >= dakshinaAmount && dakshinaAmount > 0);
+
+        if (isWalletPaid && String(payment.status || "").toLowerCase() !== "paid") {
+          booking.payment.status = "paid";
+          booking.payment.gateway = booking.payment.gateway || "wallet";
+          booking.payment.paidAt = booking.payment.paidAt || new Date();
+          await booking.save();
+        }
+      })
+    );
+
     res.json({
       success: true,
       count: bookings.length,

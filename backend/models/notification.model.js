@@ -4,7 +4,7 @@ const notificationRecipientSchema = new mongoose.Schema(
   {
     type: {
       type: String,
-      enum: ["admin", "user", "pandit"],
+      enum: ["admin", "user", "pandit", "vendor"],
       default: "user",
     },
     ids: {

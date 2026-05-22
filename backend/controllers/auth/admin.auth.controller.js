@@ -117,3 +117,51 @@ export const updateAdminFcmToken = async (req, res) => {
     });
   }
 };
+
+export const updateVendorFcmToken = async (req, res) => {
+  try {
+    const { fcmToken = "" } = req.body || {};
+    const token = String(fcmToken || "").trim();
+
+    if (!token) {
+      return res.status(400).json({
+        success: false,
+        message: "fcmToken is required",
+      });
+    }
+
+    // Only vendors should be able to update their FCM token
+    if (req.admin?.role !== "vendor" || !req.admin?.vendorId) {
+      return res.status(403).json({
+        success: false,
+        message: "Only vendors can update vendor FCM token",
+      });
+    }
+
+    const vendor = await updateDeviceToken({
+      Model: Vendor,
+      id: req.admin.vendorId,
+      token,
+    });
+
+    if (!vendor) {
+      return res.status(404).json({
+        success: false,
+        message: "Vendor not found",
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: "Vendor FCM token updated",
+      data: {
+        vendorId: vendor._id,
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Unable to update FCM token",
+    });
+  }
+};

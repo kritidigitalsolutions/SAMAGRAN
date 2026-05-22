@@ -4,6 +4,7 @@ import PanditOTP from "../../models/panditOtp.model.js";
 import { login } from "../auth.controller.js";
 import { notifyAdmins, updateDeviceToken } from "../../utils/notification.service.js";
 import { uploadFileToFirebase } from "../../utils/firebaseUpload.js";
+import { sendOtpSms } from "../../utils/sms.service.js";
 
 const validatePhone = (phone) => /^[6-9]\d{9}$/.test(phone);
 const normalizeName = (value = "") => String(value || "").trim().toLowerCase();
@@ -238,10 +239,13 @@ export const requestPanditOtp = async (req, res) => {
         isVerified: false,
         verifiedAt: null,
       },
-      { upsert: true, new: true }
+      { upsert: true, returnDocument: "after" }
     );
 
     await PanditOTP.deleteMany({ phone, type: authType === "signup" ? "login" : "signup" });
+
+    // 📱 Send OTP via SMS Gateway
+    const smsSent = await sendOtpSms(phone, otp, "pandit");
 
     res.json({
       success: true,
@@ -250,6 +254,8 @@ export const requestPanditOtp = async (req, res) => {
       message: `OTP sent for pandit ${authType}`,
       data: {
         OTP: otp,
+        smsSent: smsSent.success,
+        smsStatus: smsSent.success ? "delivered" : "failed"
       },
     });
   } catch (err) {
@@ -335,30 +341,17 @@ export const verifyPanditOtp = async (req, res) => {
 
     await PanditOTP.deleteMany({ phone, type: otpDoc.type });
 
+    // 🔐 For new signup: Don't create Pandit yet, just verify OTP
+    // Pandit record will be created when they complete their profile
     if (!pandit) {
-      const createdPandit = await Pandit.create({
-        phone,
-        fullName: otpDoc.fullName || "",
-        isPhoneVerified: true,
-      });
-
-      void notifyAdmins({
-        title: "New pandit account created",
-        body: `${createdPandit.fullName || createdPandit.phone || "A pandit"} signed up`,
-        data: {
-          eventType: "pandit.signup",
-          panditId: String(createdPandit._id),
-          phone: createdPandit.phone,
-        },
-      }).catch((error) => console.error("PANDIT SIGNUP NOTIFICATION ERROR:", error.message));
-
       return res.json({
         success: true,
         isNewPandit: true,
-        message: "Signup successful, please complete your profile",
+        message: "OTP verified successfully! Please complete your profile",
         data: {
           phone,
           flow: "signup",
+          // No token yet - token will be generated after profile completion
         },
       });
     }
@@ -420,6 +413,7 @@ export const updatePanditProfile = async (req, res) => {
   try {
     const body = req.body || {};
     let pandit = null;
+    let isNewPandit = false;
 
     if (req.pandit?._id) {
       pandit = await Pandit.findById(req.pandit._id);
@@ -434,16 +428,22 @@ export const updatePanditProfile = async (req, res) => {
         });
       }
 
-      
-
       const validSession = await PanditOTP.findOne({
         phone,
         isVerified: true,
       }).sort({ verifiedAt: -1 });
 
+      if (!validSession) {
+        return res.status(400).json({
+          success: false,
+          message: "Please verify OTP first",
+        });
+      }
+
       pandit = await Pandit.findOne({ phone });
 
       if (!pandit) {
+        isNewPandit = true;
         pandit = await Pandit.create({
           phone,
           fullName: validSession?.fullName || "",
@@ -634,6 +634,19 @@ export const updatePanditProfile = async (req, res) => {
       }
     }
     await pandit.save();
+
+    // 📢 Notify admins only when new pandit completes profile
+    if (isNewPandit && pandit.isProfileComplete) {
+      void notifyAdmins({
+        title: "New pandit account created",
+        body: `${pandit.fullName || pandit.phone || "A pandit"} completed their profile`,
+        data: {
+          eventType: "pandit.signup",
+          panditId: String(pandit._id),
+          phone: pandit.phone,
+        },
+      }).catch((error) => console.error("PANDIT SIGNUP NOTIFICATION ERROR:", error.message));
+    }
 
     let token = null;
     if (pandit.isProfileComplete) {

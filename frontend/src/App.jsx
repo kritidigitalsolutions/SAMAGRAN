@@ -32,6 +32,7 @@ import DeliveryDashboard from "./pages/DeliveryDashboard";
 import VendorSignup from "./pages/vendor/VendorSignup";
 import Vendors from "./pages/admin/Vendors";
 import VendorSettings from "./pages/VendorSettings";
+import VendorDetails from "./pages/admin/VendorDetails";
 
 function App() {
   return (
@@ -86,6 +87,14 @@ function App() {
           element={
             <AccessRoute pageKey="vendors">
               <Vendors />
+            </AccessRoute>
+          }
+        />
+        <Route
+          path="vendors/:vendorId"
+          element={
+            <AccessRoute pageKey="vendors">
+              <VendorDetails />
             </AccessRoute>
           }
         />
