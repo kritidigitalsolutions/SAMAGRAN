@@ -18,7 +18,7 @@ router.patch("/fcm-token", protectPandit, updatePanditFcmToken);
 
 router.get("/profile", protectPandit, getPanditProfile);
 
-router.patch(
+router.post(
   "/complete-profile",
   upload.fields([
     { name: "profileImage", maxCount: 1 },

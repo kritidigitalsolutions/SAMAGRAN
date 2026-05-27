@@ -1,35 +1,76 @@
 import { NavLink, useNavigate } from "react-router-dom";
 import { clearAdminSession, getAdminPageAccess, getAdminRole } from "../utils/auth";
 
-const navItems = [
-  { label: "Dashboard", path: "/dashboard", icon: "dashboard", accessKey: "dashboard" },
+const navSections = [
   {
-    label: "Vendors",
-    path: "/dashboard/vendors",
-    icon: "vendors",
-    accessKey: "vendors",
-    role: "super-admin",
+    heading: "Overview",
+    items: [
+      { label: "Dashboard", path: "/dashboard", icon: "dashboard", accessKey: "dashboard" },
+    ],
   },
-  { label: "Products", path: "/dashboard/items", icon: "box", accessKey: "products" },
-  { label: "Kits", path: "/dashboard/kits", icon: "gift", accessKey: "kits" },
-  { label: "Users", path: "/dashboard/users", icon: "users", accessKey: "users" },
-  { label: "Orders", path: "/dashboard/orders", icon: "orders", accessKey: "orders" },
-  { label: "Delivery Boys", path: "/dashboard/delivery-boys", icon: "delivery", accessKey: "delivery-boys" },
-  { label: "Rituals", path: "/dashboard/rituals", icon: "rituals", accessKey: "rituals" },
-  { label: "Temples", path: "/dashboard/temples", icon: "temples", accessKey: "temples" },
-  { label: "Pandits", path: "/dashboard/pandits", icon: "pandits", accessKey: "pandits" },
-  { label: "Pandit Bookings", path: "/dashboard/pandit-bookings", icon: "pandit-bookings", accessKey: "pandit-bookings" },
-  { label: "Banners", path: "/dashboard/banners", icon: "banners", accessKey: "banners" },
-  { label: "Coupons", path: "/dashboard/coupons", icon: "coupons", accessKey: "coupons" },
-  { label: "Offers", path: "/dashboard/offers", icon: "offers", accessKey: "offers" },
-  { label: "Legal Pages", path: "/dashboard/legal", icon: "legal", accessKey: "legal" },
-  { label: "Custom Samagri", path: "/dashboard/custom-samagri", icon: "custom-samagri", accessKey: "custom-samagri" },
-  { label: "Notifications", path: "/dashboard/notifications", icon: "notifications", accessKey: "notifications" },
-  { label: "Settings", path: "/dashboard/settings", icon: "settings", accessKey: "settings", vendorOnly: true },
-  { label: "Transactions", path: "/dashboard/transactions", icon: "transactions", accessKey: "transactions" },
-  { label: "Earnings", path: "/dashboard/earnings", icon: "earnings", accessKey: "earnings" },
-  // { label: "Withdrawals", path: "/dashboard/withdrawals", icon: "withdrawals", accessKey: "withdrawals" },
-  { label: "Refunds & Returns", path: "/dashboard/refunds", icon: "refunds", accessKey: "refunds" },
+  {
+    heading: "Commerce",
+    items: [
+      { label: "Orders", path: "/dashboard/orders", icon: "orders", accessKey: "orders" },
+      { label: "Users", path: "/dashboard/users", icon: "users", accessKey: "users" },
+      { label: "Delivery Boys", path: "/dashboard/delivery-boys", icon: "delivery", accessKey: "delivery-boys" },
+      {
+        label: "Vendors",
+        path: "/dashboard/vendors",
+        icon: "vendors",
+        accessKey: "vendors",
+        role: "super-admin",
+      },
+    ],
+  },
+  {
+    heading: "Catalog",
+    items: [
+      { label: "Products", path: "/dashboard/items", icon: "box", accessKey: "products" },
+      { label: "Kits", path: "/dashboard/kits", icon: "gift", accessKey: "kits" },
+      { label: "Rituals", path: "/dashboard/rituals", icon: "rituals", accessKey: "rituals" },
+      { label: "Temples", path: "/dashboard/temples", icon: "temples", accessKey: "temples" },
+      // { label: "Custom Samagri", path: "/dashboard/custom-samagri", icon: "custom-samagri", accessKey: "custom-samagri", role: "super-admin" },
+    ],
+  },
+  {
+    heading: "Pandits",
+    items: [
+      { label: "Pandits", path: "/dashboard/pandits", icon: "pandits", accessKey: "pandits" },
+      { label: "Pandit Bookings", path: "/dashboard/pandit-bookings", icon: "pandit-bookings", accessKey: "pandit-bookings" },
+      {
+        label: "Booking Pricing",
+        path: "/dashboard/booking-pricing",
+        icon: "pricing",
+        accessKey: "booking-pricing",
+        role: "super-admin",
+      },
+    ],
+  },
+  {
+    heading: "Marketing",
+    items: [
+      { label: "Banners", path: "/dashboard/banners", icon: "banners", accessKey: "banners" },
+      { label: "Coupons", path: "/dashboard/coupons", icon: "coupons", accessKey: "coupons" },
+      { label: "Offers", path: "/dashboard/offers", icon: "offers", accessKey: "offers" },
+      { label: "Notifications", path: "/dashboard/notifications", icon: "notifications", accessKey: "notifications" },
+      { label: "Legal Pages", path: "/dashboard/legal", icon: "legal", accessKey: "legal" },
+    ],
+  },
+  {
+    heading: "Finance",
+    items: [
+      { label: "Transactions", path: "/dashboard/transactions", icon: "transactions", accessKey: "transactions" },
+      { label: "Earnings", path: "/dashboard/earnings", icon: "earnings", accessKey: "earnings" },
+      { label: "Refunds & Returns", path: "/dashboard/refunds", icon: "refunds", accessKey: "refunds" },
+    ],
+  },
+  {
+    heading: "Settings",
+    items: [
+      { label: "Settings", path: "/dashboard/settings", icon: "settings", accessKey: "settings", vendorOnly: true },
+    ],
+  },
 ];
 
 function SidebarIcon({ icon }) {
@@ -151,6 +192,17 @@ function SidebarIcon({ icon }) {
     );
   }
 
+  if (icon === "pricing") {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" className={common}>
+        <path d="M7 7H17" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+        <path d="M7 12H17" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+        <path d="M7 17H13" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+        <circle cx="18" cy="17" r="3" stroke="currentColor" strokeWidth="1.8" />
+      </svg>
+    );
+  }
+
   if (icon === "rituals") {
     return (
       <svg viewBox="0 0 24 24" fill="none" className={common}>
@@ -253,25 +305,29 @@ export default function Sidebar({
   const adminRole = getAdminRole();
   const pageAccess = getAdminPageAccess();
 
-  const filteredNavItems = navItems.filter((item) => {
-    // Super admin sees everything except vendor-only items
+  const canAccess = (item) => {
     if (adminRole === "super-admin") {
       return !item.vendorOnly;
     }
-    // Vendors see items based on their pageAccess list
     if (adminRole === "vendor-admin") {
-      // Hide items that are marked for super-admin only
       if (item.role === "super-admin") {
         return false;
       }
       return pageAccess.includes(item.accessKey);
     }
     return false;
-  });
+  };
+
+  const filteredNavSections = navSections
+    .map((section) => ({
+      ...section,
+      items: section.items.filter(canAccess),
+    }))
+    .filter((section) => section.items.length > 0);
 
   const menuClass = (isActive) =>
-    `group flex items-center rounded-2xl border px-3 py-3 text-sm font-medium transition-all ${
-      collapsed ? "justify-center" : "gap-3"
+    `group flex items-center rounded-lg border px-3 py-0 text-sm font-medium transition-all ${
+      collapsed ? "justify-center" : "gap-1"
     } ${
       isActive
         ? "border-transparent bg-[linear-gradient(180deg,var(--admin-primary),var(--admin-primary-strong))] text-white shadow"
@@ -314,19 +370,28 @@ export default function Sidebar({
           </div>
         </div>
 
-        <nav className="space-y-2 text-sm">
-          {filteredNavItems.map((item) => (
-            <NavLink
-              key={item.label}
-              to={item.path}
-              onClick={() => setMobileOpen(false)}
-              className={({ isActive }) => menuClass(isActive)}
-            >
-              <span className="flex h-10 w-10 items-center justify-center ">
-                <SidebarIcon icon={item.icon} />
-              </span>
-              {!collapsed && <span>{item.label}</span>}
-            </NavLink>
+        <nav className="space-y-4 text-sm">
+          {filteredNavSections.map((section) => (
+            <div key={section.heading} className="space-y-2">
+              {!collapsed && (
+                <p className="px-2 text-[10px] font-semibold uppercase tracking-[0.3em] text-[var(--admin-text-muted)]">
+                  {section.heading}
+                </p>
+              )}
+              {section.items.map((item) => (
+                <NavLink
+                  key={item.label}
+                  to={item.path}
+                  onClick={() => setMobileOpen(false)}
+                  className={({ isActive }) => menuClass(isActive)}
+                >
+                  <span className="flex h-10 w-10 items-center justify-center ">
+                    <SidebarIcon icon={item.icon} />
+                  </span>
+                  {!collapsed && <span>{item.label}</span>}
+                </NavLink>
+              ))}
+            </div>
           ))}
         </nav>
 

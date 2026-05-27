@@ -4,20 +4,49 @@ import BookingPricing from "../../models/bookingPrice.js";
 // 👉 ADMIN: Create or Update Pricing
 export const setBookingPrice = async (req, res) => {
   try {
-    const { price } = req.body;
+    const { price, panditCommissionPercent, panditCommissionThreshold } = req.body;
 
-    if (!price) {
-      return res.status(400).json({ message: "Price is required" });
+    if (price === undefined && panditCommissionPercent === undefined && panditCommissionThreshold === undefined) {
+      return res.status(400).json({ message: "At least one value is required" });
+    }
+
+    if (panditCommissionPercent !== undefined) {
+      const percentValue = Number(panditCommissionPercent);
+      if (!Number.isFinite(percentValue) || percentValue < 0 || percentValue > 100) {
+        return res.status(400).json({ message: "panditCommissionPercent must be between 0 and 100" });
+      }
+    }
+
+    if (panditCommissionThreshold !== undefined) {
+      const thresholdValue = Number(panditCommissionThreshold);
+      if (!Number.isFinite(thresholdValue) || thresholdValue < 0) {
+        return res.status(400).json({ message: "panditCommissionThreshold must be a positive number" });
+      }
     }
 
     // Check existing pricing
     let pricing = await BookingPricing.findOne();
 
     if (pricing) {
-      pricing.price = price;
+      if (price !== undefined) {
+        pricing.price = price;
+      }
+      if (panditCommissionPercent !== undefined) {
+        pricing.panditCommissionPercent = Number(panditCommissionPercent);
+      }
+      if (panditCommissionThreshold !== undefined) {
+        pricing.panditCommissionThreshold = Number(panditCommissionThreshold);
+      }
       await pricing.save();
     } else {
-      pricing = await BookingPricing.create({ price });
+      if (price === undefined) {
+        return res.status(400).json({ message: "Price is required to create pricing" });
+      }
+      pricing = await BookingPricing.create({
+        price,
+        panditCommissionPercent: Number(panditCommissionPercent || 0),
+        panditCommissionThreshold: Number(panditCommissionThreshold || 500),
+      });
     }
 
     res.status(200).json({
@@ -63,7 +92,13 @@ export const getBookingPrice = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      price: pricing.price,
+      data: {
+        _id: pricing._id,
+        price: pricing.price,
+        panditCommissionPercent: pricing.panditCommissionPercent || 0,
+        panditCommissionThreshold: pricing.panditCommissionThreshold || 0,
+        isActive: pricing.isActive,
+      },
     });
   } catch (error) {
     res.status(500).json({ message: error.message });

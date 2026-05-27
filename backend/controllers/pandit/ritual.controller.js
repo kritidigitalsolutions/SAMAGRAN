@@ -74,6 +74,13 @@ const createPendingCustomSamagriItem = (item = {}) => ({
   reviewedBy: "",
 });
 
+const createAutoApprovedCustomSamagriItem = (item = {}, reviewer = "") => ({
+  ...toCustomSamagriItem(item),
+  approvalStatus: "approved",
+  reviewedAt: new Date(),
+  reviewedBy: String(reviewer || ""),
+});
+
 const toOfferingFromRitual = ({ ritual, existingOffering = null }) => ({
   name: ritual.title,
   isSelected: existingOffering ? Boolean(existingOffering.isSelected) : true,
@@ -421,7 +428,7 @@ export const addCustomSamagriToPanditRitual = async (req, res) => {
     const normalizedName = normalizeName(finalItemName);
     const existingItemIndex = items.findIndex((item) => normalizeName(item.itemName) === normalizedName);
 
-    const incomingItem = createPendingCustomSamagriItem({
+    const incomingItem = createAutoApprovedCustomSamagriItem({
       itemName: finalItemName,
       quantity: Math.max(1, Number(quantity || 1)),
       size: String(size || "").trim(),

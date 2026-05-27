@@ -1,5 +1,6 @@
 import PanditBooking from "../../models/panditBooking.model.js";
 import mongoose from "mongoose";
+import { ensureZoomMeetingForBooking } from "../../controllers/panditBooking.controller.js";
 
 export const getAllPanditBookingsForAdmin = async (req, res) => {
   try {
@@ -177,5 +178,39 @@ export const deletePanditBookingByAdmin = async (req, res) => {
       success: false,
       message: err.message || "Unable to delete booking",
     });
+  }
+};
+
+export const createZoomMeetingForBookingByAdmin = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ success: false, message: "Invalid booking id" });
+    }
+
+    const booking = await PanditBooking.findById(id)
+      .populate("user", "fcmToken email")
+      .populate("pandit", "fcmToken");
+
+    if (!booking) return res.status(404).json({ success: false, message: "Booking not found" });
+
+    let zoom;
+    try {
+      zoom = await ensureZoomMeetingForBooking(booking);
+    } catch (err) {
+      return res.status(500).json({ success: false, message: err.message || "Unable to create Zoom meeting" });
+    }
+
+    if (!zoom) {
+      return res.status(500).json({ success: false, message: "Unable to create Zoom meeting" });
+    }
+
+    const refreshed = await PanditBooking.findById(id)
+      .populate("user", "fcmToken email")
+      .populate("pandit", "fcmToken");
+
+    return res.json({ success: true, message: "Zoom meeting created", data: refreshed });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message || "Unable to create zoom meeting" });
   }
 };

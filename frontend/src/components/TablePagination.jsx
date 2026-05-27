@@ -21,7 +21,7 @@ export default function TablePagination({
           type="button"
           onClick={() => onPageChange(Math.max(1, page - 1))}
           disabled={page <= 1}
-          className="rounded-lg border border-[var(--admin-border)] px-2.5 py-1.5 text-xs disabled:opacity-50"
+          className="rounded-lg border border-[var(--admin-border)] text-black dark:text-white px-2.5 py-1.5 text-xs "
         >
           Prev
         </button>
@@ -32,7 +32,7 @@ export default function TablePagination({
           type="button"
           onClick={() => onPageChange(Math.min(totalPages, page + 1))}
           disabled={page >= totalPages}
-          className="rounded-lg border border-[var(--admin-border)] px-2.5 py-1.5 text-xs disabled:opacity-50"
+          className="rounded-lg border border-[var(--admin-border)]  text-black dark:text-white px-2.5 py-1.5 text-xs "
         >
           Next
         </button>
@@ -40,7 +40,7 @@ export default function TablePagination({
           <select
             value={pageSize}
             onChange={(event) => onPageSizeChange(Number(event.target.value))}
-            className="h-8 rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] px-2 text-xs"
+            className="h-8 rounded-lg border border-[var(--admin-border)]  text-black dark:text-white bg-[var(--admin-surface)] px-2 text-xs"
           >
             {pageSizeOptions.map((size) => (
               <option key={size} value={size}>

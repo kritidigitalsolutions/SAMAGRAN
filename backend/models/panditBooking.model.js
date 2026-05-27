@@ -151,7 +151,7 @@ const panditBookingSchema = new mongoose.Schema(
       paidAt: {
         type: Date,
         default: null,
-      },
+      }, 
     },
     bookingStatus: {
       type: String,
@@ -217,6 +217,12 @@ const panditBookingSchema = new mongoose.Schema(
         type: Date,
         default: null,
       },
+    },
+    zoomMeeting: {
+      meetingId: { type: String, trim: true, default: "" },
+      join_url: { type: String, trim: true, default: "" },
+      start_url: { type: String, trim: true, default: "" },
+      password: { type: String, trim: true, default: "" },
     },
   },
   { timestamps: true },

@@ -1,9 +1,23 @@
 // controllers/admin.controller.js
+import crypto from "crypto";
 import Admin from "../../models/admin.model.js";
 import Vendor from "../../models/vendor.model.js";
 import bcrypt from "bcryptjs";
 import generateToken from "../../utils/generateToken.js";
 import { updateDeviceToken } from "../../utils/notification.service.js";
+import { sendAdminOtpEmail } from "../../utils/email.service.js";
+
+const buildOtp = () => Math.floor(100000 + Math.random() * 900000).toString();
+const hashOtp = (otp) => crypto.createHash("sha256").update(otp).digest("hex");
+const isOtpValid = (admin, otp) => {
+  if (!admin?.resetOtpHash || !admin?.resetOtpExpiresAt) {
+    return false;
+  }
+  if (new Date(admin.resetOtpExpiresAt).getTime() < Date.now()) {
+    return false;
+  }
+  return admin.resetOtpHash === hashOtp(otp);
+};
 
 export const adminLogin = async (req, res) => {
   try {
@@ -163,5 +177,62 @@ export const updateVendorFcmToken = async (req, res) => {
       success: false,
       message: error.message || "Unable to update FCM token",
     });
+  }
+};
+
+export const requestAdminPasswordReset = async (req, res) => {
+  try {
+    const { email } = req.body || {};
+
+    if (!email) {
+      return res.status(400).json({ message: "Email is required" });
+    }
+
+    const admin = await Admin.findOne({ email: String(email).trim() });
+
+    if (!admin) {
+      return res.status(404).json({ message: "Admin not found" });
+    }
+
+    const otp = buildOtp();
+    admin.resetOtpHash = hashOtp(otp);
+    admin.resetOtpExpiresAt = new Date(Date.now() + 10 * 60 * 1000);
+    await admin.save();
+
+    await sendAdminOtpEmail(admin.email, otp, "password_reset", admin.name || "Admin");
+
+    return res.json({ success: true, message: "OTP sent to your email" });
+  } catch (error) {
+    return res.status(500).json({ message: error.message || "Unable to send OTP" });
+  }
+};
+
+export const resetAdminPassword = async (req, res) => {
+  try {
+    const { email, otp, newPassword } = req.body || {};
+
+    if (!email || !otp || !newPassword) {
+      return res.status(400).json({ message: "Email, OTP and newPassword are required" });
+    }
+
+    const admin = await Admin.findOne({ email: String(email).trim() });
+
+    if (!admin) {
+      return res.status(404).json({ message: "Admin not found" });
+    }
+
+    if (!isOtpValid(admin, String(otp).trim())) {
+      return res.status(400).json({ message: "Invalid or expired OTP" });
+    }
+
+    const hashedPassword = await bcrypt.hash(String(newPassword), 10);
+    admin.password = hashedPassword;
+    admin.resetOtpHash = "";
+    admin.resetOtpExpiresAt = null;
+    await admin.save();
+
+    return res.json({ success: true, message: "Password reset successfully" });
+  } catch (error) {
+    return res.status(500).json({ message: error.message || "Unable to reset password" });
   }
 };

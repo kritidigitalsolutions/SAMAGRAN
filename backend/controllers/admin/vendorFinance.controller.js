@@ -17,16 +17,23 @@ const normalizeOrderStatus = (value = "Placed") => String(value || "").trim().to
 const getPayableAmount = (order = {}) =>
   toMoney(order?.amountBreakup?.payableAmount ?? order?.payableAmount ?? order?.totalAmount ?? 0);
 
-const getVendorIdFromRequest = (req) => {
+const resolveVendorScope = (req) => {
   if (req.admin?.role === "vendor") {
-    return req.admin.vendorId ? String(req.admin.vendorId) : null;
+    return {
+      vendorId: req.admin.vendorId ? String(req.admin.vendorId) : null,
+      isAll: false,
+    };
   }
 
   if (req.query?.vendorId && mongoose.Types.ObjectId.isValid(req.query.vendorId)) {
-    return String(req.query.vendorId);
+    return { vendorId: String(req.query.vendorId), isAll: false };
   }
 
-  return null;
+  if (req.admin?.role === "super") {
+    return { vendorId: null, isAll: true };
+  }
+
+  return { vendorId: null, isAll: false };
 };
 
 const buildWithdrawalTotals = (withdrawals = []) => {
@@ -47,13 +54,13 @@ const buildWithdrawalTotals = (withdrawals = []) => {
 
 export const getVendorEarningsSummary = async (req, res) => {
   try {
-    const vendorId = getVendorIdFromRequest(req);
+    const { vendorId, isAll } = resolveVendorScope(req);
 
-    if (!vendorId) {
+    if (!vendorId && !isAll) {
       return res.status(400).json({ success: false, message: "Vendor not resolved" });
     }
 
-    const orders = await Order.find({ vendorId }).lean();
+    const orders = await Order.find(vendorId ? { vendorId } : {}).lean();
 
     const deliveredOrders = orders.filter(
       (order) => normalizeOrderStatus(order.orderStatus) === ORDER_STATUSES.DELIVERED
@@ -74,7 +81,7 @@ export const getVendorEarningsSummary = async (req, res) => {
         .reduce((sum, order) => sum + getPayableAmount(order), 0)
     );
 
-    const withdrawals = await VendorWithdrawal.find({ vendor: vendorId }).lean();
+    const withdrawals = await VendorWithdrawal.find(vendorId ? { vendor: vendorId } : {}).lean();
     const withdrawalTotals = buildWithdrawalTotals(withdrawals);
 
     const availableBalance = toMoney(totalEarnings - withdrawalTotals.totalPaid - withdrawalTotals.totalApproved - withdrawalTotals.totalPending);
@@ -99,13 +106,13 @@ export const getVendorEarningsSummary = async (req, res) => {
 
 export const getVendorWithdrawals = async (req, res) => {
   try {
-    const vendorId = getVendorIdFromRequest(req);
+    const { vendorId, isAll } = resolveVendorScope(req);
 
-    if (!vendorId) {
+    if (!vendorId && !isAll) {
       return res.status(400).json({ success: false, message: "Vendor not resolved" });
     }
 
-    const withdrawals = await VendorWithdrawal.find({ vendor: vendorId })
+    const withdrawals = await VendorWithdrawal.find(vendorId ? { vendor: vendorId } : {})
       .sort({ createdAt: -1 })
       .lean();
 
@@ -117,7 +124,7 @@ export const getVendorWithdrawals = async (req, res) => {
 
 export const createVendorWithdrawal = async (req, res) => {
   try {
-    const vendorId = getVendorIdFromRequest(req);
+    const { vendorId } = resolveVendorScope(req);
 
     if (!vendorId) {
       return res.status(400).json({ success: false, message: "Vendor not resolved" });
@@ -180,14 +187,14 @@ export const createVendorWithdrawal = async (req, res) => {
 
 export const getVendorTransactions = async (req, res) => {
   try {
-    const vendorId = getVendorIdFromRequest(req);
+    const { vendorId, isAll } = resolveVendorScope(req);
 
-    if (!vendorId) {
+    if (!vendorId && !isAll) {
       return res.status(400).json({ success: false, message: "Vendor not resolved" });
     }
 
-    const orders = await Order.find({ vendorId }).lean();
-    const withdrawals = await VendorWithdrawal.find({ vendor: vendorId }).lean();
+    const orders = await Order.find(vendorId ? { vendorId } : {}).lean();
+    const withdrawals = await VendorWithdrawal.find(vendorId ? { vendor: vendorId } : {}).lean();
 
     const earningTransactions = orders
       .filter((order) => normalizeOrderStatus(order.orderStatus) === ORDER_STATUSES.DELIVERED)
@@ -198,6 +205,7 @@ export const getVendorTransactions = async (req, res) => {
         amount: getPayableAmount(order),
         reference: order.razorpayPaymentId || order.razorpayOrderId || String(order._id),
         orderId: order._id,
+        vendorId: order.vendorId || null,
         createdAt: order.updatedAt || order.createdAt,
       }));
 
@@ -210,6 +218,7 @@ export const getVendorTransactions = async (req, res) => {
         amount: getPayableAmount(order),
         reference: order.razorpayPaymentId || order.razorpayOrderId || String(order._id),
         orderId: order._id,
+        vendorId: order.vendorId || null,
         createdAt: order.updatedAt || order.createdAt,
       }));
 
@@ -220,6 +229,7 @@ export const getVendorTransactions = async (req, res) => {
       amount: toMoney(withdrawal.amount),
       reference: withdrawal.reference || String(withdrawal._id),
       orderId: null,
+      vendorId: withdrawal.vendor || null,
       createdAt: withdrawal.createdAt || withdrawal.requestedAt,
     }));
 
@@ -235,13 +245,13 @@ export const getVendorTransactions = async (req, res) => {
 
 export const getVendorRefunds = async (req, res) => {
   try {
-    const vendorId = getVendorIdFromRequest(req);
+    const { vendorId, isAll } = resolveVendorScope(req);
 
-    if (!vendorId) {
+    if (!vendorId && !isAll) {
       return res.status(400).json({ success: false, message: "Vendor not resolved" });
     }
 
-    const orders = await Order.find({ vendorId }).lean();
+    const orders = await Order.find(vendorId ? { vendorId } : {}).lean();
 
     const refunds = orders
       .filter((order) => normalizeOrderStatus(order.orderStatus) === ORDER_STATUSES.CANCELLED)
@@ -257,6 +267,7 @@ export const getVendorRefunds = async (req, res) => {
           status: order.orderStatus,
           reason: latestRequest?.reason || "",
           requestedAt: latestRequest?.requestedAt || order.updatedAt || order.createdAt,
+          vendorId: order.vendorId || null,
         };
       });
 

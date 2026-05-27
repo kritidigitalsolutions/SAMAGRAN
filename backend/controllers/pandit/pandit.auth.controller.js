@@ -339,7 +339,13 @@ export const verifyPanditOtp = async (req, res) => {
       });
     }
 
-    await PanditOTP.deleteMany({ phone, type: otpDoc.type });
+    // For signup flows (no existing pandit) we must keep the verified OTP record
+    // until the pandit completes their profile. Deleting it here prevents
+    // `updatePanditProfile` from finding the verified session and causes
+    // "Please verify OTP first" errors. Only remove OTPs for existing pandits.
+    if (pandit) {
+      await PanditOTP.deleteMany({ phone, type: otpDoc.type });
+    }
 
     // 🔐 For new signup: Don't create Pandit yet, just verify OTP
     // Pandit record will be created when they complete their profile

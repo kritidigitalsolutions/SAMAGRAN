@@ -110,6 +110,8 @@ import vendorFinanceRoutes from "./routes/admin/vendorFinance.routes.js";
 
 import authRoutes from "./routes/user/auth.routes.js";
 import panditAuthRoutes from "./routes/pandit/pandit.auth.routes.js";
+import panditAvailabilityRoutes from "./routes/pandit/availability.routes.js";
+import panditWalletRoutes from "./routes/pandit/wallet.routes.js";
 import deliveryAuthRoutes from "./routes/delivery/delivery.auth.routes.js";
 import deliveryRoutes from "./routes/delivery/delivery.routes.js";
 import vendorAuthRoutes from "./routes/vendor/vendor.auth.routes.js";
@@ -134,8 +136,9 @@ import userBanners from "./routes/user/banner.routes.js"
 import walletRoutes from "./routes/user/wallet.routes.js";
 import couponRoutes from "./routes/user/coupon.routes.js";
 import offerRoutes from "./routes/user/offer.routes.js";
-import userVideoRoutes from "./routes/user/video.routes.js";
+// video routes (Agora) removed in favor of Zoom meeting integration
 import userNotificationRoutes from "./routes/user/notification.routes.js";
+import userPanditAvailabilityRoutes from "./routes/user/panditAvailability.routes.js";
 
 
 app.use("/api/user/items", userProductRoutes);
@@ -222,6 +225,8 @@ app.use("/api/admin", vendorFinanceRoutes);
 
 app.use("/api/auth", authRoutes);
 app.use("/api/pandit/auth", panditAuthRoutes);
+app.use("/api/pandit/availability", panditAvailabilityRoutes);
+app.use("/api/pandit/wallet", panditWalletRoutes);
 app.use("/api/delivery/auth", deliveryAuthRoutes);
 app.use("/api/delivery", deliveryRoutes);
 app.use("/api/vendor/auth", vendorAuthRoutes);
@@ -242,8 +247,9 @@ app.use("/api/order", orderRoutes);
 app.use("/api/user/wallet", walletRoutes);
 app.use("/api/user/coupons", couponRoutes);
 app.use("/api/user/offers", offerRoutes);
-app.use("/api/user/video", userVideoRoutes);
+// app.use("/api/user/video", userVideoRoutes);
 app.use("/api/user/notifications", userNotificationRoutes);
+app.use("/api/pandit-availability", userPanditAvailabilityRoutes);
 
 // user pandit booking journey
 app.use("/api/pandit-bookings", panditBooking);

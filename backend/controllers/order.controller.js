@@ -10,7 +10,10 @@ import Coupon from "../models/coupon.model.js";
 import Offer from "../models/offer.model.js";
 import Wallet from "../models/wallet.model.js";
 import WalletTransaction from "../models/walletTransaction.model.js";
-import { notifyAdmins } from "../utils/notification.service.js";
+import BookingPricing from "../models/bookingPrice.js";
+import PanditWallet from "../models/panditWallet.model.js";
+import PanditWalletTransaction from "../models/panditWalletTransaction.model.js";
+import { notifyAdmins, notifyUsersByIds, notifyVendorsByIds } from "../utils/notification.service.js";
 
 const SUPPORTED_PRODUCT_TYPES = ["Item", "FestivalKit", "DefaultKit"];
 const TRACKING_STEPS = ["Placed", "Confirmed", "Preparing", "Out for Delivery", "Delivered"];
@@ -132,6 +135,59 @@ const getOrCreateWallet = async (userId) => {
     wallet = await Wallet.create({ user: userId, balance: 0 });
   }
   return wallet;
+};
+
+const getOrCreatePanditWallet = async (panditId) => {
+  let wallet = await PanditWallet.findOne({ pandit: panditId });
+  if (!wallet) {
+    wallet = await PanditWallet.create({ pandit: panditId, balance: 0 });
+  }
+  return wallet;
+};
+
+const applyPanditCommission = async ({ panditId, orderId, baseAmount }) => {
+  if (!panditId) {
+    return null;
+  }
+
+  const pricing = await BookingPricing.findOne({ isActive: true }).lean();
+  const commissionPercent = Number(pricing?.panditCommissionPercent || 0);
+
+  if (!Number.isFinite(commissionPercent) || commissionPercent <= 0) {
+    return null;
+  }
+
+  const commissionAmount = toMoney((toMoney(baseAmount) * commissionPercent) / 100);
+
+  if (commissionAmount <= 0) {
+    return null;
+  }
+
+  const wallet = await getOrCreatePanditWallet(panditId);
+  const nextBalance = toMoney(wallet.balance + commissionAmount);
+  const threshold = Number(pricing?.panditCommissionThreshold || 0);
+
+  wallet.balance = nextBalance;
+  wallet.totalEarned = toMoney(wallet.totalEarned + commissionAmount);
+  wallet.isPayable = Number.isFinite(threshold) && threshold > 0 && nextBalance >= threshold;
+  wallet.payableBalance = wallet.isPayable ? nextBalance : 0;
+  await wallet.save();
+
+  await PanditWalletTransaction.create({
+    wallet: wallet._id,
+    pandit: panditId,
+    type: "credit",
+    source: "pandit-commission",
+    amount: commissionAmount,
+    balanceAfter: nextBalance,
+    reference: String(orderId),
+    meta: {
+      orderId: String(orderId),
+      commissionPercent,
+    },
+  });
+
+  return { commissionAmount, balanceAfter: nextBalance };
 };
 
 const resolveDiscountsAndWallet = async ({
@@ -446,6 +502,32 @@ const buildTrackingPayload = (order) => {
   };
 };
 
+const sendOrderNotificationToUser = async ({ userId, orderId, title, body, data = {} }) => {
+  return notifyUsersByIds({
+    userIds: [userId],
+    title,
+    body,
+    data: { orderId: String(orderId), ...data },
+  }).catch((error) => {
+    console.error("USER ORDER NOTIFICATION ERROR:", error?.message || error);
+  });
+};
+
+const sendOrderNotificationToVendor = async ({ vendorId, orderId, title, body, data = {} }) => {
+  if (!vendorId) {
+    return null;
+  }
+
+  return notifyVendorsByIds({
+    vendorIds: [vendorId],
+    title,
+    body,
+    data: { orderId: String(orderId), ...data },
+  }).catch((error) => {
+    console.error("VENDOR ORDER NOTIFICATION ERROR:", error?.message || error);
+  });
+};
+
 const upsertSavedAddressForUser = async ({
   userId,
   address,
@@ -640,10 +722,22 @@ export const placeOrder = async (req, res) => {
       couponCode,
       offerId,
       walletAmount,
+      pandit_id,
       razorpayOrderId,
       razorpayPaymentId,
       razorpaySignature,
     } = req.body;
+
+    let resolvedPanditId = null;
+    if (pandit_id) {
+      if (!mongoose.Types.ObjectId.isValid(pandit_id)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid pandit_id",
+        });
+      }
+      resolvedPanditId = pandit_id;
+    }
 
     const normalizedPaymentMethod = normalizePaymentMethod(paymentMethod);
 
@@ -748,6 +842,7 @@ export const placeOrder = async (req, res) => {
 
     const order = await Order.create({
       user: userId,
+      pandit: resolvedPanditId,
       vendorId: vendorId || null,
       items: orderItems,
       totalAmount,
@@ -842,6 +937,67 @@ export const placeOrder = async (req, res) => {
         paymentStatus,
       },
     }).catch((error) => console.error("ORDER NOTIFICATION ERROR:", error.message));
+
+    void sendOrderNotificationToUser({
+      userId,
+      orderId: order._id,
+      title: "Order confirmed",
+      body: `Your order #${String(order._id).slice(-6).toUpperCase()} has been placed successfully.`,
+      data: {
+        eventType: "order.placed",
+        userName: req.user.name || req.user.phone || "Customer",
+        paymentStatus,
+      },
+    });
+
+    if (vendorId) {
+      void sendOrderNotificationToVendor({
+        vendorId,
+        orderId: order._id,
+        title: "New order received",
+        body: `Order #${String(order._id).slice(-6).toUpperCase()} has been placed and is ready for processing.`,
+        data: {
+          eventType: "order.received",
+          paymentStatus,
+          userId: String(req.user._id),
+        },
+      });
+    }
+
+    if (paymentStatus === "Paid") {
+      if (resolvedPanditId) {
+        await applyPanditCommission({
+          panditId: resolvedPanditId,
+          orderId: order._id,
+          baseAmount: itemTotal,
+        });
+      }
+
+      void sendOrderNotificationToUser({
+        userId,
+        orderId: order._id,
+        title: "Payment received",
+        body: `Payment for order #${String(order._id).slice(-6).toUpperCase()} has been received successfully.`,
+        data: {
+          eventType: "payment.success",
+          paymentStatus,
+        },
+      });
+
+      if (vendorId) {
+        void sendOrderNotificationToVendor({
+          vendorId,
+          orderId: order._id,
+          title: "Payment success",
+          body: `Payment for order #${String(order._id).slice(-6).toUpperCase()} has been received.`,
+          data: {
+            eventType: "payment.success",
+            paymentStatus,
+            userId: String(req.user._id),
+          },
+        });
+      }
+    }
 
     return res.status(201).json({
       success: true,

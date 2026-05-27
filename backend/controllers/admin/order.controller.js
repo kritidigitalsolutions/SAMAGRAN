@@ -3,6 +3,7 @@ import Order from "../../models/order.model.js";
 import User from "../../models/user.model.js";
 import Item from "../../models/product.model.js";
 import DeliveryBoy from "../../models/deliveryBoy.model.js";
+import { notifyUsersByIds, notifyVendorsByIds } from "../../utils/notification.service.js";
 
 const TRACKING_STEPS = ["Placed", "Confirmed", "Preparing", "Accepted", "Out for Delivery", "Delivered"];
 const SUPPORTED_PRODUCT_TYPES = ["Item", "FestivalKit", "DefaultKit"];
@@ -161,6 +162,32 @@ const buildTrackingPayload = (order) => {
     placedAt: order?.createdAt || null,
     lastUpdatedAt: order?.updatedAt || null,
   };
+};
+
+const sendAdminOrderNotificationToUser = async ({ userId, orderId, title, body, data = {} }) => {
+  return notifyUsersByIds({
+    userIds: [userId],
+    title,
+    body,
+    data: { orderId: String(orderId), ...data },
+  }).catch((error) => {
+    console.error("ADMIN USER ORDER NOTIFICATION ERROR:", error?.message || error);
+  });
+};
+
+const sendAdminOrderNotificationToVendor = async ({ vendorId, orderId, title, body, data = {} }) => {
+  if (!vendorId) {
+    return null;
+  }
+
+  return notifyVendorsByIds({
+    vendorIds: [vendorId],
+    title,
+    body,
+    data: { orderId: String(orderId), ...data },
+  }).catch((error) => {
+    console.error("ADMIN VENDOR ORDER NOTIFICATION ERROR:", error?.message || error);
+  });
 };
 
 const applyInventoryAdjustment = async (order, nextStatus) => {
@@ -375,6 +402,9 @@ export const updateOrderByAdmin = async (req, res) => {
       razorpaySignature,
     } = req.body;
 
+    const previousOrderStatus = order.orderStatus;
+    const previousPaymentStatus = order.paymentStatus;
+
     if (user !== undefined) {
       if (!mongoose.Types.ObjectId.isValid(user)) {
         return res.status(400).json({
@@ -452,6 +482,50 @@ export const updateOrderByAdmin = async (req, res) => {
 
     await order.save();
 
+    const nextOrderStatus = order.orderStatus;
+    const nextPaymentStatus = order.paymentStatus;
+    const effectiveUserId = String(order.user);
+    const effectiveVendorId = order.vendorId ? String(order.vendorId) : null;
+
+    if (nextOrderStatus !== previousOrderStatus) {
+      void sendAdminOrderNotificationToUser({
+        userId: effectiveUserId,
+        orderId: order._id,
+        title: `Order ${nextOrderStatus}`,
+        body: `Order #${String(order._id).slice(-6).toUpperCase()} is now ${nextOrderStatus}.`,
+        data: {
+          eventType: "order.status.updated",
+          orderStatus: nextOrderStatus,
+        },
+      });
+    }
+
+    if (nextPaymentStatus !== previousPaymentStatus && nextPaymentStatus === "Paid") {
+      void sendAdminOrderNotificationToUser({
+        userId: effectiveUserId,
+        orderId: order._id,
+        title: "Payment received",
+        body: `Payment for order #${String(order._id).slice(-6).toUpperCase()} has been confirmed.`,
+        data: {
+          eventType: "payment.success",
+          paymentStatus: nextPaymentStatus,
+        },
+      });
+
+      if (effectiveVendorId) {
+        void sendAdminOrderNotificationToVendor({
+          vendorId: effectiveVendorId,
+          orderId: order._id,
+          title: "Payment success",
+          body: `Payment for order #${String(order._id).slice(-6).toUpperCase()} has been confirmed.`,
+          data: {
+            eventType: "payment.success",
+            paymentStatus: nextPaymentStatus,
+          },
+        });
+      }
+    }
+
     const populatedOrder = await Order.findById(order._id)
       .populate("user", "name email phone")
       .populate("deliveryBoy", "fullName phone status")
@@ -508,6 +582,20 @@ export const updateOrderTrackingByAdmin = async (req, res) => {
     await applyInventoryAdjustment(order, nextStatus);
     order.orderStatus = nextStatus;
     await order.save();
+
+    const effectiveUserId = String(order.user);
+    const effectiveVendorId = order.vendorId ? String(order.vendorId) : null;
+
+    void sendAdminOrderNotificationToUser({
+      userId: effectiveUserId,
+      orderId: order._id,
+      title: `Order ${nextStatus}`,
+      body: `Order #${String(order._id).slice(-6).toUpperCase()} is now ${nextStatus}.`,
+      data: {
+        eventType: "order.status.updated",
+        orderStatus: nextStatus,
+      },
+    });
 
     const orderObject = order.toObject();
 

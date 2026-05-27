@@ -178,8 +178,8 @@ export default function Navbar({ onMenuClick, onToggleSidebar, sidebarCollapsed 
           <div
             className="relative"
             ref={bellRef}
-            onMouseEnter={() => setBellOpen(true)}
-            onMouseLeave={() => setBellOpen(false)}
+            // onMouseEnter={() => setBellOpen(true)}
+            // onMouseLeave={() => setBellOpen(false)}
           >
             <button
               type="button"

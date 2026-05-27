@@ -25,6 +25,13 @@ const orderSchema = new mongoose.Schema(
       required: true,
     },
 
+    pandit: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Pandit",
+      default: null,
+      index: true,
+    },
+
     vendorId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Vendor",

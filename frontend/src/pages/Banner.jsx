@@ -442,7 +442,7 @@ export default function Banner() {
                     </td>
                     <td className="serial-col px-2 py-4 text-sm text-[#6f3945] dark:text-[#f7e3c0]">{(page - 1) * pageSize + index + 1}</td>
                     <td className="px-3 py-4 font-semibold">
-                      <img src={banner.image} className="rounded border border-[#f0e3d1]" height={30} width={70} alt="" />
+                      <img src={banner.image} className="rounded" height={30} width={70} alt="" />
                     </td>
                     <td className="px-3 py-4 font-mono text-xs text-[#6f3945] dark:text-[#f7e3c0]">
                       BANNER-{String(banner._id || "").slice(-6).toUpperCase()}

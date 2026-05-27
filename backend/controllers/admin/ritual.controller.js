@@ -250,16 +250,15 @@ export const getPendingCustomSamagriItems = async (req, res) => {
         const pendingItems = sanitizeCustomSamagriItems(offering.customSamagriItems || []).filter(
           (item) => item.approvalStatus === "pending"
         );
-        const customSamagriNotes = sanitizeCustomSamagriNotes(offering.customSamagriNotes || []);
 
-        if (pendingItems.length > 0 || customSamagriNotes.length > 0) {
+        if (pendingItems.length > 0) {
           data.push({
             panditId: pandit._id,
             panditName: pandit.fullName || "",
             panditPhone: pandit.phone || "",
             ritualId: ritualMap.get(normalizeName(offering.name)) || null,
             ritualName: offering.name || "",
-            customSamagriNotes,
+            customSamagriNotes: [],
             customSamagriItems: pendingItems,
           });
         }

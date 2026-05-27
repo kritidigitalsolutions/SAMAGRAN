@@ -18,6 +18,11 @@ const offerSchema = new mongoose.Schema(
       trim: true,
       default: "",
     },
+    image: {
+      type: String,
+      trim: true,
+      default: "",
+    },
     offerType: {
       type: String,
       enum: ["discount", "cashback"],

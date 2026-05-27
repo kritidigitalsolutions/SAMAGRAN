@@ -17,6 +17,8 @@ const adminSchema = new mongoose.Schema({
   },
   fcmToken: { type: String, trim: true, default: "" },
   fcmTokenUpdatedAt: { type: Date, default: null },
+  resetOtpHash: { type: String, default: "" },
+  resetOtpExpiresAt: { type: Date, default: null },
 }, { timestamps: true });
 
 export default mongoose.model("Admin", adminSchema);

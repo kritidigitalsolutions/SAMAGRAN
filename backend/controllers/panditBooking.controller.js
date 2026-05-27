@@ -9,9 +9,150 @@ import temple from "../models/temple.model.js";
 import BookingPricing from "../models/bookingPrice.js";
 import mongoose from "mongoose";
 import { notifyAdmins } from "../utils/notification.service.js";
+import { createMeeting } from "../utils/zoom.service.js";
 import { notifyPanditBookingStatusUpdate } from "../utils/booking.notifications.js";
 import Wallet from "../models/wallet.model.js";
 import WalletTransaction from "../models/walletTransaction.model.js";
+
+// Shared helper: ensure a Zoom meeting exists for a booking (accepts booking doc or id)
+export const ensureZoomMeetingForBooking = async (bookingDocOrId) => {
+  try {
+    let bookingDoc = bookingDocOrId;
+    if (!bookingDoc) return null;
+
+    if (typeof bookingDocOrId === "string" || bookingDocOrId instanceof mongoose.Types.ObjectId) {
+      bookingDoc = await PanditBooking.findById(bookingDocOrId)
+        .populate("user", "fcmToken email")
+        .populate("pandit", "fcmToken");
+    }
+
+    if (!bookingDoc) return null;
+    if (bookingDoc.zoomMeeting && bookingDoc.zoomMeeting.join_url) return bookingDoc.zoomMeeting;
+
+    const slotRows = Array.isArray(bookingDoc?.dateAndTime?.dateAndTime)
+      ? bookingDoc.dateAndTime.dateAndTime
+      : [];
+    const primary = slotRows[0] || {};
+    if (!primary?.date || !primary?.time) return null;
+
+    // parse time — handle formats like '4:22 PM - 6:22 PM' by taking first part
+    const rawTime = String(primary.time || "");
+    const timePart = rawTime.split("-")[0].trim();
+    const dateStr = String(bookingDoc.bookingDate || primary.date || "").trim();
+
+    const parseStartTime = (dateText, timeText) => {
+      if (!dateText || !timeText) return null;
+
+      // dateText expected as YYYY-MM-DD
+      const [y, m, d] = String(dateText).split("-").map(Number);
+      if (![y, m, d].every(Number.isFinite)) return null;
+
+      const timeMatch = String(timeText).trim().match(/(\d{1,2}):(\d{2})\s*([AaPp][Mm])?/);
+      let hour = 0,
+        minute = 0;
+      if (timeMatch) {
+        hour = Number(timeMatch[1]);
+        minute = Number(timeMatch[2]);
+        const ampm = (timeMatch[3] || "").toUpperCase();
+        if (ampm === "PM" && hour < 12) hour += 12;
+        if (ampm === "AM" && hour === 12) hour = 0;
+      } else {
+        // fallback to attempt parsing 'HH:MM' 24-hour
+        const parts = String(timeText).split(":");
+        hour = Number(parts[0] || 0);
+        minute = Number(parts[1] || 0);
+      }
+
+      const dt = new Date(Date.UTC(y, (m || 1) - 1, d, hour, minute, 0));
+      // convert UTC to local server time by creating equivalent local Date
+      return new Date(dt.getTime());
+    };
+
+    const startTime = parseStartTime(dateStr, timePart);
+    if (!startTime || Number.isNaN(startTime.getTime())) return null;
+
+    const durationHours = Number(bookingDoc.ritualRef?.durationHours || bookingDoc.ritual?.durationHours || 1);
+    const durationMinutes = Math.max(1, Math.round(durationHours * 60));
+
+    const hostEmail = process.env.ZOOM_HOST_EMAIL || (bookingDoc.user && bookingDoc.user.email) || "";
+
+    const meeting = await createMeeting({
+      topic: `Pooja: ${bookingDoc.ritual?.name || bookingDoc.ritual?.title || "Pooja"}`,
+      startTime,
+      durationMinutes,
+      hostEmail,
+    });
+
+    bookingDoc.zoomMeeting = {
+      meetingId: meeting.id || meeting.uuid || null,
+      join_url: meeting.join_url || null,
+      start_url: meeting.start_url || null,
+      password: meeting.password || meeting.pswd || null,
+    };
+
+    await bookingDoc.save();
+
+    // Notify user and pandit (DB + FCM if tokens exist)
+    try {
+      const Notification = (await import("../models/notification.model.js")).default;
+      const admin = (await import("firebase-admin")).default;
+      const User = (await import("../models/user.model.js")).default;
+      const PanditModel = (await import("../models/pandit.model.js")).default;
+
+      const title = "Zoom meeting scheduled";
+      const body = `Zoom meeting for ${bookingDoc.ritual?.name || "your booking"} is ready. Tap to join.`;
+
+      const notifUser = new Notification({
+        title,
+        body,
+        data: { bookingId: String(bookingDoc._id), zoom: bookingDoc.zoomMeeting },
+        audience: { type: "user", ids: [bookingDoc.user] },
+      });
+      await notifUser.save();
+
+      const notifPandit = new Notification({
+        title,
+        body,
+        data: { bookingId: String(bookingDoc._id), zoom: bookingDoc.zoomMeeting },
+        audience: { type: "pandit", ids: [bookingDoc.pandit] },
+      });
+      await notifPandit.save();
+
+      try {
+        const userDoc = await User.findById(bookingDoc.user).lean();
+        const panditDoc = await PanditModel.findById(bookingDoc.pandit).lean();
+
+        if (userDoc?.fcmToken) {
+          const message = {
+            notification: { title, body },
+            data: { bookingId: String(bookingDoc._id), zoomLink: bookingDoc.zoomMeeting.join_url || "" },
+            token: userDoc.fcmToken,
+          };
+          await admin.messaging().send(message);
+        }
+
+        if (panditDoc?.fcmToken) {
+          const message = {
+            notification: { title, body },
+            data: { bookingId: String(bookingDoc._id), zoomLink: bookingDoc.zoomMeeting.join_url || "" },
+            token: panditDoc.fcmToken,
+          };
+          await admin.messaging().send(message);
+        }
+      } catch (fcmErr) {
+        console.log("Zoom notification FCM error:", fcmErr.message || fcmErr);
+      }
+    } catch (notifErr) {
+      console.log("Zoom notification creation error:", notifErr.message || notifErr);
+    }
+
+    return bookingDoc.zoomMeeting;
+  } catch (err) {
+    console.error("ensureZoomMeetingForBooking error:", err.response?.data || err.message || err);
+    // Surface the error to callers so admin endpoints can report details
+    throw new Error(err.response?.data?.message || err.message || String(err));
+  }
+};
 
 const modeMap = {
   home: "homeVisit",
@@ -491,6 +632,8 @@ export const getPanditAvailableSlots = async (req, res) => {
 
 export const createPanditBooking = async (req, res) => {
   try {
+    
+
     const {
       ritualId = "",
       ritualName,
@@ -708,6 +851,18 @@ export const createPanditBooking = async (req, res) => {
       .populate("recommendedKit", "name image kitPrice");
 
     let razorpayOrder = null;
+    // Create Zoom meeting immediately if booking is already paid
+    try {
+      if (booking?.payment?.status === "paid") {
+        const zoom = await ensureZoomMeetingForBooking(booking);
+        if (zoom) {
+          // attach zoom info to the response booking object
+          booking.zoomMeeting = booking.zoomMeeting || zoom;
+        }
+      }
+    } catch (e) {
+      console.error("Error while creating zoom meeting for booking:", e.message || e);
+    }
     if (amountDue > 0) {
       const { keyId, keySecret } = getRazorpayCredentials();
       const razorpay = new Razorpay({ key_id: keyId, key_secret: keySecret });
@@ -999,6 +1154,14 @@ export const confirmPanditBookingPayment = async (req, res) => {
         .populate("ritualRef", "title description image durationHours status")
         .populate("recommendedKit", "name image kitPrice");
 
+      // create Zoom meeting for this paid booking
+      try {
+        const zoom = await ensureZoomMeetingForBooking(booking);
+        if (zoom) booking.zoomMeeting = zoom;
+      } catch (e) {
+        console.error("Error creating Zoom meeting for intent-created booking:", e.message || e);
+      }
+
       void notifyAdmins({
         title: "Pandit booking requested",
         body: `${req.user.name || req.user.phone || "A user"} booked ${booking?.ritual?.name || "a ritual"}`,
@@ -1097,6 +1260,15 @@ export const confirmPanditBookingPayment = async (req, res) => {
     }
 
     await booking.save();
+    // create zoom meeting after payment-confirmation if not present
+    try {
+      if (booking?.payment?.status === "paid") {
+        const zoom = await ensureZoomMeetingForBooking(booking);
+        if (zoom) booking.zoomMeeting = zoom;
+      }
+    } catch (e) {
+      console.error("Error creating zoom meeting after payment-confirmation:", e.message || e);
+    }
 
     res.json({
       success: true,
@@ -1114,7 +1286,7 @@ export const confirmPanditBookingPayment = async (req, res) => {
 export const getMyPanditBookings = async (req, res) => {
   try {
     const bookings = await PanditBooking.find({ user: req.user._id, "payment.status": "paid" })
-      .populate("pandit", "fullName phone profileImage ratingAverage yearsOfExperience languagesSpoken")
+      .populate("pandit", "fullName phone profileImage ratingAverage yearsOfExperience languagesSpoken poojaOfferings")
       .populate("temple", "name image description address contactPhone contactPerson")
       .populate("ritualRef", "title description image durationHours status")
       .populate("recommendedKit", "name image kitPrice")
@@ -1302,6 +1474,7 @@ export const getPanditAssignedBookings = async (req, res) => {
     }
 
     const bookings = await PanditBooking.find(filter)
+      .populate("pandit", "fullName phone profileImage ratingAverage yearsOfExperience languagesSpoken poojaOfferings")
       .populate("user", "name phone email profileImage")
       .populate("ritualRef", "title description image durationHours status")
       .populate("temple", "name image description address contactPhone contactPerson")

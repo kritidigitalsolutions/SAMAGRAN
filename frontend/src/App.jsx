@@ -33,6 +33,7 @@ import VendorSignup from "./pages/vendor/VendorSignup";
 import Vendors from "./pages/admin/Vendors";
 import VendorSettings from "./pages/VendorSettings";
 import VendorDetails from "./pages/admin/VendorDetails";
+import BookingPricing from "./pages/BookingPricing";
 
 function App() {
   return (
@@ -74,8 +75,9 @@ function App() {
         <Route path="coupons" element={<AccessRoute pageKey="coupons"><Coupons /></AccessRoute>} />
         <Route path="offers" element={<AccessRoute pageKey="offers"><Offers /></AccessRoute>} />
         <Route path="legal" element={<AccessRoute pageKey="legal"><Legal /></AccessRoute>} />
-        <Route path="custom-samagri" element={<AccessRoute pageKey="custom-samagri"><CustomSamagri /></AccessRoute>} />
+        {/* <Route path="custom-samagri" element={<AccessRoute pageKey="custom-samagri"><CustomSamagri /></AccessRoute>} /> */}
         <Route path="notifications" element={<AccessRoute pageKey="notifications"><Notifications /></AccessRoute>} />
+        <Route path="booking-pricing" element={<AccessRoute pageKey="booking-pricing"><BookingPricing /></AccessRoute>} />
         <Route path="settings" element={<AccessRoute pageKey="settings"><VendorSettings /></AccessRoute>} />
         <Route path="delivery-boys" element={<AccessRoute pageKey="delivery-boys"><DeliveryBoys /></AccessRoute>} />
         <Route path="transactions" element={<AccessRoute pageKey="transactions"><Transactions /></AccessRoute>} />

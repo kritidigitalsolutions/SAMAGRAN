@@ -422,7 +422,9 @@ export default function Items() {
 
   useEffect(() => {
     const handleClick = (event) => {
-      if (!event.target.closest("[data-item-menu], [data-table-menu-popover]")) {
+      if (
+        !event.target.closest("[data-item-menu], [data-table-menu-popover]")
+      ) {
         setOpenMenuId("");
       }
     };
@@ -927,7 +929,7 @@ export default function Items() {
             </div>
 
             <div className="form-group full-width">
-              <label>Product Images</label>
+              <label>Product Images <span>(upload max 5 image)</span></label>
               <input type="file" multiple onChange={handleCreateImageChange} />
             </div>
             <div className="preview-container full-width">
@@ -1243,7 +1245,7 @@ export default function Items() {
                   </th>
                   <th className="px-4 py-3 font-semibold">S.No</th>
                   <th className="px-4 py-3 font-semibold">Image</th>
-                  <th className="px-4 py-3 font-semibold">Name</th>
+                  {/* <th className="px-4 py-3 font-semibold">Name</th> */}
                   <th className="px-4 py-3 font-semibold">Item Code</th>
                   {/* <th className="px-4 py-3 font-semibold">Product</th> */}
                   <th className="px-4 py-3 font-semibold">Category</th>
@@ -1293,12 +1295,9 @@ export default function Items() {
                       ) : (
                         <div className="h-10 w-10 rounded-lg bg-[#8B1E3F]/10" />
                       )}
-                     
-                    </td>
-                    <td className="px-4 py-3 flex-row flex gap-2">
-                       <div>
+                      <div>
                         <p
-                          className="font-semibold items-title-ellipsis"
+                          className="font-semibold items-title-ellipsis text-wrap"
                           title={item.title}
                         >
                           {item.title}
@@ -1310,6 +1309,8 @@ export default function Items() {
                         </p>
                       </div>
                     </td>
+                    {/* <td className="px-4 py-3 flex-row flex gap-2">
+                    </td> */}
                     <td className="px-4 py-3 font-mono text-xs text-[#6f3945] dark:text-[#f7e3c0]">
                       {item.itemCode ||
                         `ITEM-${String(item._id || "")
@@ -1376,9 +1377,14 @@ export default function Items() {
                         <button
                           type="button"
                           onClick={(event) => {
-                            const nextId = openMenuId === item._id ? "" : item._id;
+                            const nextId =
+                              openMenuId === item._id ? "" : item._id;
                             setOpenMenuId(nextId);
-                            setMenuAnchorRect(nextId ? event.currentTarget.getBoundingClientRect() : null);
+                            setMenuAnchorRect(
+                              nextId
+                                ? event.currentTarget.getBoundingClientRect()
+                                : null,
+                            );
                           }}
                           className="grid h-9 w-9 place-items-center rounded-lg border border-[#d7bf9b] text-[#6f3945] hover:bg-[#8B1E3F]/10 dark:border-white/20 dark:text-[#f7e3c0]"
                         >
@@ -1772,7 +1778,7 @@ export default function Items() {
               </label>
             </div>
             <div className="form-group full-width mt-4">
-              <label>Product Images</label>
+              <label>Product Images<span> (upload max 5 image)</span></label>
               <input type="file" multiple onChange={handleEditImageChange} />
             </div>
 

@@ -53,7 +53,7 @@ const EditVendorAccessModal = ({ vendor, onClose, onAccessUpdate }) => {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
-      <div className="bg-white p-8 rounded-lg shadow-xl w-full max-w-2xl">
+      <div className="bg-white dark:bg-[#0f1218] dark:text-white p-8 rounded-lg shadow-xl w-full max-w-2xl">
         <h2 className="text-2xl font-bold mb-6">
           Edit Page Access for {vendor.name}
         </h2>
@@ -67,7 +67,7 @@ const EditVendorAccessModal = ({ vendor, onClose, onAccessUpdate }) => {
                   onChange={() => handleCheckboxChange(page)}
                   className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
                 />
-                <span className="text-gray-700 capitalize">
+                <span className="text-gray-700 dark:text-white capitalize">
                   {page.replace(/-/g, " ")}
                 </span>
               </label>

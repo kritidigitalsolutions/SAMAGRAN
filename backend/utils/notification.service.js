@@ -21,6 +21,47 @@ const mapSendStatus = (status) => {
   return "sent";
 };
 
+const createNotificationRecord = async ({
+  title,
+  body,
+  data = {},
+  audienceType = "user",
+  audienceIds = [],
+  createdBy = null,
+  vendorId = null,
+  sendResult = {},
+}) => {
+  try {
+    await Notification.create({
+      title: String(title || "").trim(),
+      body: String(body || "").trim(),
+      data: data || {},
+      audience: {
+        type: String(audienceType || "user").trim(),
+        ids: Array.isArray(audienceIds)
+          ? audienceIds
+              .map((id) => {
+                try {
+                  return new mongoose.Types.ObjectId(id);
+                } catch {
+                  return null;
+                }
+              })
+              .filter(Boolean)
+          : [],
+      },
+      sentCount: sendResult.sentCount || 0,
+      failedCount: sendResult.failedCount || 0,
+      status: mapSendStatus(sendResult.status),
+      error: sendResult.error || sendResult.message || "",
+      createdBy: createdBy || null,
+      vendorId: vendorId || null,
+    });
+  } catch {
+    // ignore persistence errors
+  }
+};
+
 export const notifyAdmins = async ({ title, body, data = {} }) => {
   const admins = await Admin.find(queryWithToken).select("fcmToken").lean();
   const sendResult = await sendPushNotifications({
@@ -50,12 +91,23 @@ export const notifyAdmins = async ({ title, body, data = {} }) => {
 
 export const notifyAllUsers = async ({ title, body, data = {} }) => {
   const users = await User.find(queryWithToken).select("fcmToken").lean();
-  return sendPushNotifications({
+  const sendResult = await sendPushNotifications({
     tokens: collectTokens(users),
     title,
     body,
     data,
   });
+
+  await createNotificationRecord({
+    title,
+    body,
+    data,
+    audienceType: "user",
+    audienceIds: [],
+    sendResult,
+  });
+
+  return sendResult;
 };
 
 export const notifyUsersByIds = async ({ userIds = [], title, body, data = {} }) => {
@@ -76,12 +128,23 @@ export const notifyUsersByIds = async ({ userIds = [], title, body, data = {} })
     .select("fcmToken")
     .lean();
 
-  return sendPushNotifications({
+  const sendResult = await sendPushNotifications({
     tokens: collectTokens(users),
     title,
     body,
     data,
   });
+
+  await createNotificationRecord({
+    title,
+    body,
+    data,
+    audienceType: "user",
+    audienceIds: userIds,
+    sendResult,
+  });
+
+  return sendResult;
 };
 
 export const notifyPandits = async ({ title, body, data = {} }) => {
@@ -103,20 +166,14 @@ export const notifyVendors = async ({ title, body, data = {} }) => {
     data,
   });
 
-  try {
-    await Notification.create({
-      title: String(title || "").trim(),
-      body: String(body || "").trim(),
-      data: data || {},
-      audience: { type: "vendor", ids: [] },
-      sentCount: sendResult.sentCount || 0,
-      failedCount: sendResult.failedCount || 0,
-      status: mapSendStatus(sendResult.status),
-      error: sendResult.error || sendResult.message || "",
-    });
-  } catch {
-    // ignore persistence errors
-  }
+  await createNotificationRecord({
+    title,
+    body,
+    data,
+    audienceType: "vendor",
+    audienceIds: [],
+    sendResult,
+  });
 
   return sendResult;
 };
@@ -146,20 +203,14 @@ export const notifyVendorsByIds = async ({ vendorIds = [], title, body, data = {
     data,
   });
 
-  try {
-    await Notification.create({
-      title: String(title || "").trim(),
-      body: String(body || "").trim(),
-      data: data || {},
-      audience: { type: "vendor", ids: vendorIds.map((id) => new mongoose.Types.ObjectId(id)) },
-      sentCount: sendResult.sentCount || 0,
-      failedCount: sendResult.failedCount || 0,
-      status: mapSendStatus(sendResult.status),
-      error: sendResult.error || sendResult.message || "",
-    });
-  } catch {
-    // ignore persistence errors
-  }
+  await createNotificationRecord({
+    title,
+    body,
+    data,
+    audienceType: "vendor",
+    audienceIds: vendorIds,
+    sendResult,
+  });
 
   return sendResult;
 };
