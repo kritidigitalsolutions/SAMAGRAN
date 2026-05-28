@@ -1260,21 +1260,28 @@ export const confirmPanditBookingPayment = async (req, res) => {
     }
 
     await booking.save();
+
     // create zoom meeting after payment-confirmation if not present
+    let zoomError = null;
     try {
       if (booking?.payment?.status === "paid") {
         const zoom = await ensureZoomMeetingForBooking(booking);
         if (zoom) booking.zoomMeeting = zoom;
       }
     } catch (e) {
-      console.error("Error creating zoom meeting after payment-confirmation:", e.message || e);
+      zoomError = e.message || String(e);
+      console.error("Error creating zoom meeting after payment-confirmation:", e.response?.data || e.message || e);
     }
 
-    res.json({
+    const responseBody = {
       success: true,
       message: "Payment successful and booking requested",
       data: booking,
-    });
+    };
+
+    if (zoomError) responseBody.zoomError = zoomError;
+
+    return res.json(responseBody);
   } catch (err) {
     res.status(500).json({
       success: false,

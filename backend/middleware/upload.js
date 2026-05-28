@@ -1,10 +1,22 @@
 import multer from "multer";
 import path from "path";
 import fs from "fs";
+import os from "os";
 
-const uploadDir = path.resolve("uploads");
-if (!fs.existsSync(uploadDir)) {
-	fs.mkdirSync(uploadDir, { recursive: true });
+let uploadDir = path.resolve("uploads");
+try {
+	if (!fs.existsSync(uploadDir)) {
+		fs.mkdirSync(uploadDir, { recursive: true });
+	}
+} catch (err) {
+	// If creating project folder fails (readonly filesystem like /var/task),
+	// fallback to system temp directory.
+	// eslint-disable-next-line no-console
+	console.warn(`upload middleware: cannot use ${uploadDir}, falling back to tmpdir: ${err.message}`);
+	uploadDir = path.join(os.tmpdir(), "samagran-uploads");
+	if (!fs.existsSync(uploadDir)) {
+		fs.mkdirSync(uploadDir, { recursive: true });
+	}
 }
 
 const storage = multer.diskStorage({
