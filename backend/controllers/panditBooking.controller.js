@@ -40,35 +40,103 @@ export const ensureZoomMeetingForBooking = async (bookingDocOrId) => {
     const timePart = rawTime.split("-")[0].trim();
     const dateStr = String(bookingDoc.bookingDate || primary.date || "").trim();
 
+    console.log("Zoom meeting input:", {
+      bookingId: String(bookingDoc._id),
+      bookingDate: bookingDoc.bookingDate,
+      slotDate: primary.date,
+      slotTime: primary.time,
+      timePart,
+      dateStr,
+    });
+
     const parseStartTime = (dateText, timeText) => {
       if (!dateText || !timeText) return null;
 
-      // dateText expected as YYYY-MM-DD
-      const [y, m, d] = String(dateText).split("-").map(Number);
-      if (![y, m, d].every(Number.isFinite)) return null;
+      const parseTimePart = (timeStr) => {
+        const timeMatch = String(timeStr).trim().match(/(\d{1,2}):(\d{2})\s*([AaPp][Mm])?/);
+        let hour = 0,
+          minute = 0;
+        if (timeMatch) {
+          hour = Number(timeMatch[1]);
+          minute = Number(timeMatch[2]);
+          const ampm = (timeMatch[3] || "").toUpperCase();
+          if (ampm === "PM" && hour < 12) hour += 12;
+          if (ampm === "AM" && hour === 12) hour = 0;
+        } else {
+          const parts = String(timeStr).split(":");
+          hour = Number(parts[0] || 0);
+          minute = Number(parts[1] || 0);
+        }
+        return { hour, minute };
+      };
 
-      const timeMatch = String(timeText).trim().match(/(\d{1,2}):(\d{2})\s*([AaPp][Mm])?/);
-      let hour = 0,
-        minute = 0;
-      if (timeMatch) {
-        hour = Number(timeMatch[1]);
-        minute = Number(timeMatch[2]);
-        const ampm = (timeMatch[3] || "").toUpperCase();
-        if (ampm === "PM" && hour < 12) hour += 12;
-        if (ampm === "AM" && hour === 12) hour = 0;
-      } else {
-        // fallback to attempt parsing 'HH:MM' 24-hour
-        const parts = String(timeText).split(":");
-        hour = Number(parts[0] || 0);
-        minute = Number(parts[1] || 0);
+      // 1) Try ISO YYYY-MM-DD first
+      if (/^\d{4}-\d{2}-\d{2}$/.test(String(dateText).trim())) {
+        const [y, m, d] = String(dateText).split("-").map(Number);
+        if (![y, m, d].every(Number.isFinite)) return null;
+        const { hour, minute } = parseTimePart(timeText);
+        const dt = new Date(Date.UTC(y, (m || 1) - 1, d, hour, minute, 0));
+        return new Date(dt.getTime());
       }
 
-      const dt = new Date(Date.UTC(y, (m || 1) - 1, d, hour, minute, 0));
-      // convert UTC to local server time by creating equivalent local Date
-      return new Date(dt.getTime());
+      // 2) Try human-readable like '26 Jun 2026' or '26 June 2026'
+      const humanMatch = String(dateText).trim().match(/(\d{1,2})\s+([A-Za-z]+)\s*,?\s*(\d{4})/);
+      if (humanMatch) {
+        const day = Number(humanMatch[1]);
+        const monthName = humanMatch[2].toLowerCase();
+        const year = Number(humanMatch[3]);
+        const months = {
+          jan: 0,
+          january: 0,
+          feb: 1,
+          february: 1,
+          mar: 2,
+          march: 2,
+          apr: 3,
+          april: 3,
+          may: 4,
+          jun: 5,
+          june: 5,
+          jul: 6,
+          july: 6,
+          aug: 7,
+          august: 7,
+          sep: 8,
+          sept: 8,
+          september: 8,
+          oct: 9,
+          october: 9,
+          nov: 10,
+          november: 10,
+          dec: 11,
+          december: 11,
+        };
+        const monthIndex = months[monthName.slice(0, 3)] ?? months[monthName] ?? null;
+        if (monthIndex === null || !Number.isFinite(day) || !Number.isFinite(year)) return null;
+        const { hour, minute } = parseTimePart(timeText);
+        const dt = new Date(Date.UTC(year, monthIndex, day, hour, minute, 0));
+        return new Date(dt.getTime());
+      }
+
+      // 3) Fallback: try native Date parsing of combined string
+      try {
+        const combined = `${String(dateText).trim()} ${String(timeText).trim()}`;
+        const parsed = new Date(combined);
+        if (!Number.isNaN(parsed.getTime())) return parsed;
+      } catch (e) {
+        // ignore
+      }
+
+      // couldn't parse
+      console.warn("parseStartTime: unable to parse date/time", { dateText, timeText });
+      return null;
     };
 
     const startTime = parseStartTime(dateStr, timePart);
+    console.log("Zoom meeting parsed startTime:", {
+      bookingId: String(bookingDoc._id),
+      startTime: startTime ? startTime.toISOString() : null,
+    });
     if (!startTime || Number.isNaN(startTime.getTime())) return null;
 
     const durationHours = Number(bookingDoc.ritualRef?.durationHours || bookingDoc.ritual?.durationHours || 1);
@@ -305,6 +373,70 @@ const normalizeBookingAddress = (addressInput = {}) => {
 const normalizeRequestReason = (value = "") => String(value || "").trim();
 const normalizeRequestNotes = (value = "") => String(value || "").trim();
 
+const normalizeDateString = (value = "") => {
+  const input = String(value || "").trim();
+  if (!input) return "";
+
+  // 1) ISO YYYY-MM-DD
+  const isoMatch = input.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (isoMatch) {
+    const y = Number(isoMatch[1]);
+    const m = String(isoMatch[2]).padStart(2, "0");
+    const d = String(isoMatch[3]).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  }
+
+  // 2) Human-readable like '26 Jun 2026' or '26 June 2026'
+  const humanMatch = input.match(/(\d{1,2})\s+([A-Za-z]+)\s*,?\s*(\d{4})/);
+  if (humanMatch) {
+    const day = Number(humanMatch[1]);
+    const monthName = humanMatch[2].toLowerCase();
+    const year = Number(humanMatch[3]);
+    const months = {
+      jan: 1,
+      january: 1,
+      feb: 2,
+      february: 2,
+      mar: 3,
+      march: 3,
+      apr: 4,
+      april: 4,
+      may: 5,
+      jun: 6,
+      june: 6,
+      jul: 7,
+      july: 7,
+      aug: 8,
+      august: 8,
+      sep: 9,
+      sept: 9,
+      september: 9,
+      oct: 10,
+      october: 10,
+      nov: 11,
+      november: 11,
+      dec: 12,
+      december: 12,
+    };
+    const monthIndex = months[monthName.slice(0, 3)] ?? months[monthName] ?? null;
+    if (!Number.isFinite(day) || !Number.isFinite(year) || monthIndex === null) return "";
+    const d = String(day).padStart(2, "0");
+    const m = String(monthIndex).padStart(2, "0");
+    return `${year}-${m}-${d}`;
+  }
+
+  // 3) Fallback to native parsing
+  const parsed = new Date(input);
+  if (!Number.isNaN(parsed.getTime())) {
+    const y = parsed.getFullYear();
+    const m = String(parsed.getMonth() + 1).padStart(2, "0");
+    const d = String(parsed.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  }
+
+  return "";
+};
+
 const normalizeDateAndTimePayload = (value, fallbackDate = "") => {
   if (!value) return [];
 
@@ -316,7 +448,7 @@ const normalizeDateAndTimePayload = (value, fallbackDate = "") => {
 
   const normalized = rows
     .map((row) => ({
-      date: String(row?.date || fallbackDate || "").trim(),
+      date: normalizeDateString(row?.date || fallbackDate || ""),
       time: String(row?.time || row?.label || "").trim(),
     }))
     .filter((row) => row.date && row.time);
@@ -632,7 +764,7 @@ export const getPanditAvailableSlots = async (req, res) => {
 
 export const createPanditBooking = async (req, res) => {
   try {
-    
+    console.log("Create booking request body:", req.body);
 
     const {
       ritualId = "",
@@ -673,7 +805,7 @@ export const createPanditBooking = async (req, res) => {
     }
 
     const primaryDateAndTime = normalizedDateAndTime[0];
-    const resolvedBookingDate = String(bookingDate || primaryDateAndTime?.date || "").trim();
+    const resolvedBookingDate = normalizeDateString(bookingDate || primaryDateAndTime?.date || "");
 
     if (!resolvedBookingDate) {
       return res.status(400).json({
@@ -851,17 +983,34 @@ export const createPanditBooking = async (req, res) => {
       .populate("recommendedKit", "name image kitPrice");
 
     let razorpayOrder = null;
+    // Log booking creation details for debugging
+    try {
+      const primaryTime = getPrimaryBookingTime(booking.dateAndTime) || "";
+      console.log("Pandit booking created:", {
+        bookingId: String(booking._id),
+        paymentStatus: booking.payment?.status,
+        bookingDate: booking.bookingDate,
+        time: primaryTime,
+      });
+    } catch (logErr) {
+      console.log("Error logging booking creation:", logErr.message || logErr);
+    }
+
     // Create Zoom meeting immediately if booking is already paid
     try {
       if (booking?.payment?.status === "paid") {
+        console.log(`Attempting Zoom meeting creation for booking ${String(booking._id)}`);
         const zoom = await ensureZoomMeetingForBooking(booking);
+        console.log(`Zoom meeting creation result for booking ${String(booking._id)}:`, zoom);
         if (zoom) {
           // attach zoom info to the response booking object
           booking.zoomMeeting = booking.zoomMeeting || zoom;
         }
+      } else {
+        console.log(`Booking ${String(booking._id)} payment status is '${booking.payment?.status}'; skipping Zoom creation`);
       }
     } catch (e) {
-      console.error("Error while creating zoom meeting for booking:", e.message || e);
+      console.error("Error while creating zoom meeting for booking:", e.response?.data || e.message || e);
     }
     if (amountDue > 0) {
       const { keyId, keySecret } = getRazorpayCredentials();
@@ -1013,6 +1162,14 @@ export const confirmPanditBookingPayment = async (req, res) => {
       bookingIntentToken = "",
     } = req.body;
 
+    console.log("Confirm payment request:", {
+      bookingId,
+      razorpayOrderId,
+      razorpayPaymentId,
+      razorpaySignature: razorpaySignature ? "[present]" : "[missing]",
+      bookingIntentToken: bookingIntentToken ? "[present]" : "[missing]",
+    });
+
     if (!razorpayOrderId || !razorpayPaymentId || !razorpaySignature) {
       return res.status(400).json({
         success: false,
@@ -1156,10 +1313,12 @@ export const confirmPanditBookingPayment = async (req, res) => {
 
       // create Zoom meeting for this paid booking
       try {
+        console.log(`Intent flow: attempting Zoom meeting creation for booking ${String(booking._id)}`);
         const zoom = await ensureZoomMeetingForBooking(booking);
+        console.log(`Intent flow: Zoom result for booking ${String(booking._id)}:`, zoom);
         if (zoom) booking.zoomMeeting = zoom;
       } catch (e) {
-        console.error("Error creating Zoom meeting for intent-created booking:", e.message || e);
+        console.error("Error creating Zoom meeting for intent-created booking:", e.response?.data || e.message || e);
       }
 
       void notifyAdmins({
@@ -1265,7 +1424,9 @@ export const confirmPanditBookingPayment = async (req, res) => {
     let zoomError = null;
     try {
       if (booking?.payment?.status === "paid") {
+        console.log(`Confirm-payment flow: attempting Zoom meeting creation for booking ${String(booking._id)}`);
         const zoom = await ensureZoomMeetingForBooking(booking);
+        console.log(`Confirm-payment flow: Zoom result for booking ${String(booking._id)}:`, zoom);
         if (zoom) booking.zoomMeeting = zoom;
       }
     } catch (e) {
@@ -1826,9 +1987,21 @@ export const cancelPanditBookingByUser = async (req, res) => {
 
     await booking.save();
 
+    void notifyAdmins({
+      title: "Pandit booking cancelled by user",
+      body: `${req.user?.name || req.user?.phone || "A user"} cancelled booking ${String(booking._id).slice(-6)}`,
+      data: {
+        eventType: "pandit.booking.cancelled",
+        bookingId: String(booking._id),
+        userId: String(req.user._id),
+        refundRequested: true,
+      },
+    }).catch((error) => console.error("PANDIT BOOKING CANCEL NOTIFICATION ERROR:", error.message));
+
     return res.json({
       success: true,
       message: "Booking cancelled successfully",
+      note: "Your money will be refunded to your wallet within 48 hours.",
       data: booking,
     });
   } catch (err) {
@@ -1916,7 +2089,7 @@ export const reschedulePanditBookingByUser = async (req, res) => {
 
     if (normalizedDateAndTime.length) {
       const primaryDateAndTime = normalizedDateAndTime[0];
-      const resolvedBookingDate = String(bookingDate || primaryDateAndTime?.date || "").trim();
+      const resolvedBookingDate = normalizeDateString(bookingDate || primaryDateAndTime?.date || "");
 
       if (!resolvedBookingDate) {
         return res.status(400).json({
@@ -2178,7 +2351,7 @@ export const createPanditBookingWithWallet = async (req, res) => {
     }
 
     const primaryDateAndTime = normalizedDateAndTime[0];
-    const resolvedBookingDate = String(bookingDate || primaryDateAndTime?.date || "").trim();
+    const resolvedBookingDate = normalizeDateString(bookingDate || primaryDateAndTime?.date || "");
 
     if (!resolvedBookingDate) {
       return res.status(400).json({

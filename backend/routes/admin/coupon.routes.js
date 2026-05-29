@@ -1,5 +1,5 @@
 import express from "express";
-import { protectAdmin } from "../../middleware/admin.middleware.js";
+import { protectAdmin, requireSuperAdmin } from "../../middleware/admin.middleware.js";
 import {
   createCoupon,
   deleteCoupon,
@@ -9,9 +9,9 @@ import {
 
 const router = express.Router();
 
-router.get("/", protectAdmin, getCoupons);
-router.post("/", protectAdmin, createCoupon);
-router.put("/:id", protectAdmin, updateCoupon);
-router.delete("/:id", protectAdmin, deleteCoupon);
+router.get("/", protectAdmin, requireSuperAdmin, getCoupons);
+router.post("/", protectAdmin, requireSuperAdmin, createCoupon);
+router.put("/:id", protectAdmin, requireSuperAdmin, updateCoupon);
+router.delete("/:id", protectAdmin, requireSuperAdmin, deleteCoupon);
 
 export default router;

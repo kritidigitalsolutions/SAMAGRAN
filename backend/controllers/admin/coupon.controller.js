@@ -71,7 +71,47 @@ export const createCoupon = async (req, res) => {
 
 export const getCoupons = async (req, res) => {
   try {
-    const coupons = await Coupon.find(resolveVendorFilter(req)).sort({ createdAt: -1 });
+    const { status = "all", discountType = "all", query = "" } = req.query || {};
+    const now = new Date();
+
+    const filter = { ...resolveVendorFilter(req) };
+
+    if (discountType === "flat" || discountType === "percent") {
+      filter.discountType = discountType;
+    }
+
+    if (query) {
+      const regex = { $regex: String(query).trim(), $options: "i" };
+      filter.$or = [{ code: regex }, { title: regex }, { description: regex }];
+    }
+
+    if (status === "active") {
+      filter.isActive = true;
+      filter.$and = filter.$and || [];
+      filter.$and.push({ $or: [{ expiresAt: null }, { expiresAt: { $gt: now } }] });
+      filter.$and.push({
+        $or: [
+          { usageLimit: { $lte: 0 } },
+          { $expr: { $lt: ["$usedCount", "$usageLimit"] } },
+        ],
+      });
+    }
+
+    if (status === "expired") {
+      filter.$or = filter.$or || [];
+      filter.$or.push({ isActive: false });
+      filter.$or.push({ expiresAt: { $lte: now } });
+      filter.$or.push({
+        $expr: {
+          $and: [
+            { $gt: ["$usageLimit", 0] },
+            { $gte: ["$usedCount", "$usageLimit"] },
+          ],
+        },
+      });
+    }
+
+    const coupons = await Coupon.find(filter).sort({ createdAt: -1 });
     return res.json({
       success: true,
       data: coupons,

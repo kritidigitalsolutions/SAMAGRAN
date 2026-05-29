@@ -34,6 +34,9 @@ export default function Coupons() {
   const [menuAnchorRect, setMenuAnchorRect] = useState(null);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [typeFilter, setTypeFilter] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
   const pagedCoupons = useMemo(() => {
     const start = (page - 1) * pageSize;
     return coupons.slice(start, start + pageSize);
@@ -42,7 +45,13 @@ export default function Coupons() {
   const fetchCoupons = async () => {
     try {
       setLoading(true);
-      const res = await API.get("/admin/coupons");
+      const res = await API.get("/admin/coupons", {
+        params: {
+          status: statusFilter,
+          discountType: typeFilter,
+          query: searchQuery.trim(),
+        },
+      });
       setCoupons(res.data?.data || []);
     } catch (err) {
       setError(err.response?.data?.message || "Unable to load coupons.");
@@ -53,7 +62,7 @@ export default function Coupons() {
 
   useEffect(() => {
     fetchCoupons();
-  }, []);
+  }, [statusFilter, typeFilter, searchQuery]);
 
   useEffect(() => {
     setPage(1);
@@ -79,6 +88,14 @@ export default function Coupons() {
   const resetForm = () => {
     setForm(initialForm);
     setEditingId("");
+  };
+
+  const isCouponExpired = (coupon) => {
+    const now = new Date();
+    const expiredByDate = coupon.expiresAt ? new Date(coupon.expiresAt) <= now : false;
+    const expiredByUsage =
+      Number(coupon.usageLimit || 0) > 0 && Number(coupon.usedCount || 0) >= Number(coupon.usageLimit || 0);
+    return !coupon.isActive || expiredByDate || expiredByUsage;
   };
 
   const handleChange = (event) => {
@@ -295,6 +312,45 @@ export default function Coupons() {
           </button>
         </div>
 
+        <div className="mb-4 flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2">
+            <label className="text-xs font-semibold text-[#6f3945]">Status</label>
+            <select
+              value={statusFilter}
+              onChange={(event) => setStatusFilter(event.target.value)}
+              className="h-9 rounded-lg border border-[#d7c3a3] bg-white px-3 text-xs dark:bg-[#181c24] dark:text-white dark:border-white/20"
+            >
+              <option value="all">All</option>
+              <option value="active">Active</option>
+              <option value="expired">Expired</option>
+            </select>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <label className="text-xs font-semibold text-[#6f3945]">Type</label>
+            <select
+              value={typeFilter}
+              onChange={(event) => setTypeFilter(event.target.value)}
+              className="h-9 rounded-lg border border-[#d7c3a3] bg-white px-3 text-xs dark:bg-[#181c24] dark:text-white dark:border-white/20"
+            >
+              <option value="all">All</option>
+              <option value="flat">Flat</option>
+              <option value="percent">Percent</option>
+            </select>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <label className="text-xs font-semibold text-[#6f3945]">Search</label>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Code or title"
+              className="h-9 w-44 rounded-lg border border-[#d7c3a3] bg-white px-3 text-xs dark:bg-[#181c24] dark:text-white dark:border-white/20"
+            />
+          </div>
+        </div>
+
         {loading ? (
           <div className="py-8 text-center">Loading coupons...</div>
         ) : coupons.length === 0 ? (
@@ -352,15 +408,20 @@ export default function Coupons() {
                       {coupon.expiresAt ? new Date(coupon.expiresAt).toLocaleDateString() : "-"}
                     </td>
                     <td className="px-4 py-3">
-                      <span
-                        className={`inline-block rounded-full px-3 py-1 text-xs font-medium ${
-                          coupon.isActive
-                            ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200"
-                            : "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200"
-                        }`}
-                      >
-                        {coupon.isActive ? "Active" : "Inactive"}
-                      </span>
+                      {(() => {
+                        const expired = isCouponExpired(coupon);
+                        return (
+                          <span
+                            className={`inline-block rounded-full px-3 py-1 text-xs font-medium ${
+                              expired
+                                ? "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200"
+                                : "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200"
+                            }`}
+                          >
+                            {expired ? "Expired" : "Active"}
+                          </span>
+                        );
+                      })()}
                     </td>
                     <td className="px-4 py-3 text-right" data-coupon-menu>
                       <div className="relative inline-flex">

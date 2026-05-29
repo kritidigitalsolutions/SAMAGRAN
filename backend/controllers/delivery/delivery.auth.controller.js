@@ -1,6 +1,7 @@
 import jwt from "jsonwebtoken";
 import DeliveryBoy from "../../models/deliveryBoy.model.js";
 import DeliveryOTP from "../../models/deliveryOtp.model.js";
+import { sendOtpSms } from "../../utils/sms.service.js";
 
 const buildOtp = () => Math.floor(100000 + Math.random() * 900000).toString();
 const isValidPhone = (phone) => /^[6-9]\d{9}$/.test(phone);
@@ -46,10 +47,17 @@ export const requestDeliveryOtp = async (req, res) => {
 
     console.log(`Delivery OTP for ${phone}: ${otp}`);
 
+    const smsResult = await sendOtpSms(phone, otp, "delivery");
+    if (!smsResult?.success) {
+      return res.status(500).json({
+        success: false,
+        message: "Unable to send OTP. Please try again.",
+      });
+    }
+
     return res.json({
       success: true,
       message: "OTP sent for delivery login",
-      data: { OTP: otp },
     });
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message || "Unable to send OTP" });

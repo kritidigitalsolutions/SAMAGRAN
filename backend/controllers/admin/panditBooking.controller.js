@@ -1,6 +1,7 @@
 import PanditBooking from "../../models/panditBooking.model.js";
 import mongoose from "mongoose";
 import { ensureZoomMeetingForBooking } from "../../controllers/panditBooking.controller.js";
+import { createMeeting } from "../../utils/zoom.service.js";
 
 export const getAllPanditBookingsForAdmin = async (req, res) => {
   try {
@@ -212,5 +213,51 @@ export const createZoomMeetingForBookingByAdmin = async (req, res) => {
     return res.json({ success: true, message: "Zoom meeting created", data: refreshed });
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message || "Unable to create zoom meeting" });
+  }
+};
+
+export const createZoomTestMeeting = async (req, res) => {
+  try {
+    const {
+      topic = "Zoom Test Meeting",
+      startTime,
+      durationMinutes = 30,
+      hostEmail = "",
+      timezone = "Asia/Kolkata",
+    } = req.body || {};
+
+    if (!startTime) {
+      return res.status(400).json({
+        success: false,
+        message: "startTime is required (ISO string or Date parseable)",
+      });
+    }
+
+    const parsedStart = new Date(startTime);
+    if (Number.isNaN(parsedStart.getTime())) {
+      return res.status(400).json({
+        success: false,
+        message: "startTime is invalid. Use ISO format like 2026-05-30T10:00:00+05:30",
+      });
+    }
+
+    const meeting = await createMeeting({
+      topic,
+      startTime: parsedStart,
+      durationMinutes: Number(durationMinutes) || 30,
+      hostEmail,
+      timezone,
+    });
+
+    return res.json({
+      success: true,
+      message: "Zoom test meeting created",
+      data: meeting,
+    });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      message: err.message || "Unable to create Zoom test meeting",
+    });
   }
 };

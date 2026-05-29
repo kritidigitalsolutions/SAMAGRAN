@@ -35,6 +35,20 @@ export const applyCoupon = async (req, res) => {
       });
     }
 
+    if (req.user?.welcomeCouponRedeemed) {
+      return res.status(400).json({
+        success: false,
+        message: "Welcome coupon already used",
+      });
+    }
+
+    if (req.user?.welcomeCouponCode && normalizedCode !== String(req.user.welcomeCouponCode).trim().toUpperCase()) {
+      return res.status(403).json({
+        success: false,
+        message: "Only your welcome coupon is available",
+      });
+    }
+
     const coupon = await Coupon.findOne({ code: normalizedCode, isActive: true });
     if (!coupon || !isWithinWindow(coupon)) {
       return res.status(404).json({
@@ -96,7 +110,23 @@ export const applyCoupon = async (req, res) => {
 
 export const getCoupons = async (req, res) => {
   try {
-    const coupons = await Coupon.find().sort({ createdAt: -1 });
+    if (req.user?.welcomeCouponRedeemed) {
+      return res.json({
+        success: true,
+        data: [],
+      });
+    }
+
+    const welcomeCode = String(req.user?.welcomeCouponCode || "").trim().toUpperCase();
+    if (!welcomeCode) {
+      return res.json({
+        success: true,
+        data: [],
+      });
+    }
+
+    const coupon = await Coupon.findOne({ code: welcomeCode, isActive: true });
+    const coupons = coupon && isWithinWindow(coupon) ? [coupon] : [];
     return res.json({
       success: true,
       data: coupons,

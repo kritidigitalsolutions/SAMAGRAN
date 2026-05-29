@@ -162,11 +162,22 @@ export default function Navbar({ onMenuClick, onToggleSidebar, sidebarCollapsed 
 
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--admin-primary)]">
-              Admin Panel
+              {isVendor ? "Vendor Panel" : "Admin Panel"}
             </p>
-            <h1 className="mt-1 text-2xl font-bold tracking-tight text-[var(--admin-text)]">
-              Samagran Dashboard
-            </h1>
+            <div className="flex items-center gap-3">
+              <h1 className="mt-1 text-2xl font-bold tracking-tight text-[var(--admin-text)]">
+                Samagran Dashboard
+              </h1>
+              {isVendor && (
+                <button
+                  type="button"
+                  onClick={() => navigate('/dashboard/settings')}
+                  className="ml-3 rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] px-3 py-1 text-sm font-semibold text-[var(--admin-primary)]"
+                >
+                  Open Vendor Panel
+                </button>
+              )}
+            </div>
             <p className="mt-1 text-sm text-[var(--admin-muted)]">
               Manage orders, users, pandits, kits and rituals from one place.
             </p>

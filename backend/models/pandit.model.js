@@ -108,6 +108,22 @@ const panditSchema = new mongoose.Schema(
       trim: true,
       default: "",
     },
+    accountHolderName: {
+      type: String,
+      trim: true
+    },
+    accountNumber: {
+      type: String,
+      trim: true,
+    },
+    ifscCode: {
+      type: String,
+      trim: true
+    },
+    bankName: {
+      type: String,
+      trim: true,
+    },
 
     fcmToken: {
       type: String,

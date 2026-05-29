@@ -474,8 +474,24 @@ export const updatePanditProfile = async (req, res) => {
       aadhaar,
       serviceTypes,
       poojaOfferings,
+      accountHolderName,
+      accountNumber,
+      ifscCode,
+      bankName
     } = body;
 
+    if (typeof accountHolderName === "string") {
+      pandit.accountHolderName = accountHolderName.trim();
+    }
+    if (typeof accountNumber === "string") {
+      pandit.accountNumber = accountNumber.trim();
+    }
+    if (typeof ifscCode === "string") {
+      pandit.ifscCode = ifscCode.trim();
+    }
+    if (typeof bankName === "string") {
+      pandit.bankName = bankName.trim();
+    }
     if (typeof fullName === "string") {
       pandit.fullName = fullName.trim();
     }
