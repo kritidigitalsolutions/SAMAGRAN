@@ -27,7 +27,7 @@ const isOriginAllowed = (origin) => {
     return true;
   }
 
-  const isLocalhostOrigin = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin);
+  const isLocalhostOrigin = /^https?:\/\/(?:[a-z0-9-]+\.)?(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin);
   const isLanOrigin = /^https?:\/\/192\.168\.\d+\.\d+(?::\d+)?$/i.test(origin);
   const isVercelAppOrigin = /^https:\/\/samagran(?:-[a-z0-9-]+)?\.vercel\.app$/i.test(origin);
 

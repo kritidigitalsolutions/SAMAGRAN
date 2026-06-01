@@ -1,4 +1,4 @@
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 
 import AdminLogin from "./pages/AdminLogin";
 import AdminLayout from "./layout/AdminLayout";
@@ -20,7 +20,7 @@ import Banner from "./pages/Banner";
 import Coupons from "./pages/Coupons";
 import Offers from "./pages/Offers";
 import Legal from "./pages/Legal";
-import CustomSamagri from "./pages/CustomSamagri";
+// import CustomSamagri from "./pages/CustomSamagri";
 import Notifications from "./pages/Notifications";
 import DeliveryBoys from "./pages/DeliveryBoys";
 import Transactions from "./pages/Transactions";
@@ -34,12 +34,27 @@ import Vendors from "./pages/admin/Vendors";
 import VendorSettings from "./pages/VendorSettings";
 import VendorDetails from "./pages/admin/VendorDetails";
 import BookingPricing from "./pages/BookingPricing";
+import { getHostRole } from "./utils/hostRouting";
+
+function HostEntry() {
+  const role = getHostRole();
+
+  if (role === "vendor") {
+    return <Navigate to="/vendor/signup" replace />;
+  }
+
+  if (role === "delivery") {
+    return <Navigate to="/delivery/login" replace />;
+  }
+
+  return <AdminLogin />;
+}
 
 function App() {
   return (
     <Routes>
       {/* Public Route */}
-      <Route path="/" element={<AdminLogin />} />
+      <Route path="/" element={<HostEntry />} />
       <Route path="/admin/login" element={<AdminLogin />} />
       <Route path="/delivery/login" element={<DeliveryLogin />} />
       <Route
