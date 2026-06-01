@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { FiEdit2, FiEye, FiMoreVertical, FiTrash2, FiX, FiPlus } from "react-icons/fi";
 import API from "../api/axios";
 import TablePagination from "../components/TablePagination";
@@ -42,7 +42,7 @@ export default function Coupons() {
     return coupons.slice(start, start + pageSize);
   }, [coupons, page, pageSize]);
 
-  const fetchCoupons = async () => {
+  const fetchCoupons = useCallback(async () => {
     try {
       setLoading(true);
       const res = await API.get("/admin/coupons", {
@@ -58,11 +58,11 @@ export default function Coupons() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [statusFilter, typeFilter, searchQuery]);
 
   useEffect(() => {
     fetchCoupons();
-  }, [statusFilter, typeFilter, searchQuery]);
+  }, [fetchCoupons]);
 
   useEffect(() => {
     setPage(1);
