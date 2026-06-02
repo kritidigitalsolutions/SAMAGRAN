@@ -10,7 +10,7 @@ const initialForm = {
   name: "",
   code: "",
   description: "",
-  parentBrand: "",
+  subBrand: "",
   status: "active",
 };
 
@@ -105,7 +105,7 @@ export default function Brands() {
       name: brand?.name || "",
       code: brand?.code || "",
       description: brand?.description || "",
-      parentBrand: brand?.parentBrand?._id || brand?.parentBrand || "",
+      subBrand: brand?.subBrand || "",
       status: brand?.status || "active",
     });
     setEditingId(brand?._id || "");
@@ -144,7 +144,7 @@ export default function Brands() {
       payload.append("code", form.code.trim());
       payload.append("description", form.description.trim());
       payload.append("status", form.status);
-      payload.append("parentBrand", form.parentBrand || "");
+      payload.append("subBrand", form.subBrand || "");
 
       if (imageFile) {
         payload.append("imageFile", imageFile);
@@ -196,7 +196,7 @@ export default function Brands() {
     payload.append("code", String(overrides.code ?? brand.code ?? "").trim());
     payload.append("description", String(overrides.description ?? brand.description ?? "").trim());
     payload.append("status", overrides.status ?? brand.status ?? "inactive");
-    payload.append("parentBrand", overrides.parentBrand ?? brand.parentBrand?._id ?? "");
+    payload.append("subBrand", overrides.subBrand ?? brand.subBrand ?? "");
     return payload;
   };
 
@@ -248,12 +248,7 @@ export default function Brands() {
     }
   };
 
-  const parentOptions = useMemo(() => {
-    return brands
-      .filter((brand) => brand._id !== editingId)
-      .map((brand) => ({ id: brand._id, name: brand.name }))
-      .sort((a, b) => a.name.localeCompare(b.name));
-  }, [brands, editingId]);
+
 
   return (
     <div className="space-y-6 text-[#2f1618] dark:text-[#fff3dc]">
@@ -301,13 +296,8 @@ export default function Brands() {
               <input name="code" value={form.code} onChange={handleChange} className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20" />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">Parent Brand</label>
-              <select name="parentBrand" value={form.parentBrand} onChange={handleChange} className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20">
-                <option value="">None</option>
-                {parentOptions.map((option) => (
-                  <option key={option.id} value={option.id}>{option.name}</option>
-                ))}
-              </select>
+              <label className="text-sm font-medium">Sub Brand</label>
+              <input name="subBrand" value={form.subBrand} onChange={handleChange} className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20" placeholder="Enter sub-brand name" />
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Status</label>
@@ -386,7 +376,7 @@ export default function Brands() {
                     <th className="px-4 py-3 font-semibold">Name</th>
                     <th className="px-4 py-3 font-semibold">Code</th>
                     <th className="px-4 py-3 font-semibold">Description</th>
-                    <th className="px-4 py-3 font-semibold">Parent Brand</th>
+                    <th className="px-4 py-3 font-semibold">Sub Brand</th>
                     <th className="px-4 py-3 font-semibold">Status</th>
                     <th className="px-4 py-3 font-semibold text-right">Actions</th>
                   </tr>
@@ -413,7 +403,7 @@ export default function Brands() {
                       <td className="px-4 py-3 font-semibold text-[#2f1618] dark:text-[#fff3dc]">{brand.name}</td>
                       <td className="px-4 py-3 text-sm text-[#6f3945] dark:text-[#f7e3c0]">{brand.code || "-"}</td>
                       <td className="px-4 py-3 text-sm text-[#6f3945] dark:text-[#f7e3c0]">{brand.description || "-"}</td>
-                      <td className="px-4 py-3 text-sm text-[#6f3945] dark:text-[#f7e3c0]">{brand.parentBrand?.name || "-"}</td>
+                      <td className="px-4 py-3 text-sm text-[#6f3945] dark:text-[#f7e3c0]">{brand.subBrand || "-"}</td>
                       <td className="px-4 py-3">
                         <span className={`rounded-full px-2.5 py-1 text-xs font-semibold uppercase ${brand.status === "inactive" ? "bg-red-100 text-red-700" : "bg-emerald-100 text-emerald-700"}`}>
                           {brand.status || "active"}

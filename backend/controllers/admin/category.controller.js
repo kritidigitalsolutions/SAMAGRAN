@@ -10,7 +10,7 @@ export const createCategory = async (req, res) => {
     const code = normalizeCode(req.body?.code);
     const description = normalizeName(req.body?.description);
     const status = req.body?.status === "inactive" ? "inactive" : "active";
-    const parentCategory = req.body?.parentCategory || null;
+    const subCategory = normalizeName(req.body?.subCategory);
 
     if (!name) {
       return res.status(400).json({
@@ -30,16 +30,6 @@ export const createCategory = async (req, res) => {
       });
     }
 
-    if (parentCategory) {
-      const parent = await Category.findById(parentCategory);
-      if (!parent) {
-        return res.status(400).json({
-          success: false,
-          message: "Parent category not found",
-        });
-      }
-    }
-
     const uploadedImage = req.file
       ? await uploadFileToFirebase(req.file, { folder: "categories" })
       : "";
@@ -49,7 +39,7 @@ export const createCategory = async (req, res) => {
       code,
       description,
       image: uploadedImage || normalizeName(req.body?.image),
-      parentCategory: parentCategory || null,
+      subCategory,
       status,
     });
 
@@ -80,9 +70,7 @@ export const getAllCategories = async (req, res) => {
       filter.$or = [{ name: regex }, { code: regex }];
     }
 
-    const categories = await Category.find(filter)
-      .populate("parentCategory", "name code")
-      .sort({ createdAt: -1 });
+    const categories = await Category.find(filter).sort({ createdAt: -1 });
 
     return res.json({
       success: true,
@@ -99,10 +87,7 @@ export const getAllCategories = async (req, res) => {
 
 export const getCategoryById = async (req, res) => {
   try {
-    const category = await Category.findById(req.params.id).populate(
-      "parentCategory",
-      "name code"
-    );
+    const category = await Category.findById(req.params.id);
 
     if (!category) {
       return res.status(404).json({
@@ -138,7 +123,7 @@ export const updateCategory = async (req, res) => {
     const code = normalizeCode(req.body?.code);
     const description = normalizeName(req.body?.description);
     const status = req.body?.status;
-    const parentCategory = req.body?.parentCategory;
+    const subCategory = normalizeName(req.body?.subCategory);
 
     if (name) {
       const duplicate = await Category.findOne({
@@ -164,19 +149,8 @@ export const updateCategory = async (req, res) => {
       category.description = description;
     }
 
-    if (parentCategory !== undefined) {
-      if (parentCategory) {
-        const parent = await Category.findById(parentCategory);
-        if (!parent) {
-          return res.status(400).json({
-            success: false,
-            message: "Parent category not found",
-          });
-        }
-        category.parentCategory = parentCategory;
-      } else {
-        category.parentCategory = null;
-      }
+    if (subCategory !== undefined) {
+      category.subCategory = subCategory;
     }
 
     if (status === "active" || status === "inactive") {

@@ -35,7 +35,7 @@ const buildItemForm = () => ({
   categoryId: "",
   subCategoryName: "",
   brandId: "",
-  // subBrand: "",
+  subBrand: "",
   unit: "",
   weight: "",
   dimensions: "",
@@ -101,6 +101,56 @@ const normalizeItem = (item = {}, fallback = {}) => {
     fallback.products ||
     [];
 
+  // Resolve populated categoryId — may be an object (populated) or an ID string
+  const rawCategoryId = item.categoryId ?? fallback.categoryId ?? null;
+  const categoryIdObj =
+    rawCategoryId && typeof rawCategoryId === "object" ? rawCategoryId : null;
+  const categoryIdStr =
+    categoryIdObj?._id
+      ? String(categoryIdObj._id)
+      : rawCategoryId
+        ? String(rawCategoryId)
+        : "";
+
+  // Resolve populated brandId — may be an object (populated) or an ID string
+  const rawBrandId = item.brandId ?? fallback.brandId ?? null;
+  const brandIdObj =
+    rawBrandId && typeof rawBrandId === "object" ? rawBrandId : null;
+  const brandIdStr =
+    brandIdObj?._id
+      ? String(brandIdObj._id)
+      : rawBrandId
+        ? String(rawBrandId)
+        : "";
+
+  // Derive category display data: populated ref > item.category > fallback
+  const categoryName =
+    categoryIdObj?.name ||
+    item.category?.name ||
+    fallback.category?.name ||
+    "";
+  const categorySubCategory =
+    categoryIdObj?.subCategory ||
+    item.category?.subCategory ||
+    fallback.category?.subCategory ||
+    "";
+
+  // Derive brand display data: populated ref > item.brand > details.brand > fallback
+  const brandName =
+    brandIdObj?.name ||
+    item.brand?.name ||
+    details.brand ||
+    fallback.brand?.name ||
+    fallback.details?.brand ||
+    "";
+  const brandSubBrand =
+    brandIdObj?.subBrand ||
+    item.brand?.subBrand ||
+    details.subBrand ||
+    fallback.brand?.subBrand ||
+    fallback.details?.subBrand ||
+    "";
+
   return {
     ...fallback,
     _id: item._id || item.id || fallback._id,
@@ -108,10 +158,17 @@ const normalizeItem = (item = {}, fallback = {}) => {
     description: item.description ?? fallback.description ?? "",
     slug: item.slug ?? fallback.slug,
     itemCode: item.itemCode || fallback.itemCode || "",
+    // Expose populated ref objects for the form pre-population
+    categoryId: categoryIdObj || (categoryIdStr ? { _id: categoryIdStr, name: categoryName, subCategory: categorySubCategory } : null),
+    brandId: brandIdObj || (brandIdStr ? { _id: brandIdStr, name: brandName, subBrand: brandSubBrand } : null),
+    // Normalized display objects — always safe to read from
     category: {
-      name: item.category?.name || fallback.category?.name || "",
-      subCategory:
-        item.category?.subCategory || fallback.category?.subCategory || "",
+      name: categoryName,
+      subCategory: categorySubCategory,
+    },
+    brand: {
+      name: brandName,
+      subBrand: brandSubBrand,
     },
     details: productDetailFields.reduce(
       (next, field) => ({
@@ -211,10 +268,21 @@ const buildEditForm = (item = {}) => ({
   discountExpiresAt: item.discount?.expiresAt
     ? String(item.discount.expiresAt).slice(0, 10)
     : "",
-  categoryId: item.categoryId || "",
-  subCategoryName: item.category?.subCategory || "",
-  brandId: item.brandId || "",
-  subBrand: item.details?.subBrand || "",
+  // categoryId and brandId may be populated objects or ID strings
+  categoryId:
+    item.categoryId?._id
+      ? String(item.categoryId._id)
+      : item.categoryId
+        ? String(item.categoryId)
+        : "",
+  subCategoryName: item.category?.subCategory || item.categoryId?.subCategory || "",
+  brandId:
+    item.brandId?._id
+      ? String(item.brandId._id)
+      : item.brandId
+        ? String(item.brandId)
+        : "",
+  subBrand: item.brand?.subBrand || item.brandId?.subBrand || item.details?.subBrand || "",
   unit: item.details?.unit || "",
   weight: item.details?.weight || "",
   dimensions: item.details?.dimensions || "",
@@ -348,13 +416,13 @@ export default function Items() {
           limit: 100,
           status: statusFilter,
           ...(searchTerm.trim() ? { search: searchTerm.trim() } : {}),
-          ...(brandFilter !== "all" ? { brand: brandFilter } : {}),
+          ...(brandFilter !== "all" ? { brandId: brandFilter } : {}),
           ...(subBrandFilter !== "all" ? { subBrand: subBrandFilter } : {}),
           ...(hsnFilter !== "all" ? { hsnCode: hsnFilter } : {}),
           ...(gstPercentFilter !== "all"
             ? { gstPercent: gstPercentFilter }
             : {}),
-          ...(categoryFilter !== "all" ? { category: categoryFilter } : {}),
+          ...(categoryFilter !== "all" ? { categoryId: categoryFilter } : {}),
           ...(subCategoryFilter !== "all"
             ? { subCategory: subCategoryFilter }
             : {}),
@@ -386,16 +454,20 @@ export default function Items() {
   }, [fetchItems]);
 
   const brandOptions = useMemo(() => {
-    return Array.from(
-      new Set(items.map((item) => item.details?.brand).filter(Boolean)),
-    ).sort();
-  }, [items]);
+    return brands
+      .filter((b) => b.status === "active")
+      .map((b) => ({ id: b._id, name: b.name }));
+  }, [brands]);
 
   const subBrandOptions = useMemo(() => {
     return Array.from(
-      new Set(items.map((item) => item.details?.subBrand).filter(Boolean)),
+      new Set(
+        brands
+          .filter((b) => b.status === "active" && b.subBrand)
+          .map((b) => b.subBrand),
+      ),
     ).sort();
-  }, [items]);
+  }, [brands]);
 
   const hsnOptions = useMemo(() => {
     return Array.from(
@@ -412,16 +484,20 @@ export default function Items() {
   }, [items]);
 
   const categoryOptions = useMemo(() => {
-    return Array.from(
-      new Set(items.map((item) => item.category?.name).filter(Boolean)),
-    ).sort();
-  }, [items]);
+    return categories
+      .filter((c) => c.status === "active")
+      .map((c) => ({ id: c._id, name: c.name }));
+  }, [categories]);
 
   const subCategoryOptions = useMemo(() => {
     return Array.from(
-      new Set(items.map((item) => item.category?.subCategory).filter(Boolean)),
+      new Set(
+        categories
+          .filter((c) => c.status === "active" && c.subCategory)
+          .map((c) => c.subCategory),
+      ),
     ).sort();
-  }, [items]);
+  }, [categories]);
 
   const filteredItems = items;
   const pagedItems = useMemo(() => {
@@ -499,9 +575,11 @@ export default function Items() {
       setActionError("");
 
       const formData = new FormData();
+
       Object.entries(createForm).forEach(([key, value]) => {
         formData.append(key, value);
       });
+
       createImages.forEach((file) => formData.append("images", file));
 
       await API.post("/items/add", formData);
@@ -605,6 +683,7 @@ export default function Items() {
       formData.append("categoryId", editForm.categoryId || "");
       formData.append("subCategoryName", editForm.subCategoryName || "");
       formData.append("brandId", editForm.brandId || "");
+
       productDetailFields.forEach((field) => {
         formData.append(field.name, editForm[field.name] || "");
       });
@@ -659,9 +738,15 @@ export default function Items() {
     try {
       setActionLoading(`delete:${item._id}`);
       setActionError("");
-      await API.delete(`/items/${item._id}`);
+      
+      // Optimistically remove item from UI
       setItems((current) => current.filter((entry) => entry._id !== item._id));
+      
+      // Then call API to delete
+      await API.delete(`/items/${item._id}`);
     } catch (err) {
+      // Revert if deletion fails
+      await fetchItems();
       setActionError(err.response?.data?.message || "Unable to delete item.");
     } finally {
       setActionLoading("");
@@ -693,14 +778,20 @@ export default function Items() {
     try {
       setActionLoading("delete-selected");
       setActionError("");
-      await Promise.all(
-        selectedItemIds.map((itemId) => API.delete(`/items/${itemId}`)),
-      );
+      
+      // Optimistically remove items from UI
       setItems((current) =>
         current.filter((entry) => !selectedItemIds.includes(entry._id)),
       );
+      
+      // Then call APIs to delete
+      await Promise.all(
+        selectedItemIds.map((itemId) => API.delete(`/items/${itemId}`)),
+      );
       setSelectedItemIds([]);
     } catch (err) {
+      // Revert if deletion fails
+      await fetchItems();
       setActionError(
         err.response?.data?.message || "Unable to delete selected items.",
       );
@@ -717,16 +808,20 @@ export default function Items() {
       setActionLoading(`status:${item._id}`);
       setActionError("");
 
+      // Optimistically update status in UI
+      setItems((current) =>
+        current.map((entry) =>
+          entry._id === item._id ? { ...entry, status: nextStatus } : entry,
+        ),
+      );
+
       const formData = new FormData();
       formData.append("status", nextStatus);
 
-      const res = await API.put(`/items/${item._id}`, formData);
-
-      const updated = normalizeItem(res.data?.data || {}, item);
-      setItems((current) =>
-        current.map((entry) => (entry._id === item._id ? updated : entry)),
-      );
+      await API.put(`/items/${item._id}`, formData);
     } catch (err) {
+      // Revert if update fails and fetch latest
+      await fetchItems();
       setActionError(
         err.response?.data?.message || "Unable to update item status.",
       );
@@ -786,7 +881,14 @@ export default function Items() {
               <select
                 name="categoryId"
                 value={createForm.categoryId}
-                onChange={handleCreateChange}
+                onChange={(e) => {
+                  const selectedCat = categories.find(c => c._id === e.target.value);
+                  setCreateForm((prev) => ({
+                    ...prev,
+                    categoryId: e.target.value,
+                    subCategoryName: selectedCat?.subCategory || "",
+                  }));
+                }}
                 className="h-11 rounded-xl border border-[#d7c3a3] bg-white px-3 text-sm text-black outline-none dark:border-white/20 dark:bg-[#181c24] dark:text-white"
               >
                 <option value="">Select Category</option>
@@ -802,6 +904,8 @@ export default function Items() {
                 name="subCategoryName"
                 value={createForm.subCategoryName}
                 onChange={handleCreateChange}
+                placeholder="Auto-filled from category"
+                className="h-11 rounded-xl border border-[#d7c3a3] bg-white px-3 text-sm text-black outline-none dark:border-white/20 dark:bg-[#181c24] dark:text-white"
               />
             </div>
 
@@ -810,7 +914,14 @@ export default function Items() {
               <select
                 name="brandId"
                 value={createForm.brandId}
-                onChange={handleCreateChange}
+                onChange={(e) => {
+                  const selectedBrand = brands.find(b => b._id === e.target.value);
+                  setCreateForm((prev) => ({
+                    ...prev,
+                    brandId: e.target.value,
+                    subBrand: selectedBrand?.subBrand || "",
+                  }));
+                }}
                 className="h-11 rounded-xl border border-[#d7c3a3] bg-white px-3 text-sm text-black outline-none dark:border-white/20 dark:bg-[#181c24] dark:text-white"
               >
                 <option value="">Select Brand</option>
@@ -818,6 +929,17 @@ export default function Items() {
                   <option key={brand._id} value={brand._id}>{brand.name}</option>
                 ))}
               </select>
+            </div>
+
+            <div className="form-group">
+              <label>Sub Brand</label>
+              <input
+                name="subBrand"
+                value={createForm.subBrand}
+                onChange={handleCreateChange}
+                placeholder="Auto-filled from brand"
+                className="h-11 rounded-xl border border-[#d7c3a3] bg-white px-3 text-sm text-black outline-none dark:border-white/20 dark:bg-[#181c24] dark:text-white"
+              />
             </div>
 
             {productDetailFields.map((field) => (
@@ -1118,8 +1240,8 @@ export default function Items() {
                 <option value="all">All</option>
                 {brandOptions.length ? (
                   brandOptions.map((brand) => (
-                    <option key={brand} value={brand}>
-                      {brand}
+                    <option key={brand.id} value={brand.id}>
+                      {brand.name}
                     </option>
                   ))
                 ) : (
@@ -1160,8 +1282,8 @@ export default function Items() {
                 <option value="all">All</option>
                 {categoryOptions.length ? (
                   categoryOptions.map((category) => (
-                    <option key={category} value={category}>
-                      {category}
+                    <option key={category.id} value={category.id}>
+                      {category.name}
                     </option>
                   ))
                 ) : (
@@ -1374,9 +1496,11 @@ export default function Items() {
                     <td className="px-4 py-3">
                       {item.category?.subCategory || "-"}
                     </td>
-                    <td className="px-4 py-3">{item.details?.brand || "-"}</td>
                     <td className="px-4 py-3">
-                      {item.details?.subBrand || "-"}
+                      {item.brand?.name || "-"}
+                    </td>
+                    <td className="px-4 py-3">
+                      {item.brand?.subBrand || "-"}
                     </td>
                     <td className="px-4 py-3">
                       {formatCurrency(item.pricing?.mrp)}
@@ -1555,6 +1679,14 @@ export default function Items() {
                 <div>
                   <span>Sub Category</span>
                   <strong>{viewItem.category?.subCategory || "-"}</strong>
+                </div>
+                <div>
+                  <span>Brand</span>
+                  <strong>{viewItem.brand?.name || "-"}</strong>
+                </div>
+                <div>
+                  <span>Sub Brand</span>
+                  <strong>{viewItem.brand?.subBrand || "-"}</strong>
                 </div>
                 {productDetailFields.map((field) => (
                   <div key={field.name}>
@@ -1738,7 +1870,14 @@ export default function Items() {
                 <select
                   name="categoryId"
                   value={editForm.categoryId}
-                  onChange={handleEditChange}
+                  onChange={(e) => {
+                    const selectedCat = categories.find(c => c._id === e.target.value);
+                    setEditForm((prev) => ({
+                      ...prev,
+                      categoryId: e.target.value,
+                      subCategoryName: selectedCat?.subCategory || prev.subCategoryName,
+                    }));
+                  }}
                   className="h-11 rounded-xl border border-[#d7c3a3] bg-white px-3 text-sm text-black outline-none dark:border-white/20 dark:bg-[#181c24] dark:text-white"
                 >
                   <option value="">Select Category</option>
@@ -1754,6 +1893,8 @@ export default function Items() {
                   name="subCategoryName"
                   value={editForm.subCategoryName}
                   onChange={handleEditChange}
+                  placeholder="Auto-filled from category"
+                  className="h-11 rounded-xl border border-[#d7c3a3] bg-white px-3 text-sm text-black outline-none dark:border-white/20 dark:bg-[#181c24] dark:text-white"
                 />
               </label>
 
@@ -1762,7 +1903,14 @@ export default function Items() {
                 <select
                   name="brandId"
                   value={editForm.brandId}
-                  onChange={handleEditChange}
+                  onChange={(e) => {
+                    const selectedBrand = brands.find(b => b._id === e.target.value);
+                    setEditForm((prev) => ({
+                      ...prev,
+                      brandId: e.target.value,
+                      subBrand: selectedBrand?.subBrand || prev.subBrand,
+                    }));
+                  }}
                   className="h-11 rounded-xl border border-[#d7c3a3] bg-white px-3 text-sm text-black outline-none dark:border-white/20 dark:bg-[#181c24] dark:text-white"
                 >
                   <option value="">Select Brand</option>
@@ -1770,6 +1918,17 @@ export default function Items() {
                     <option key={brand._id} value={brand._id}>{brand.name}</option>
                   ))}
                 </select>
+              </label>
+
+              <label>
+                Sub Brand
+                <input
+                  name="subBrand"
+                  value={editForm.subBrand}
+                  onChange={handleEditChange}
+                  placeholder="Auto-filled from brand"
+                  className="h-11 rounded-xl border border-[#d7c3a3] bg-white px-3 text-sm text-black outline-none dark:border-white/20 dark:bg-[#181c24] dark:text-white"
+                />
               </label>
 
               {productDetailFields.map((field) => (

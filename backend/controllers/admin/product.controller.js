@@ -108,7 +108,7 @@ const parseExistingImages = (value) => {
 
 const buildDetailsPayload = (body = {}) => ({
   brand: String(body.brand || "").trim(),
-  // subBrand: String(body.subBrand || "").trim(),
+  subBrand: String(body.subBrand || "").trim(),
   unit: String(body.unit || "").trim(),
   weight: String(body.weight || "").trim(),
   dimensions: String(body.dimensions || "").trim(),
@@ -132,10 +132,10 @@ const assignDetailsPayload = (item, body = {}) => {
   });
 };
 
-// const resolveCategoryPayload = async ({ categoryId, categoryName, subCategoryName }) => {
-const resolveCategoryPayload = async ({ categoryId, categoryName }) => {
+const resolveCategoryPayload = async ({ categoryId, categoryName, subCategoryName }) => {
   let resolvedCategoryId = null;
   let resolvedCategoryName = String(categoryName || "").trim();
+  let resolvedSubCategory = String(subCategoryName || "").trim();
 
   if (categoryId) {
     const category = await Category.findById(categoryId);
@@ -146,13 +146,14 @@ const resolveCategoryPayload = async ({ categoryId, categoryName }) => {
     }
     resolvedCategoryId = category._id;
     resolvedCategoryName = category.name || resolvedCategoryName;
+    resolvedSubCategory = resolvedSubCategory || category.subCategory || "";
   }
 
   return {
     categoryId: resolvedCategoryId,
     category: {
       name: resolvedCategoryName,
-      // subCategory: String(subCategoryName || "").trim(),
+      subCategory: resolvedSubCategory,
     },
   };
 };
@@ -160,6 +161,7 @@ const resolveCategoryPayload = async ({ categoryId, categoryName }) => {
 const resolveBrandPayload = async ({ brandId, brand }) => {
   let resolvedBrandId = null;
   let resolvedBrandName = String(brand || "").trim();
+  let resolvedSubBrand = "";
 
   if (brandId) {
     const resolvedBrand = await Brand.findById(brandId);
@@ -170,11 +172,13 @@ const resolveBrandPayload = async ({ brandId, brand }) => {
     }
     resolvedBrandId = resolvedBrand._id;
     resolvedBrandName = resolvedBrand.name || resolvedBrandName;
+    resolvedSubBrand = resolvedBrand.subBrand || "";
   }
 
   return {
     brandId: resolvedBrandId,
     brandName: resolvedBrandName,
+    subBrand: resolvedSubBrand,
   };
 };
 
@@ -188,7 +192,7 @@ export const addProduct = async (req, res) => {
       priceIncludesGst,
       categoryId,
       categoryName,
-      // subCategoryName,
+      subCategoryName,
       description,
       city,
       hsnCode,
@@ -230,7 +234,7 @@ export const addProduct = async (req, res) => {
     const resolvedCategory = await resolveCategoryPayload({
       categoryId,
       categoryName,
-      // subCategoryName,
+      subCategoryName,
     });
     const resolvedBrand = await resolveBrandPayload({
       brandId,
@@ -239,6 +243,7 @@ export const addProduct = async (req, res) => {
     const detailsPayload = buildDetailsPayload({
       ...req.body,
       brand: resolvedBrand.brandName || req.body?.brand,
+      subBrand: resolvedBrand.subBrand || req.body?.subBrand,
     });
 
     const item = await Item.create({
@@ -332,11 +337,9 @@ export const getProducts = async (req, res) => {
       limit = 10,
       search,
       status = "active",
-      brand,
-      // subBrand,
+      subBrand,
       hsnCode,
       gstPercent,
-      category,
       subCategory,
       categoryId,
       brandId,
@@ -356,31 +359,32 @@ export const getProducts = async (req, res) => {
     if (searchTerm) {
       const searchRegex = new RegExp(escapeRegex(searchTerm), "i");
 
+      // Search both old embedded fields and new ref fields for backward compat
+      const [matchingCategories, matchingBrands] = await Promise.all([
+        Category.find({ name: searchRegex }).select("_id").lean(),
+        Brand.find({ name: searchRegex }).select("_id").lean(),
+      ]);
+      const matchingCategoryIds = matchingCategories.map((c) => c._id);
+      const matchingBrandIds = matchingBrands.map((b) => b._id);
+
       query.$or = [
         { title: searchRegex },
         { "category.name": searchRegex },
         { "category.subCategory": searchRegex },
         { description: searchRegex },
         { "details.brand": searchRegex },
-        // { "details.subBrand": searchRegex },
+        { "details.subBrand": searchRegex },
         { "details.manufacturer": searchRegex },
         { itemCode: searchRegex },
         { tags: searchRegex },
+        ...(matchingCategoryIds.length ? [{ categoryId: { $in: matchingCategoryIds } }] : []),
+        ...(matchingBrandIds.length ? [{ brandId: { $in: matchingBrandIds } }] : []),
       ];
     }
 
-    const brandList = parseList(brand);
-    if (brandList.length) {
-      query["details.brand"] = { $in: brandList };
-    }
-
-    // const subBrandList = parseList(subBrand);
-    // if (subBrandList.length) {
-    //   query["details.subBrand"] = { $in: subBrandList };
-    // }
-    const categoryList = parseList(category);
-    if (categoryList.length) {
-      query["category.name"] = { $in: categoryList };
+    const subBrandList = parseList(subBrand);
+    if (subBrandList.length) {
+      query["details.subBrand"] = { $in: subBrandList };
     }
 
     if (categoryId) {
@@ -411,18 +415,26 @@ export const getProducts = async (req, res) => {
     const totalProducts = await Item.countDocuments(query);
 
     const items = await Item.find(query)
+      .populate("categoryId", "name subCategory")
+      .populate("brandId", "name subBrand")
       .skip(skip)
       .limit(Number(limit))
       .sort({ createdAt: -1 });
 
     const products = items.map((item) => {
-      const { price, mrp, currency, basePrice, gstPercent, gstAmount, priceIncludesGst } = item.pricing;
+      const { price, mrp, currency, basePrice, gstPercent: gRate, gstAmount, priceIncludesGst } = item.pricing;
       const productImages = item.media?.image || item.media?.Images || [];
 
       const discountPercent =
         mrp && mrp > price
           ? Math.round(((mrp - price) / mrp) * 100)
           : 0;
+
+      // Derive category/brand from populated ref, falling back to embedded fields
+      const categoryName = item.categoryId?.name || item.category?.name || "";
+      const categorySubCategory = item.categoryId?.subCategory || item.category?.subCategory || "";
+      const brandName = item.brandId?.name || item.details?.brand || "";
+      const brandSubBrand = item.brandId?.subBrand || item.details?.subBrand || "";
 
       return {
         _id: item._id,
@@ -431,22 +443,32 @@ export const getProducts = async (req, res) => {
         slug: item.slug,
         categoryId: item.categoryId || null,
         category: {
-          name: item.category?.name,
-          subCategory: item.category?.subCategory,
+          name: categoryName,
+          subCategory: categorySubCategory,
+        },
+        brandId: item.brandId || null,
+        brand: {
+          name: brandName,
+          subBrand: brandSubBrand,
         },
         description: item.description || "",
-        brandId: item.brandId || null,
         details: item.details || {},
         pricing: {
           price,
           mrp,
           basePrice,
-          gstPercent,
-        itemCode: item.itemCode || "",
+          gstPercent: gRate,
           gstAmount,
           priceIncludesGst,
           discountPercent,
           currency,
+        },
+        discount: item.discount || {
+          type: "percent",
+          value: 0,
+          isActive: false,
+          startsAt: null,
+          expiresAt: null,
         },
         compliance: {
           hsnCode: item.compliance?.hsnCode || "",
@@ -466,6 +488,13 @@ export const getProducts = async (req, res) => {
         },
         status: item.status,
         tags: item.tags || [],
+        flags: {
+          isRecommended: item.flags.isRecommended,
+          isMostPoojaEssentials: item.flags.isMostPoojaEssentials,
+          isMostUsed: item.flags.isMostUsed,
+          isEveryDayRitual: item.flags.isEveryDayRitual,
+          isRitualItems: item.flags.isRitualItems,
+        },
         isRecommended: item.flags.isRecommended,
         isMostPoojaEssentials: item.flags.isMostPoojaEssentials,
         isMostUsed: item.flags.isMostUsed,
@@ -499,7 +528,9 @@ export const getSingleProduct = async (req, res) => {
     const item = await Item.findOne({
       _id: req.params.id,
       ...resolveVendorFilter(req),
-    });
+    })
+      .populate("categoryId", "name subCategory")
+      .populate("brandId", "name subBrand");
 
     if (!item) {
       return res.status(404).json({
@@ -517,6 +548,12 @@ export const getSingleProduct = async (req, res) => {
 
     const savings = mrp && mrp > price ? mrp - price : 0;
 
+    // Derive category/brand from populated ref, falling back to embedded fields
+    const categoryName = item.categoryId?.name || item.category?.name || "";
+    const categorySubCategory = item.categoryId?.subCategory || item.category?.subCategory || "";
+    const brandName = item.brandId?.name || item.details?.brand || "";
+    const brandSubBrand = item.brandId?.subBrand || item.details?.subBrand || "";
+
     res.json({
       success: true,
       data: {
@@ -526,11 +563,15 @@ export const getSingleProduct = async (req, res) => {
         slug: item.slug,
         categoryId: item.categoryId || null,
         category: {
-          name: item.category?.name,
-          subCategory: item.category?.subCategory,
+          name: categoryName,
+          subCategory: categorySubCategory,
+        },
+        brandId: item.brandId || null,
+        brand: {
+          name: brandName,
+          subBrand: brandSubBrand,
         },
         description: item.description || "",
-        brandId: item.brandId || null,
         details: item.details || {},
         pricing: {
           price,
@@ -608,7 +649,7 @@ export const updateProduct = async (req, res) => {
       priceIncludesGst,
       categoryId,
       categoryName,
-      // subCategoryName,
+      subCategoryName,
       description,
       city,
       hsnCode,
@@ -649,16 +690,21 @@ export const updateProduct = async (req, res) => {
         }
         item.categoryId = category._id;
         item.category = item.category || {};
+        // Sync embedded fields from Category collection for backward compat
         item.category.name = category.name;
+        // Only override subCategory from category doc if not explicitly provided
+        if (subCategoryName === undefined) {
+          item.category.subCategory = category.subCategory || item.category.subCategory || "";
+        }
       } else {
         item.categoryId = null;
       }
     }
 
-    // if (subCategoryName !== undefined) {
-    //   item.category = item.category || {};
-    //   item.category.subCategory = subCategoryName;
-    // }
+    if (subCategoryName !== undefined) {
+      item.category = item.category || {};
+      item.category.subCategory = subCategoryName;
+    }
 
     if (brandId !== undefined) {
       if (brandId) {
@@ -671,7 +717,9 @@ export const updateProduct = async (req, res) => {
         }
         item.brandId = brand._id;
         item.details = item.details || {};
+        // Sync embedded fields from Brand collection for backward compat
         item.details.brand = brand.name;
+        item.details.subBrand = brand.subBrand || item.details.subBrand || "";
       } else {
         item.brandId = null;
       }
@@ -797,6 +845,17 @@ export const updateProduct = async (req, res) => {
 
     const savings = m && m > p ? m - p : 0;
 
+    // Re-populate to get the latest ref data for the response
+    await item.populate("categoryId", "name subCategory");
+    await item.populate("brandId", "name subBrand");
+
+    // Derive category/brand from populated ref, falling back to embedded fields
+    // Use different names to avoid collision with `categoryName` destructured from req.body
+    const resolvedCategoryName = item.categoryId?.name || item.category?.name || "";
+    const resolvedSubCategory = item.categoryId?.subCategory || item.category?.subCategory || "";
+    const resolvedBrandName = item.brandId?.name || item.details?.brand || "";
+    const resolvedBrandSubBrand = item.brandId?.subBrand || item.details?.subBrand || "";
+
     res.json({
       success: true,
       message: "Item updated successfully",
@@ -807,11 +866,15 @@ export const updateProduct = async (req, res) => {
         slug: item.slug,
         categoryId: item.categoryId || null,
         category: {
-          name: item.category?.name,
-          subCategory: item.category?.subCategory,
+          name: resolvedCategoryName,
+          subCategory: resolvedSubCategory,
+        },
+        brandId: item.brandId || null,
+        brand: {
+          name: resolvedBrandName,
+          subBrand: resolvedBrandSubBrand,
         },
         description: item.description || "",
-        brandId: item.brandId || null,
         details: item.details || {},
         pricing: {
           price: p,
@@ -862,13 +925,46 @@ export const updateProduct = async (req, res) => {
   }
 };
 
+// export const deleteProduct = async (req, res) => {
+//   try {
+//     const item = await Item.findOneAndUpdate(
+//       { _id: req.params.id, ...resolveVendorFilter(req) },
+//       { status: "inactive" },
+//       { new: true }
+//     );
+
+//     if (!item) {
+//       return res.status(404).json({
+//         success: false,
+//         message: "Item not found",
+//       });
+//     }
+
+//     res.json({
+//       success: true,
+//       message: "Item removed from catalog",
+//       data: {
+//         id: item._id,
+//         title: item.title,
+//         status: item.status,
+//         deletedAt: new Date(),
+//       },
+//     });
+//   } catch (error) {
+//     res.status(500).json({
+//       success: false,
+//       message: error.message,
+//     });
+//   }
+// };
+
+
 export const deleteProduct = async (req, res) => {
   try {
-    const item = await Item.findOneAndUpdate(
-      { _id: req.params.id, ...resolveVendorFilter(req) },
-      { status: "inactive" },
-      { new: true }
-    );
+    const item = await Item.findOneAndDelete({
+      _id: req.params.id,
+      ...resolveVendorFilter(req),
+    });
 
     if (!item) {
       return res.status(404).json({
@@ -879,13 +975,7 @@ export const deleteProduct = async (req, res) => {
 
     res.json({
       success: true,
-      message: "Item removed from catalog",
-      data: {
-        id: item._id,
-        title: item.title,
-        status: item.status,
-        deletedAt: new Date(),
-      },
+      message: "Product deleted successfully",
     });
   } catch (error) {
     res.status(500).json({

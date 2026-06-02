@@ -20,7 +20,7 @@ export const getAllCategories = async (req, res) => {
     }
 
     const categories = await Category.find(filter)
-      .populate("parentCategory", "name code")
+      .populate("subCategory", "name code")
       .sort({ createdAt: -1 });
 
     return res.json({
@@ -39,7 +39,7 @@ export const getAllCategories = async (req, res) => {
 export const getCategoryById = async (req, res) => {
   try {
     const category = await Category.findById(req.params.id).populate(
-      "parentCategory",
+      "subCategory",
       "name code"
     );
 

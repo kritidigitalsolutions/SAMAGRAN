@@ -6,11 +6,7 @@ const brandSchema = new mongoose.Schema(
     code: { type: String, trim: true, unique: true, sparse: true },
     description: { type: String, trim: true, default: "" },
     image: { type: String, trim: true, default: "" },
-    parentBrand: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Brand",
-      default: null,
-    },
+    subBrand: { type: String, trim: true, default: "" },
     status: { type: String, default: "active" },
   },
   { timestamps: true }

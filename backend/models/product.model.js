@@ -35,7 +35,7 @@ const itemSchema = new mongoose.Schema(
 
     details: {
       brand: { type: String, trim: true, default: "" },
-      // subBrand: { type: String, trim: true, default: "" },
+      subBrand: { type: String, trim: true, default: "" },
       unit: { type: String, trim: true, default: "" },
       weight: { type: String, trim: true, default: "" },
       dimensions: { type: String, trim: true, default: "" },

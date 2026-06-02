@@ -10,7 +10,7 @@ export const createBrand = async (req, res) => {
     const code = normalizeCode(req.body?.code);
     const description = normalizeName(req.body?.description);
     const status = req.body?.status === "inactive" ? "inactive" : "active";
-    const parentBrand = req.body?.parentBrand || null;
+    const subBrand = normalizeName(req.body?.subBrand);
 
     if (!name) {
       return res.status(400).json({
@@ -30,16 +30,6 @@ export const createBrand = async (req, res) => {
       });
     }
 
-    if (parentBrand) {
-      const parent = await Brand.findById(parentBrand);
-      if (!parent) {
-        return res.status(400).json({
-          success: false,
-          message: "Parent brand not found",
-        });
-      }
-    }
-
     const uploadedImage = req.file
       ? await uploadFileToFirebase(req.file, { folder: "brands" })
       : "";
@@ -49,7 +39,7 @@ export const createBrand = async (req, res) => {
       code,
       description,
       image: uploadedImage || normalizeName(req.body?.image),
-      parentBrand: parentBrand || null,
+      subBrand,
       status,
     });
 
@@ -80,9 +70,7 @@ export const getAllBrands = async (req, res) => {
       filter.$or = [{ name: regex }, { code: regex }];
     }
 
-    const brands = await Brand.find(filter)
-      .populate("parentBrand", "name code")
-      .sort({ createdAt: -1 });
+    const brands = await Brand.find(filter).sort({ createdAt: -1 });
 
     return res.json({
       success: true,
@@ -99,10 +87,7 @@ export const getAllBrands = async (req, res) => {
 
 export const getBrandById = async (req, res) => {
   try {
-    const brand = await Brand.findById(req.params.id).populate(
-      "parentBrand",
-      "name code"
-    );
+    const brand = await Brand.findById(req.params.id);
 
     if (!brand) {
       return res.status(404).json({
@@ -138,7 +123,7 @@ export const updateBrand = async (req, res) => {
     const code = normalizeCode(req.body?.code);
     const description = normalizeName(req.body?.description);
     const status = req.body?.status;
-    const parentBrand = req.body?.parentBrand;
+    const subBrand = normalizeName(req.body?.subBrand);
 
     if (name) {
       const duplicate = await Brand.findOne({
@@ -164,19 +149,8 @@ export const updateBrand = async (req, res) => {
       brand.description = description;
     }
 
-    if (parentBrand !== undefined) {
-      if (parentBrand) {
-        const parent = await Brand.findById(parentBrand);
-        if (!parent) {
-          return res.status(400).json({
-            success: false,
-            message: "Parent brand not found",
-          });
-        }
-        brand.parentBrand = parentBrand;
-      } else {
-        brand.parentBrand = null;
-      }
+    if (subBrand !== undefined) {
+      brand.subBrand = subBrand;
     }
 
     if (status === "active" || status === "inactive") {

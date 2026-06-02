@@ -10,7 +10,7 @@ const initialForm = {
   name: "",
   code: "",
   description: "",
-  parentCategory: "",
+  subCategory: "",
   status: "active",
 };
 
@@ -105,7 +105,7 @@ export default function Categories() {
       name: category?.name || "",
       code: category?.code || "",
       description: category?.description || "",
-      parentCategory: category?.parentCategory?._id || category?.parentCategory || "",
+      subCategory: category?.subCategory?._id || category?.subCategory || "",
       status: category?.status || "active",
     });
     setEditingId(category?._id || "");
@@ -144,7 +144,7 @@ export default function Categories() {
       payload.append("code", form.code.trim());
       payload.append("description", form.description.trim());
       payload.append("status", form.status);
-      payload.append("parentCategory", form.parentCategory || "");
+      payload.append("subCategory", form.subCategory || "");
 
       if (imageFile) {
         payload.append("imageFile", imageFile);
@@ -196,7 +196,7 @@ export default function Categories() {
     payload.append("code", String(overrides.code ?? category.code ?? "").trim());
     payload.append("description", String(overrides.description ?? category.description ?? "").trim());
     payload.append("status", overrides.status ?? category.status ?? "inactive");
-    payload.append("parentCategory", overrides.parentCategory ?? category.parentCategory?._id ?? "");
+    payload.append("subCategory", overrides.subCategory ?? category.subCategory?._id ?? "");
     return payload;
   };
 
@@ -248,12 +248,7 @@ export default function Categories() {
     }
   };
 
-  const parentOptions = useMemo(() => {
-    return categories
-      .filter((category) => category._id !== editingId)
-      .map((category) => ({ id: category._id, name: category.name }))
-      .sort((a, b) => a.name.localeCompare(b.name));
-  }, [categories, editingId]);
+
 
   return (
     <div className="space-y-6 text-[#2f1618] dark:text-[#fff3dc]">
@@ -301,13 +296,8 @@ export default function Categories() {
               <input name="code" value={form.code} onChange={handleChange} className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20" />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">Parent Category</label>
-              <select name="parentCategory" value={form.parentCategory} onChange={handleChange} className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20">
-                <option value="">None</option>
-                {parentOptions.map((option) => (
-                  <option key={option.id} value={option.id}>{option.name}</option>
-                ))}
-              </select>
+              <label className="text-sm font-medium">Sub Category</label>
+              <input name="subCategory" value={form.subCategory} onChange={handleChange} className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20" placeholder="Enter sub-category name" />
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Status</label>
@@ -386,7 +376,7 @@ export default function Categories() {
                     <th className="px-4 py-3 font-semibold">Name</th>
                     <th className="px-4 py-3 font-semibold">Code</th>
                     <th className="px-4 py-3 font-semibold">Description</th>
-                    <th className="px-4 py-3 font-semibold">Parent Category</th>
+                    <th className="px-4 py-3 font-semibold">Sub Category</th>
                     <th className="px-4 py-3 font-semibold">Status</th>
                     <th className="px-4 py-3 font-semibold text-right">Actions</th>
                   </tr>
@@ -413,7 +403,7 @@ export default function Categories() {
                       <td className="px-4 py-3 font-semibold text-[#2f1618] dark:text-[#fff3dc]">{category.name}</td>
                       <td className="px-4 py-3 text-sm text-[#6f3945] dark:text-[#f7e3c0]">{category.code || "-"}</td>
                       <td className="px-4 py-3 text-sm text-[#6f3945] dark:text-[#f7e3c0]">{category.description || "-"}</td>
-                      <td className="px-4 py-3 text-sm text-[#6f3945] dark:text-[#f7e3c0]">{category.parentCategory?.name || "-"}</td>
+                      <td className="px-4 py-3 text-sm text-[#6f3945] dark:text-[#f7e3c0]">{category.subCategory || "-"}</td>
                       <td className="px-4 py-3">
                         <span className={`rounded-full px-2.5 py-1 text-xs font-semibold uppercase ${category.status === "inactive" ? "bg-red-100 text-red-700" : "bg-emerald-100 text-emerald-700"}`}>
                           {category.status || "active"}

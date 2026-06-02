@@ -124,6 +124,8 @@ export const getProductsUser = async (req, res) => {
     const items = await Item.find(query)
       // .skip(skip)
       // .limit(Number(limit))
+      .populate("categoryId", "name subCategory")
+      .populate("brandId", "name subBrand")
       .sort({ createdAt: -1 });
 
     const products = items.map((item) => {
@@ -134,6 +136,12 @@ export const getProductsUser = async (req, res) => {
         mrp && mrp > price
           ? Math.round(((mrp - price) / mrp) * 100)
           : 0;
+
+      // Derive category/brand from populated ref, falling back to embedded fields
+      const categoryName = item.categoryId?.name || item.category?.name || "";
+      const categorySubCategory = item.categoryId?.subCategory || item.category?.subCategory || "";
+      const brandName = item.brandId?.name || item.details?.brand || "";
+      const brandSubBrand = item.brandId?.subBrand || item.details?.subBrand || "";
 
       return {
         id: item._id,
@@ -156,9 +164,15 @@ export const getProductsUser = async (req, res) => {
           productImages?.map((img) =>
             img.replace(/\\/g, "/")
           ) || [],
+        categoryId: item.categoryId || null,
         category: {
-          name: item.category?.name,
-          subCategory: item.category?.subCategory,
+          name: categoryName,
+          subCategory: categorySubCategory,
+        },
+        brandId: item.brandId || null,
+        brand: {
+          name: brandName,
+          subBrand: brandSubBrand,
         },
         inStock: item.stock.quantity > 0,
         review: item.review || {
@@ -208,7 +222,9 @@ export const getProductsUser = async (req, res) => {
 // Get single product (User)
 export const getSingleProductUser = async (req, res) => {
   try {
-    const item = await Item.findById(req.params.id);
+    const item = await Item.findById(req.params.id)
+      .populate("categoryId", "name subCategory")
+      .populate("brandId", "name subBrand");
 
     if (!item || item.status !== "active") {
       return res.status(404).json({
@@ -226,6 +242,12 @@ export const getSingleProductUser = async (req, res) => {
 
     const savings = mrp && mrp > price ? mrp - price : 0;
 
+    // Derive category/brand from populated ref, falling back to embedded fields
+    const categoryName = item.categoryId?.name || item.category?.name || "";
+    const categorySubCategory = item.categoryId?.subCategory || item.category?.subCategory || "";
+    const brandName = item.brandId?.name || item.details?.brand || "";
+    const brandSubBrand = item.brandId?.subBrand || item.details?.subBrand || "";
+
     res.json({
       success: true,
       data: {
@@ -241,9 +263,15 @@ export const getSingleProductUser = async (req, res) => {
           startsAt: null,
           expiresAt: null,
         },
+        categoryId: item.categoryId || null,
         category: {
-          name: item.category?.name,
-          subCategory: item.category?.subCategory,
+          name: categoryName,
+          subCategory: categorySubCategory,
+        },
+        brandId: item.brandId || null,
+        brand: {
+          name: brandName,
+          subBrand: brandSubBrand,
         },
         pricing: {
           price,

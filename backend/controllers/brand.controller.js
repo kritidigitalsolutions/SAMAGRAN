@@ -20,7 +20,7 @@ export const getAllBrands = async (req, res) => {
     }
 
     const brands = await Brand.find(filter)
-      .populate("parentBrand", "name code")
+      .populate("subBrand", "name code")
       .sort({ createdAt: -1 });
 
     return res.json({

@@ -6,11 +6,7 @@ const categorySchema = new mongoose.Schema(
     code: { type: String, trim: true, unique: true, sparse: true },
     description: { type: String, trim: true, default: "" },
     image: { type: String, trim: true, default: "" },
-    parentCategory: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Category",
-      default: null,
-    },
+    subCategory: { type: String, trim: true, default: "" },
     status: { type: String, default: "active" },
   },
   { timestamps: true }
