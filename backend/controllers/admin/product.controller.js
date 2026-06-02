@@ -1,6 +1,8 @@
 import Item from "../../models/product.model.js";
 import { uploadFileToFirebase } from "../../utils/firebaseUpload.js";
 import { notifyAdmins, notifyVendorsByIds } from "../../utils/notification.service.js";
+import Category from "../../models/category.model.js";
+import Brand from "../../models/brand.model.js";
 
 const escapeRegex = (value = "") => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
@@ -106,7 +108,7 @@ const parseExistingImages = (value) => {
 
 const buildDetailsPayload = (body = {}) => ({
   brand: String(body.brand || "").trim(),
-  subBrand: String(body.subBrand || "").trim(),
+  // subBrand: String(body.subBrand || "").trim(),
   unit: String(body.unit || "").trim(),
   weight: String(body.weight || "").trim(),
   dimensions: String(body.dimensions || "").trim(),
@@ -130,6 +132,52 @@ const assignDetailsPayload = (item, body = {}) => {
   });
 };
 
+// const resolveCategoryPayload = async ({ categoryId, categoryName, subCategoryName }) => {
+const resolveCategoryPayload = async ({ categoryId, categoryName }) => {
+  let resolvedCategoryId = null;
+  let resolvedCategoryName = String(categoryName || "").trim();
+
+  if (categoryId) {
+    const category = await Category.findById(categoryId);
+    if (!category) {
+      const err = new Error("Category not found");
+      err.statusCode = 400;
+      throw err;
+    }
+    resolvedCategoryId = category._id;
+    resolvedCategoryName = category.name || resolvedCategoryName;
+  }
+
+  return {
+    categoryId: resolvedCategoryId,
+    category: {
+      name: resolvedCategoryName,
+      // subCategory: String(subCategoryName || "").trim(),
+    },
+  };
+};
+
+const resolveBrandPayload = async ({ brandId, brand }) => {
+  let resolvedBrandId = null;
+  let resolvedBrandName = String(brand || "").trim();
+
+  if (brandId) {
+    const resolvedBrand = await Brand.findById(brandId);
+    if (!resolvedBrand) {
+      const err = new Error("Brand not found");
+      err.statusCode = 400;
+      throw err;
+    }
+    resolvedBrandId = resolvedBrand._id;
+    resolvedBrandName = resolvedBrand.name || resolvedBrandName;
+  }
+
+  return {
+    brandId: resolvedBrandId,
+    brandName: resolvedBrandName,
+  };
+};
+
 export const addProduct = async (req, res) => {
   try {
     const {
@@ -138,8 +186,9 @@ export const addProduct = async (req, res) => {
       mrp,
       gstPercent,
       priceIncludesGst,
+      categoryId,
       categoryName,
-      subCategoryName,
+      // subCategoryName,
       description,
       city,
       hsnCode,
@@ -156,6 +205,7 @@ export const addProduct = async (req, res) => {
       discountIsActive,
       discountStartsAt,
       discountExpiresAt,
+      brandId,
     } = req.body;
 
     if (!title || !price) {
@@ -177,16 +227,29 @@ export const addProduct = async (req, res) => {
         )
       : [];
 
+    const resolvedCategory = await resolveCategoryPayload({
+      categoryId,
+      categoryName,
+      // subCategoryName,
+    });
+    const resolvedBrand = await resolveBrandPayload({
+      brandId,
+      brand: req.body?.brand,
+    });
+    const detailsPayload = buildDetailsPayload({
+      ...req.body,
+      brand: resolvedBrand.brandName || req.body?.brand,
+    });
+
     const item = await Item.create({
       vendorId: resolveVendorIdForCreate(req),
       title,
       slug: generateSlug(title),
-      category: {
-        name: categoryName,
-        subCategory: subCategoryName,
-      },
+      categoryId: resolvedCategory.categoryId,
+      category: resolvedCategory.category,
       description: String(description || "").trim(),
-      details: buildDetailsPayload(req.body),
+      brandId: resolvedBrand.brandId,
+      details: detailsPayload,
       pricing: buildPricingPayload({
         price,
         mrp,
@@ -255,7 +318,7 @@ export const addProduct = async (req, res) => {
       item,
     });
   } catch (error) {
-    res.status(500).json({
+    res.status(error.statusCode || 500).json({
       success: false,
       message: error.message,
     });
@@ -270,11 +333,13 @@ export const getProducts = async (req, res) => {
       search,
       status = "active",
       brand,
-      subBrand,
+      // subBrand,
       hsnCode,
       gstPercent,
       category,
       subCategory,
+      categoryId,
+      brandId,
     } = req.query;
     const searchTerm = search?.trim();
 
@@ -297,7 +362,7 @@ export const getProducts = async (req, res) => {
         { "category.subCategory": searchRegex },
         { description: searchRegex },
         { "details.brand": searchRegex },
-        { "details.subBrand": searchRegex },
+        // { "details.subBrand": searchRegex },
         { "details.manufacturer": searchRegex },
         { itemCode: searchRegex },
         { tags: searchRegex },
@@ -309,18 +374,26 @@ export const getProducts = async (req, res) => {
       query["details.brand"] = { $in: brandList };
     }
 
-    const subBrandList = parseList(subBrand);
-    if (subBrandList.length) {
-      query["details.subBrand"] = { $in: subBrandList };
-    }
+    // const subBrandList = parseList(subBrand);
+    // if (subBrandList.length) {
+    //   query["details.subBrand"] = { $in: subBrandList };
+    // }
     const categoryList = parseList(category);
     if (categoryList.length) {
       query["category.name"] = { $in: categoryList };
     }
 
+    if (categoryId) {
+      query.categoryId = categoryId;
+    }
+
     const subCategoryList = parseList(subCategory);
     if (subCategoryList.length) {
       query["category.subCategory"] = { $in: subCategoryList };
+    }
+
+    if (brandId) {
+      query.brandId = brandId;
     }
 
     const hsnList = parseList(hsnCode);
@@ -356,11 +429,13 @@ export const getProducts = async (req, res) => {
         itemCode: item.itemCode || "",
         title: item.title,
         slug: item.slug,
+        categoryId: item.categoryId || null,
         category: {
           name: item.category?.name,
           subCategory: item.category?.subCategory,
         },
         description: item.description || "",
+        brandId: item.brandId || null,
         details: item.details || {},
         pricing: {
           price,
@@ -449,11 +524,13 @@ export const getSingleProduct = async (req, res) => {
         itemCode: item.itemCode || "",
         title: item.title,
         slug: item.slug,
+        categoryId: item.categoryId || null,
         category: {
           name: item.category?.name,
           subCategory: item.category?.subCategory,
         },
         description: item.description || "",
+        brandId: item.brandId || null,
         details: item.details || {},
         pricing: {
           price,
@@ -529,8 +606,9 @@ export const updateProduct = async (req, res) => {
       mrp,
       gstPercent,
       priceIncludesGst,
+      categoryId,
       categoryName,
-      subCategoryName,
+      // subCategoryName,
       description,
       city,
       hsnCode,
@@ -547,6 +625,7 @@ export const updateProduct = async (req, res) => {
       discountIsActive,
       discountStartsAt,
       discountExpiresAt,
+      brandId,
     } = req.body;
 
     if (title) {
@@ -559,9 +638,43 @@ export const updateProduct = async (req, res) => {
       item.category.name = categoryName;
     }
 
-    if (subCategoryName !== undefined) {
-      item.category = item.category || {};
-      item.category.subCategory = subCategoryName;
+    if (categoryId !== undefined) {
+      if (categoryId) {
+        const category = await Category.findById(categoryId);
+        if (!category) {
+          return res.status(400).json({
+            success: false,
+            message: "Category not found",
+          });
+        }
+        item.categoryId = category._id;
+        item.category = item.category || {};
+        item.category.name = category.name;
+      } else {
+        item.categoryId = null;
+      }
+    }
+
+    // if (subCategoryName !== undefined) {
+    //   item.category = item.category || {};
+    //   item.category.subCategory = subCategoryName;
+    // }
+
+    if (brandId !== undefined) {
+      if (brandId) {
+        const brand = await Brand.findById(brandId);
+        if (!brand) {
+          return res.status(400).json({
+            success: false,
+            message: "Brand not found",
+          });
+        }
+        item.brandId = brand._id;
+        item.details = item.details || {};
+        item.details.brand = brand.name;
+      } else {
+        item.brandId = null;
+      }
     }
 
     if (description !== undefined) {
@@ -692,11 +805,13 @@ export const updateProduct = async (req, res) => {
         itemCode: item.itemCode || "",
         title: item.title,
         slug: item.slug,
+        categoryId: item.categoryId || null,
         category: {
           name: item.category?.name,
           subCategory: item.category?.subCategory,
         },
         description: item.description || "",
+        brandId: item.brandId || null,
         details: item.details || {},
         pricing: {
           price: p,

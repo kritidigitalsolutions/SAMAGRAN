@@ -32,10 +32,10 @@ const buildItemForm = () => ({
   discountIsActive: false,
   discountStartsAt: "",
   discountExpiresAt: "",
-  categoryName: "",
+  categoryId: "",
   subCategoryName: "",
-  brand: "",
-  subBrand: "",
+  brandId: "",
+  // subBrand: "",
   unit: "",
   weight: "",
   dimensions: "",
@@ -73,8 +73,6 @@ const formatCurrency = (value, currency = "INR") =>
   }).format(Number(value || 0));
 
 const productDetailFields = [
-  { name: "brand", label: "Brand" },
-  { name: "subBrand", label: "Sub Brand" },
   { name: "unit", label: "Unit / Pack Size" },
   { name: "weight", label: "Weight" },
   { name: "dimensions", label: "Dimensions" },
@@ -213,9 +211,9 @@ const buildEditForm = (item = {}) => ({
   discountExpiresAt: item.discount?.expiresAt
     ? String(item.discount.expiresAt).slice(0, 10)
     : "",
-  categoryName: item.category?.name || "",
+  categoryId: item.categoryId || "",
   subCategoryName: item.category?.subCategory || "",
-  brand: item.details?.brand || "",
+  brandId: item.brandId || "",
   subBrand: item.details?.subBrand || "",
   unit: item.details?.unit || "",
   weight: item.details?.weight || "",
@@ -290,6 +288,8 @@ function ImageSlider({ images = [], title }) {
 
 export default function Items() {
   const [items, setItems] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [brands, setBrands] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [actionError, setActionError] = useState("");
@@ -320,6 +320,23 @@ export default function Items() {
   const [editExistingImages, setEditExistingImages] = useState([]);
   const [editImages, setEditImages] = useState([]);
   const [editPreview, setEditPreview] = useState([]);
+
+  // Fetch categories and brands on mount
+  useEffect(() => {
+    const fetchCategoriesAndBrands = async () => {
+      try {
+        const [catRes, brandRes] = await Promise.all([
+          API.get("/admin/categories", { params: { status: "all" } }),
+          API.get("/admin/brands", { params: { status: "all" } }),
+        ]);
+        setCategories(catRes.data?.data || []);
+        setBrands(brandRes.data?.data || []);
+      } catch (err) {
+        console.error("Error fetching categories/brands:", err.message);
+      }
+    };
+    fetchCategoriesAndBrands();
+  }, []);
 
   const fetchItems = useCallback(async () => {
     try {
@@ -585,8 +602,9 @@ export default function Items() {
       formData.append("discountExpiresAt", editForm.discountExpiresAt || "");
 
       formData.append("priceIncludesGst", String(editForm.priceIncludesGst));
-      formData.append("categoryName", editForm.categoryName || "");
+      formData.append("categoryId", editForm.categoryId || "");
       formData.append("subCategoryName", editForm.subCategoryName || "");
+      formData.append("brandId", editForm.brandId || "");
       productDetailFields.forEach((field) => {
         formData.append(field.name, editForm[field.name] || "");
       });
@@ -765,11 +783,17 @@ export default function Items() {
 
             <div className="form-group">
               <label>Category</label>
-              <input
-                name="categoryName"
-                value={createForm.categoryName}
+              <select
+                name="categoryId"
+                value={createForm.categoryId}
                 onChange={handleCreateChange}
-              />
+                className="h-11 rounded-xl border border-[#d7c3a3] bg-white px-3 text-sm text-black outline-none dark:border-white/20 dark:bg-[#181c24] dark:text-white"
+              >
+                <option value="">Select Category</option>
+                {categories.filter(cat => cat.status === 'active').map((cat) => (
+                  <option key={cat._id} value={cat._id}>{cat.name}</option>
+                ))}
+              </select>
             </div>
 
             <div className="form-group">
@@ -779,6 +803,21 @@ export default function Items() {
                 value={createForm.subCategoryName}
                 onChange={handleCreateChange}
               />
+            </div>
+
+            <div className="form-group">
+              <label>Brand</label>
+              <select
+                name="brandId"
+                value={createForm.brandId}
+                onChange={handleCreateChange}
+                className="h-11 rounded-xl border border-[#d7c3a3] bg-white px-3 text-sm text-black outline-none dark:border-white/20 dark:bg-[#181c24] dark:text-white"
+              >
+                <option value="">Select Brand</option>
+                {brands.filter(b => b.status === 'active').map((brand) => (
+                  <option key={brand._id} value={brand._id}>{brand.name}</option>
+                ))}
+              </select>
             </div>
 
             {productDetailFields.map((field) => (
@@ -1693,14 +1732,22 @@ export default function Items() {
                   onChange={handleEditChange}
                 />
               </label>
+
               <label>
                 Category
-                <input
-                  name="categoryName"
-                  value={editForm.categoryName}
+                <select
+                  name="categoryId"
+                  value={editForm.categoryId}
                   onChange={handleEditChange}
-                />
+                  className="h-11 rounded-xl border border-[#d7c3a3] bg-white px-3 text-sm text-black outline-none dark:border-white/20 dark:bg-[#181c24] dark:text-white"
+                >
+                  <option value="">Select Category</option>
+                  {categories.filter(cat => cat.status === 'active').map((cat) => (
+                    <option key={cat._id} value={cat._id}>{cat.name}</option>
+                  ))}
+                </select>
               </label>
+              
               <label>
                 Sub Category
                 <input
@@ -1709,6 +1756,22 @@ export default function Items() {
                   onChange={handleEditChange}
                 />
               </label>
+
+              <label>
+                Brand
+                <select
+                  name="brandId"
+                  value={editForm.brandId}
+                  onChange={handleEditChange}
+                  className="h-11 rounded-xl border border-[#d7c3a3] bg-white px-3 text-sm text-black outline-none dark:border-white/20 dark:bg-[#181c24] dark:text-white"
+                >
+                  <option value="">Select Brand</option>
+                  {brands.filter(b => b.status === 'active').map((brand) => (
+                    <option key={brand._id} value={brand._id}>{brand.name}</option>
+                  ))}
+                </select>
+              </label>
+
               {productDetailFields.map((field) => (
                 <label
                   className={field.multiline ? "item-edit-field-wide" : ""}

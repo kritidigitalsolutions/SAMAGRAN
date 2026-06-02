@@ -107,6 +107,8 @@ import adminDeliveryBoyRoutes from "./routes/admin/deliveryBoy.routes.js";
 import adminVendorRoutes from "./routes/admin/vendor.routes.js";
 import vendorProfileRoutes from "./routes/admin/vendorProfile.routes.js";
 import vendorFinanceRoutes from "./routes/admin/vendorFinance.routes.js";
+import adminCategoryRoutes from "./routes/admin/category.routes.js";
+import adminBrandRoutes from "./routes/admin/brand.routes.js";
 
 import authRoutes from "./routes/user/auth.routes.js";
 import panditAuthRoutes from "./routes/pandit/pandit.auth.routes.js";
@@ -119,6 +121,8 @@ import vendorProductRoutes from "./routes/vendor/product.routes.js";
 
 
 // User Routs
+import brands from "./routes/user/brand.routes.js"
+import category from "./routes/user/category.routes.js"
 import userProductRoutes from "./routes/user/product.routes.js";
 import panditBooking from "./routes/user/panditBooking.routes.js";
 import cartRoutes from "./routes/user/cart.routes.js";
@@ -220,6 +224,8 @@ app.use("/api/admin", adminDeliveryBoyRoutes);
 app.use("/api/admin", adminVendorRoutes);
 app.use("/api/admin", vendorProfileRoutes);
 app.use("/api/admin", vendorFinanceRoutes);
+app.use("/api/admin", adminCategoryRoutes);
+app.use("/api/admin", adminBrandRoutes);
 
 // ############ User Routes ##########################
 
@@ -241,6 +247,8 @@ app.use("/api/wishlist", wishlistRoutes);
 
 // items
 app.use("/api/items", productRoutes);
+app.use("/api/brands", brands);
+app.use("/api/category", category);
 
 //place order for users
 app.use("/api/order", orderRoutes);

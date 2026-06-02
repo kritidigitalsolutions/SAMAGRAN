@@ -11,7 +11,8 @@ import Dashboard from "./pages/Dashboard";
 import Users from "./pages/Users";
 import Orders from "./pages/Orders";
 import Items from "./pages/Items";
-import Kits from "./pages/Kits";
+import Category from "./pages/Categories";
+import Brands from "./pages/Brands";
 import Pandits from "./pages/Pandits";
 import PanditBookings from "./pages/PanditBookings";
 import Rituals from "./pages/Rituals";
@@ -20,7 +21,7 @@ import Banner from "./pages/Banner";
 import Coupons from "./pages/Coupons";
 import Offers from "./pages/Offers";
 import Legal from "./pages/Legal";
-// import CustomSamagri from "./pages/CustomSamagri";
+import CustomSamagri from "./pages/CustomSamagri";
 import Notifications from "./pages/Notifications";
 import DeliveryBoys from "./pages/DeliveryBoys";
 import Transactions from "./pages/Transactions";
@@ -35,6 +36,7 @@ import VendorSettings from "./pages/VendorSettings";
 import VendorDetails from "./pages/admin/VendorDetails";
 import BookingPricing from "./pages/BookingPricing";
 import { getHostRole } from "./utils/hostRouting";
+import Kits from "./pages/Kits";
 
 function HostEntry() {
   const role = getHostRole();
@@ -81,6 +83,8 @@ function App() {
         <Route path="users" element={<AccessRoute pageKey="users"><Users /></AccessRoute>} />
         <Route path="orders" element={<AccessRoute pageKey="orders"><Orders /></AccessRoute>} />
         <Route path="items" element={<AccessRoute pageKey="products"><Items /></AccessRoute>} />
+        <Route path="category" element={<AccessRoute pageKey="category"><Category /></AccessRoute>} />
+        <Route path="brands" element={<AccessRoute pageKey="brands"><Brands /></AccessRoute>} />
         <Route path="kits" element={<AccessRoute pageKey="kits"><Kits /></AccessRoute>} />
         <Route path="pandits" element={<AccessRoute pageKey="pandits"><Pandits /></AccessRoute>} />
         <Route path="rituals" element={<AccessRoute pageKey="rituals"><Rituals /></AccessRoute>} />
@@ -90,7 +94,7 @@ function App() {
         <Route path="coupons" element={<AccessRoute pageKey="coupons"><Coupons /></AccessRoute>} />
         <Route path="offers" element={<AccessRoute pageKey="offers"><Offers /></AccessRoute>} />
         <Route path="legal" element={<AccessRoute pageKey="legal"><Legal /></AccessRoute>} />
-        {/* <Route path="custom-samagri" element={<AccessRoute pageKey="custom-samagri"><CustomSamagri /></AccessRoute>} /> */}
+        <Route path="custom-samagri" element={<AccessRoute pageKey="custom-samagri"><CustomSamagri /></AccessRoute>} />
         <Route path="notifications" element={<AccessRoute pageKey="notifications"><Notifications /></AccessRoute>} />
         <Route path="booking-pricing" element={<AccessRoute pageKey="booking-pricing"><BookingPricing /></AccessRoute>} />
         <Route path="settings" element={<AccessRoute pageKey="settings"><VendorSettings /></AccessRoute>} />

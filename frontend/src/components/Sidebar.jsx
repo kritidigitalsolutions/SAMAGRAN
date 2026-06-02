@@ -27,10 +27,12 @@ const navSections = [
     heading: "Catalog",
     items: [
       { label: "Products", path: "/dashboard/items", icon: "box", accessKey: "products" },
+      { label: "Category", path: "/dashboard/category", icon: "box", accessKey: "category" },
+      { label: "Brands", path: "/dashboard/brands", icon: "box", accessKey: "brands" },
       { label: "Kits", path: "/dashboard/kits", icon: "gift", accessKey: "kits" },
       { label: "Rituals", path: "/dashboard/rituals", icon: "rituals", accessKey: "rituals" },
       { label: "Temples", path: "/dashboard/temples", icon: "temples", accessKey: "temples" },
-      // { label: "Custom Samagri", path: "/dashboard/custom-samagri", icon: "custom-samagri", accessKey: "custom-samagri", role: "super-admin" },
+      { label: "Custom Samagri", path: "/dashboard/custom-samagri", icon: "custom-samagri", accessKey: "custom-samagri", role: "super-admin" },
     ],
   },
   {

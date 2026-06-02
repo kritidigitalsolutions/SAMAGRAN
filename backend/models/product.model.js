@@ -12,6 +12,13 @@ const itemSchema = new mongoose.Schema(
     title: { type: String, required: true },
     slug: { type: String },
 
+    categoryId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Category",
+      default: null,
+      index: true,
+    },
+
     category: {
       name: String,
       subCategory: String,
@@ -19,9 +26,16 @@ const itemSchema = new mongoose.Schema(
 
     description: { type: String, trim: true, default: "" },
 
+    brandId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Brand",
+      default: null,
+      index: true,
+    },
+
     details: {
       brand: { type: String, trim: true, default: "" },
-      subBrand: { type: String, trim: true, default: "" },
+      // subBrand: { type: String, trim: true, default: "" },
       unit: { type: String, trim: true, default: "" },
       weight: { type: String, trim: true, default: "" },
       dimensions: { type: String, trim: true, default: "" },
