@@ -14,6 +14,12 @@ const templeAddressSchema = new mongoose.Schema(
 
 const templeSchema = new mongoose.Schema(
   {
+    vendorId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Vendor",
+      default: null,
+      index: true,
+    },
     name: { type: String, required: true, trim: true },
     image: { type: String, trim: true, default: "" },
     description: { type: String, trim: true, default: "" },

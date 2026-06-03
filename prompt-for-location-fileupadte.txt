@@ -1,0 +1,57 @@
+1. Ritual Filtering
+
+Answer: YES
+Rituals should also be location-based.
+
+Only show rituals that have at least one active pandit available in the user's selected city/serviceable area.
+
+If no pandit is available for a ritual in the user's city, hide that ritual from the user app.
+
+Admin panel should still show all rituals.
+
+2. Guest User Behavior
+
+Answer: Use city query parameter
+For guest users (not logged in), use ?city= query parameter.
+
+If city is not provided:
+- Show location selection screen first.
+- Do not show products until a city is selected.
+
+For authenticated users:
+- Use user.selectedCity as default.
+- Allow ?city= override for instant location switching.
+
+3. Pincode Filtering for V1
+
+Answer: NO (Not Required for V1)
+For V1, implement city-level filtering only.
+
+Do not implement pincode-based filtering yet.
+
+Reason:
+- Faster implementation
+- Easier vendor onboarding
+- Less complexity
+- City-based filtering solves the current logistics problem
+
+Keep database structure ready for future pincode support, but do not enforce pincode filtering in V1.
+
+Please proceed with implementation using:
+
+1. City-based filtering for V1.
+2. Rituals must be filtered by pandit availability in the user's city.
+3. Guest users should use ?city= query parameter.
+4. Logged-in users should use user.selectedCity by default.
+5. ?city= should override stored location for instant refresh.
+6. Keep backward compatibility for vendors without location data.
+7. Keep database schema ready for future pincode filtering, but do not implement pincode filtering in V1.
+8. Apply location filtering to:
+   - Products
+   - Categories
+   - Brands
+   - Rituals
+   - Special Kits
+   - Search APIs
+9. Use the shared locationFilter.js utility across all user-facing APIs.
+10. Ensure Admin Panel remains unaffected and can view all data.

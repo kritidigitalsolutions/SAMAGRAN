@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import API from "../api/axios";
 import TablePagination from "../components/TablePagination";
 import TableMenuPopover from "../components/TableMenuPopover";
+import { getAdminRole } from "../utils/auth";
 import "./Items.css";
 import "./AddItem.css";
 import {
@@ -355,6 +356,8 @@ function ImageSlider({ images = [], title }) {
 }
 
 export default function Items() {
+  const adminRole = getAdminRole();
+  const isSuperAdmin = adminRole === "super-admin";
   const [items, setItems] = useState([]);
   const [categories, setCategories] = useState([]);
   const [brands, setBrands] = useState([]);
@@ -369,6 +372,7 @@ export default function Items() {
   const [gstPercentFilter, setGstPercentFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [subCategoryFilter, setSubCategoryFilter] = useState("all");
+  const [cityFilter, setCityFilter] = useState("all");
   const [actionLoading, setActionLoading] = useState("");
   const [selectedItemIds, setSelectedItemIds] = useState([]);
   const [openMenuId, setOpenMenuId] = useState("");
@@ -426,6 +430,8 @@ export default function Items() {
           ...(subCategoryFilter !== "all"
             ? { subCategory: subCategoryFilter }
             : {}),
+          // City filter — super-admin only
+          ...(isSuperAdmin && cityFilter !== "all" ? { city: cityFilter } : {}),
         },
       });
 
@@ -447,6 +453,8 @@ export default function Items() {
     gstPercentFilter,
     categoryFilter,
     subCategoryFilter,
+    cityFilter,
+    isSuperAdmin,
   ]);
   useEffect(() => {
     const timer = setTimeout(fetchItems, 300);
@@ -481,6 +489,17 @@ export default function Items() {
     )
       .filter((value) => Number.isFinite(value))
       .sort((a, b) => a - b);
+  }, [items]);
+
+  // City options derived from all loaded products (compliance.city)
+  const cityOptions = useMemo(() => {
+    return Array.from(
+      new Set(
+        items
+          .map((item) => String(item.compliance?.city || "").trim())
+          .filter(Boolean),
+      ),
+    ).sort();
   }, [items]);
 
   const categoryOptions = useMemo(() => {
@@ -1356,6 +1375,32 @@ export default function Items() {
                 )}
               </select>
             </label>
+
+            {/* City filter — super-admin only */}
+            {isSuperAdmin && (
+              <label className="items-filter">
+                <span>City</span>
+                <select
+                  value={cityFilter}
+                  onChange={handleSelectChange(setCityFilter)}
+                  className="items-filter-input"
+                >
+                  <option value="all">All Cities</option>
+                  {cityOptions.length ? (
+                    cityOptions.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))
+                  ) : (
+                    <option value="" disabled>
+                      No cities
+                    </option>
+                  )}
+                </select>
+              </label>
+            )}
+
           </div>
         </div>
       )}

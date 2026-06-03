@@ -343,6 +343,7 @@ export const getProducts = async (req, res) => {
       subCategory,
       categoryId,
       brandId,
+      city,
     } = req.query;
     const searchTerm = search?.trim();
 
@@ -403,6 +404,11 @@ export const getProducts = async (req, res) => {
     const hsnList = parseList(hsnCode);
     if (hsnList.length) {
       query["compliance.hsnCode"] = { $in: hsnList };
+    }
+
+    // City filter — super-admin can filter by vendor/product city
+    if (city && String(city).trim()) {
+      query["compliance.city"] = { $regex: `^${String(city).trim()}$`, $options: "i" };
     }
 
     const gstList = parseList(gstPercent)

@@ -83,10 +83,17 @@ export const createtemple = async (req, res) => {
       });
     }
 
-    const exists = await temple.findOne({
+    const existingFilter = {
       name: { $regex: `^${payload.name}$`, $options: "i" },
       "address.city": payload.address.city,
-    });
+    };
+    if (req.admin.role === "vendor") {
+      existingFilter.vendorId = req.vendor._id;
+    } else {
+      existingFilter.vendorId = null;
+    }
+
+    const exists = await temple.findOne(existingFilter);
 
     if (exists) {
       return res.status(400).json({
@@ -95,6 +102,11 @@ export const createtemple = async (req, res) => {
       });
     }
 
+    if (req.admin.role === "vendor") {
+      payload.vendorId = req.vendor._id;
+    } else {
+      payload.vendorId = null;
+    }
     const newTemple = await temple.create(payload);
 
     return res.status(201).json({
@@ -120,15 +132,26 @@ export const getAlltemplesForAdmin = async (req, res) => {
       filter.status = status;
     }
 
-    if (String(search || "").trim()) {
-      const regex = { $regex: String(search).trim(), $options: "i" };
-      filter.$or = [
-        { name: regex },
-        { description: regex },
-        { "address.city": regex },
-        { "address.state": regex },
-        { "address.landmark": regex },
-      ];
+    const vendorFilter = req.admin.role === "vendor" 
+      ? { $or: [{ vendorId: req.vendor._id }, { vendorId: null }] } 
+      : {};
+
+    const searchFilter = String(search || "").trim() 
+      ? { $or: [
+          { name: { $regex: String(search).trim(), $options: "i" } },
+          { description: { $regex: String(search).trim(), $options: "i" } },
+          { "address.city": { $regex: String(search).trim(), $options: "i" } },
+          { "address.state": { $regex: String(search).trim(), $options: "i" } },
+          { "address.landmark": { $regex: String(search).trim(), $options: "i" } }
+        ] } 
+      : {};
+
+    if (Object.keys(vendorFilter).length > 0 && Object.keys(searchFilter).length > 0) {
+      filter.$and = [vendorFilter, searchFilter];
+    } else if (Object.keys(vendorFilter).length > 0) {
+      Object.assign(filter, vendorFilter);
+    } else if (Object.keys(searchFilter).length > 0) {
+      Object.assign(filter, searchFilter);
     }
 
     const temples = await temple.find(filter).sort({ createdAt: -1 });
@@ -158,6 +181,13 @@ export const updatetemple = async (req, res) => {
       });
     }
 
+    if (req.admin.role === "vendor" && templeDoc.vendorId && templeDoc.vendorId.toString() !== req.vendor._id.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied",
+      });
+    }
+
     const uploadedImage = req.file
       ? await uploadFileToFirebase(req.file, { folder: "temples" })
       : "";
@@ -183,11 +213,18 @@ export const updatetemple = async (req, res) => {
       });
     }
 
-    const duplicate = await temple.findOne({
+    const existingFilter = {
       _id: { $ne: id },
       name: { $regex: `^${payload.name}$`, $options: "i" },
       "address.city": payload.address.city,
-    });
+    };
+    if (req.admin.role === "vendor") {
+      existingFilter.vendorId = req.vendor._id;
+    } else {
+      existingFilter.vendorId = null;
+    }
+
+    const duplicate = await temple.findOne(existingFilter);
 
     if (duplicate) {
       return res.status(400).json({
@@ -214,14 +251,23 @@ export const updatetemple = async (req, res) => {
 
 export const deletetemple = async (req, res) => {
   try {
-    const deletedTemple = await temple.findByIdAndDelete(req.params.id);
+    const templeDoc = await temple.findById(req.params.id);
 
-    if (!deletedTemple) {
+    if (!templeDoc) {
       return res.status(404).json({
         success: false,
         message: "temple not found",
       });
     }
+
+    if (req.admin.role === "vendor" && (!templeDoc.vendorId || templeDoc.vendorId.toString() !== req.vendor._id.toString())) {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied (Cannot delete global or other vendor's temple)",
+      });
+    }
+
+    await temple.findByIdAndDelete(req.params.id);
 
     return res.json({
       success: true,

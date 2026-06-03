@@ -1,12 +1,24 @@
 import FestivalKit from "../models/festivalKit.model.js";
+import {
+  resolveCity,
+  buildVendorCityFilter,
+  sendCityRequired,
+} from "../utils/locationFilter.js";
 
 export const getDefaultKitsForUsers = async (req, res) => {
   try {
+    // ── City filtering ──────────────────────────────────────────────────
+    const city = resolveCity(req);
+    if (!city) return sendCityRequired(res);
+
+    const vendorFilter = await buildVendorCityFilter(city);
+
     const { search = "" } = req.query;
 
     const filter = {
       status: "active",
       kitType: "default",
+      ...vendorFilter,
     };
 
     if (search.trim()) {
@@ -19,6 +31,7 @@ export const getDefaultKitsForUsers = async (req, res) => {
 
     res.json({
       success: true,
+      city,
       count: kits.length,
       data: kits,
     });
@@ -32,11 +45,21 @@ export const getDefaultKitsForUsers = async (req, res) => {
 
 export const getDefaultKitByIdForUsers = async (req, res) => {
   try {
-    const kit = await FestivalKit.findOne({
+    // ── City filtering ──────────────────────────────────────────────────
+    const city = resolveCity(req);
+    if (!city) return sendCityRequired(res);
+
+    const vendorFilter = await buildVendorCityFilter(city);
+
+    const kitFilter = {
       _id: req.params.id,
       status: "active",
       kitType: "default",
-    }).populate("items.product", "title pricing media stock status category");
+      ...vendorFilter,
+    };
+
+    const kit = await FestivalKit.findOne(kitFilter)
+      .populate("items.product", "title pricing media stock status category");
 
     if (!kit) {
       return res.status(404).json({

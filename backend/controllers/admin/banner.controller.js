@@ -19,9 +19,14 @@ export const createBenner = async (req, res) => {
       });
     }
 
-    const exists = await Banner.findOne({
-      title: { $regex: `^${title.trim()}$`, $options: "i" },
-    });
+    const existingFilter = { title: { $regex: `^${title.trim()}$`, $options: "i" } };
+    if (req.admin.role === "vendor") {
+      existingFilter.vendorId = req.vendor._id;
+    } else {
+      existingFilter.vendorId = null;
+    }
+
+    const exists = await Banner.findOne(existingFilter);
 
     if (exists) {
       return res.status(400).json({
@@ -35,6 +40,7 @@ export const createBenner = async (req, res) => {
       : "";
 
     const banner = await Banner.create({
+      vendorId: req.admin.role === "vendor" ? req.vendor._id : null,
       title: title.trim(),
       subTitle: subTitle.trim(),
       description: String(description || "").trim(),
@@ -66,9 +72,20 @@ export const getAllBannersForAdmin = async (req, res) => {
       filter.status = status;
     }
 
-    if (search.trim()) {
-      const regex = { $regex: search.trim(), $options: "i" };
-      filter.$or = [{ title: regex }, { priceOff: regex }];
+    const vendorFilter = req.admin.role === "vendor" 
+      ? { $or: [{ vendorId: req.vendor._id }, { vendorId: null }] } 
+      : {};
+
+    const searchFilter = search.trim() 
+      ? { $or: [{ title: { $regex: search.trim(), $options: "i" } }, { priceOff: { $regex: search.trim(), $options: "i" } }] } 
+      : {};
+
+    if (Object.keys(vendorFilter).length > 0 && Object.keys(searchFilter).length > 0) {
+      filter.$and = [vendorFilter, searchFilter];
+    } else if (Object.keys(vendorFilter).length > 0) {
+      Object.assign(filter, vendorFilter);
+    } else if (Object.keys(searchFilter).length > 0) {
+      Object.assign(filter, searchFilter);
     }
 
     const banner = await Banner.find(filter).sort({ createdAt: -1 });
@@ -110,11 +127,25 @@ export const updateBanner = async (req, res) => {
       });
     }
 
+    if (req.admin.role === "vendor" && banner.vendorId && banner.vendorId.toString() !== req.vendor._id.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied",
+      });
+    }
+
     if (typeof title === "string" && title.trim()) {
-      const duplicate = await Banner.findOne({
+      const existingFilter = {
         _id: { $ne: id },
         title: { $regex: `^${title.trim()}$`, $options: "i" },
-      });
+      };
+      if (req.admin.role === "vendor") {
+        existingFilter.vendorId = req.vendor._id;
+      } else {
+        existingFilter.vendorId = null;
+      }
+
+      const duplicate = await Banner.findOne(existingFilter);
 
       if (duplicate) {
         return res.status(400).json({
@@ -159,7 +190,7 @@ export const updateBanner = async (req, res) => {
 
 export const deleteBanner = async (req, res) => {
   try {
-    const banner = await Banner.findByIdAndDelete(req.params.id);
+    const banner = await Banner.findById(req.params.id);
 
     if (!banner) {
       return res.status(404).json({
@@ -167,6 +198,15 @@ export const deleteBanner = async (req, res) => {
         message: "banner not found",
       });
     }
+
+    if (req.admin.role === "vendor" && (!banner.vendorId || banner.vendorId.toString() !== req.vendor._id.toString())) {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied (Cannot delete global or other vendor's banner)",
+      });
+    }
+
+    await Banner.findByIdAndDelete(req.params.id);
 
     return res.json({
       success: true,

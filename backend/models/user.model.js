@@ -109,6 +109,14 @@ const userSchema = new mongoose.Schema(
       default: null,
     },
 
+    // Selected city for location-based filtering (V1)
+    // Future: extend to selectedPincode for pincode-level filtering
+    selectedCity: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+
     isProfileComplete: {
       type: Boolean,
       default: false,

@@ -13,15 +13,26 @@ export const getAllPanditsForAdmin = async (req, res) => {
       filter.status = status;
     }
 
-    if (search.trim()) {
-      const regex = { $regex: search.trim(), $options: "i" };
-      filter.$or = [
-        { fullName: regex },
-        { phone: regex },
-        { "address.city": regex },
-        { "address.state": regex },
-        { templeAssociated: regex },
-      ];
+    const vendorFilter = req.admin.role === "vendor" 
+      ? { vendorId: req.vendor._id } 
+      : {};
+
+    const searchFilter = search.trim() 
+      ? { $or: [
+          { fullName: { $regex: search.trim(), $options: "i" } },
+          { phone: { $regex: search.trim(), $options: "i" } },
+          { "address.city": { $regex: search.trim(), $options: "i" } },
+          { "address.state": { $regex: search.trim(), $options: "i" } },
+          { templeAssociated: { $regex: search.trim(), $options: "i" } }
+        ] } 
+      : {};
+
+    if (Object.keys(vendorFilter).length > 0 && Object.keys(searchFilter).length > 0) {
+      filter.$and = [vendorFilter, searchFilter];
+    } else if (Object.keys(vendorFilter).length > 0) {
+      Object.assign(filter, vendorFilter);
+    } else if (Object.keys(searchFilter).length > 0) {
+      Object.assign(filter, searchFilter);
     }
 
     const pandits = await Pandit.find(filter).sort({ createdAt: -1 });
@@ -56,6 +67,13 @@ export const getPanditDetailsForAdmin = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "Pandit not found",
+      });
+    }
+
+    if (req.admin.role === "vendor" && pandit.vendorId && pandit.vendorId.toString() !== req.vendor._id.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied",
       });
     }
 
@@ -114,6 +132,7 @@ export const createPanditByAdmin = async (req, res) => {
     }
 
     const pandit = await Pandit.create({
+      vendorId: req.admin.role === "vendor" ? req.vendor._id : null,
       phone: finalPhone,
       fullName: String(fullName || "").trim(),
       profileImage: String(profileImage || "").trim(),
@@ -182,6 +201,13 @@ export const updatePanditByAdmin = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "Pandit not found",
+      });
+    }
+
+    if (req.admin.role === "vendor" && pandit.vendorId && pandit.vendorId.toString() !== req.vendor._id.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied",
       });
     }
 
@@ -307,11 +333,23 @@ export const updatePanditStatusByAdmin = async (req, res) => {
       });
     }
 
-    const pandit = await Pandit.findByIdAndUpdate(
-      id,
-      { status: normalizedStatus },
-      { new: true }
-    );
+    const panditObj = await Pandit.findById(id);
+    if (!panditObj) {
+      return res.status(404).json({
+        success: false,
+        message: "Pandit not found",
+      });
+    }
+
+    if (req.admin.role === "vendor" && panditObj.vendorId && panditObj.vendorId.toString() !== req.vendor._id.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied",
+      });
+    }
+
+    panditObj.status = normalizedStatus;
+    const pandit = await panditObj.save();
 
     if (!pandit) {
       return res.status(404).json({
@@ -344,6 +382,14 @@ export const getPanditBookingsByAdmin = async (req, res) => {
       });
     }
 
+    const panditObj = await Pandit.findById(id);
+    if (!panditObj) {
+      return res.status(404).json({ success: false, message: "Pandit not found" });
+    }
+    if (req.admin.role === "vendor" && panditObj.vendorId && panditObj.vendorId.toString() !== req.vendor._id.toString()) {
+      return res.status(403).json({ success: false, message: "Access denied" });
+    }
+
     const bookings = await PanditBooking.find({ pandit: id })
       .populate("user", "name phone email")
       .populate("pandit", "fullName phone status")
@@ -374,7 +420,7 @@ export const deletePanditByAdmin = async (req, res) => {
       });
     }
 
-    const pandit = await Pandit.findByIdAndDelete(id);
+    const pandit = await Pandit.findById(id);
 
     if (!pandit) {
       return res.status(404).json({
@@ -382,6 +428,15 @@ export const deletePanditByAdmin = async (req, res) => {
         message: "Pandit not found",
       });
     }
+
+    if (req.admin.role === "vendor" && (!pandit.vendorId || pandit.vendorId.toString() !== req.vendor._id.toString())) {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied (Cannot delete global or other vendor's pandit)",
+      });
+    }
+
+    await Pandit.findByIdAndDelete(id);
 
     return res.json({
       success: true,

@@ -1,6 +1,11 @@
 import mongoose from "mongoose";
 import Item from "../models/product.model.js";
 import ProductReview from "../models/productReview.model.js";
+import {
+  resolveCity,
+  buildVendorCityFilter,
+  sendCityRequired,
+} from "../utils/locationFilter.js";
 
 const escapeRegex = (value = "") =>
   value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -99,31 +104,30 @@ const buildRatingSummary = async (productId) => {
 // Get all products (User)
 export const getProductsUser = async (req, res) => {
   try {
-    // const { page = 1, limit = 10, search } = req.query;
+    // ── 1. Resolve city ──────────────────────────────────────────────────────
+    const city = resolveCity(req);
 
-    // const skip = (page - 1) * limit;
+    if (!city) {
+      return sendCityRequired(res);
+    }
 
-    let query = { status: "active" };
+    // ── 2. Auto-persist city for authenticated users when ?city= is provided ─
+    const queryCity = String(req.query?.city || "").trim();
+    if (queryCity && req.user && String(req.user.selectedCity || "") !== queryCity) {
+      // Fire-and-forget — do not await; this should not block the response
+      req.user.constructor
+        .findByIdAndUpdate(req.user._id, { selectedCity: queryCity })
+        .catch((err) => console.error("Failed to persist selectedCity:", err.message));
+    }
 
-    // if (search) {
-    //   const searchRegex = new RegExp(escapeRegex(search), "i");
+    // ── 3. Build base query with city-aware vendor filter ────────────────────
+    const vendorFilter = await buildVendorCityFilter(city);
 
-    //   query.$or = [
-    //     { title: searchRegex },
-    //     { "category.name": searchRegex },
-    //     { description: searchRegex },
-    //     { "details.brand": searchRegex },
-    //     { "details.sku": searchRegex },
-    //     { "details.manufacturer": searchRegex },
-    //     { tags: searchRegex },
-    //   ];
-    // }
+    let query = { status: "active", ...vendorFilter };
 
     const totalProducts = await Item.countDocuments(query);
 
     const items = await Item.find(query)
-      // .skip(skip)
-      // .limit(Number(limit))
       .populate("categoryId", "name subCategory")
       .populate("brandId", "name subBrand")
       .sort({ createdAt: -1 });
@@ -202,11 +206,11 @@ export const getProductsUser = async (req, res) => {
 
     res.json({
       success: true,
+      city,
       data: {
         products,
         pagination: {
           totalProducts,
-          // currentPage: Number(page),
           totalPages: Math.ceil(totalProducts),
         },
       },

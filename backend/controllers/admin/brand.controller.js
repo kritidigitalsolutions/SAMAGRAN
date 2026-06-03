@@ -19,9 +19,14 @@ export const createBrand = async (req, res) => {
       });
     }
 
-    const existing = await Brand.findOne({
-      name: { $regex: `^${name}$`, $options: "i" },
-    });
+    const existingFilter = { name: { $regex: `^${name}$`, $options: "i" } };
+    if (req.admin.role === "vendor") {
+      existingFilter.vendorId = req.vendor._id;
+    } else {
+      existingFilter.vendorId = null;
+    }
+
+    const existing = await Brand.findOne(existingFilter);
 
     if (existing) {
       return res.status(400).json({
@@ -35,6 +40,7 @@ export const createBrand = async (req, res) => {
       : "";
 
     const brand = await Brand.create({
+      vendorId: req.admin.role === "vendor" ? req.vendor._id : null,
       name,
       code,
       description,
@@ -65,9 +71,20 @@ export const getAllBrands = async (req, res) => {
       filter.status = status;
     }
 
-    if (search.trim()) {
-      const regex = { $regex: search.trim(), $options: "i" };
-      filter.$or = [{ name: regex }, { code: regex }];
+    const vendorFilter = req.admin.role === "vendor" 
+      ? { $or: [{ vendorId: req.vendor._id }, { vendorId: null }] } 
+      : {};
+
+    const searchFilter = search.trim() 
+      ? { $or: [{ name: { $regex: search.trim(), $options: "i" } }, { code: { $regex: search.trim(), $options: "i" } }] } 
+      : {};
+
+    if (Object.keys(vendorFilter).length > 0 && Object.keys(searchFilter).length > 0) {
+      filter.$and = [vendorFilter, searchFilter];
+    } else if (Object.keys(vendorFilter).length > 0) {
+      Object.assign(filter, vendorFilter);
+    } else if (Object.keys(searchFilter).length > 0) {
+      Object.assign(filter, searchFilter);
     }
 
     const brands = await Brand.find(filter).sort({ createdAt: -1 });
@@ -96,6 +113,13 @@ export const getBrandById = async (req, res) => {
       });
     }
 
+    if (req.admin.role === "vendor" && brand.vendorId && brand.vendorId.toString() !== req.vendor._id.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied",
+      });
+    }
+
     return res.json({
       success: true,
       data: brand,
@@ -119,6 +143,13 @@ export const updateBrand = async (req, res) => {
       });
     }
 
+    if (req.admin.role === "vendor" && brand.vendorId && brand.vendorId.toString() !== req.vendor._id.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied",
+      });
+    }
+
     const name = normalizeName(req.body?.name);
     const code = normalizeCode(req.body?.code);
     const description = normalizeName(req.body?.description);
@@ -126,10 +157,17 @@ export const updateBrand = async (req, res) => {
     const subBrand = normalizeName(req.body?.subBrand);
 
     if (name) {
-      const duplicate = await Brand.findOne({
+      const existingFilter = {
         _id: { $ne: brand._id },
         name: { $regex: `^${name}$`, $options: "i" },
-      });
+      };
+      if (req.admin.role === "vendor") {
+        existingFilter.vendorId = req.vendor._id;
+      } else {
+        existingFilter.vendorId = null;
+      }
+
+      const duplicate = await Brand.findOne(existingFilter);
 
       if (duplicate) {
         return res.status(400).json({
@@ -184,7 +222,7 @@ export const updateBrand = async (req, res) => {
 
 export const deleteBrand = async (req, res) => {
   try {
-    const brand = await Brand.findByIdAndDelete(req.params.id);
+    const brand = await Brand.findById(req.params.id);
 
     if (!brand) {
       return res.status(404).json({
@@ -192,6 +230,15 @@ export const deleteBrand = async (req, res) => {
         message: "Brand not found",
       });
     }
+
+    if (req.admin.role === "vendor" && (!brand.vendorId || brand.vendorId.toString() !== req.vendor._id.toString())) {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied (Cannot delete global or other vendor's brand)",
+      });
+    }
+
+    await Brand.findByIdAndDelete(req.params.id);
 
     return res.json({
       success: true,

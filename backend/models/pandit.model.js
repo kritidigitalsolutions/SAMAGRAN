@@ -92,6 +92,12 @@ const poojaOfferingSchema = new mongoose.Schema(
 
 const panditSchema = new mongoose.Schema(
   {
+    vendorId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Vendor",
+      default: null,
+      index: true,
+    },
     phone: {
       type: String,
       required: true,

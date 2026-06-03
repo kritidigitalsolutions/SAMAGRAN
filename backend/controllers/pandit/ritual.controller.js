@@ -2,6 +2,11 @@ import Ritual from "../../models/ritual.model.js";
 import Pandit from "../../models/pandit.model.js";
 import mongoose from "mongoose";
 import { notifyAdmins } from "../../utils/notification.service.js";
+import {
+  resolveCity,
+  getRitualTitlesAvailableInCity,
+  sendCityRequired,
+} from "../../utils/locationFilter.js";
 
 const normalizeName = (value = "") => String(value || "").trim().toLowerCase();
 
@@ -185,7 +190,34 @@ const getRitualAndPanditOfferingContext = async ({ panditId, ritualId }) => {
 // };
 export const getRitualsForBooking = async (req, res) => {
   try {
-    const rituals = await Ritual.find({ status: "active" }).sort({ createdAt: -1 });
+    // ── 1. Resolve city ──────────────────────────────────────────────────────
+    // This endpoint is public (no auth), so only ?city= is used.
+    // Authenticated users' selectedCity is resolved via resolveCity(req)
+    // if optionalProtect is applied upstream in future.
+    const city = resolveCity(req);
+
+    if (!city) {
+      return sendCityRequired(res);
+    }
+
+    // ── 2. Find ritual titles offered by pandits in this city ────────────────
+    const availableTitles = await getRitualTitlesAvailableInCity(city);
+
+    // ── 3. Fetch active rituals that match available titles ──────────────────
+    let rituals;
+    if (availableTitles.size === 0) {
+      // No pandits in this city offer any ritual
+      rituals = [];
+    } else {
+      rituals = await Ritual.find({ status: "active" })
+        .sort({ createdAt: -1 })
+        .lean();
+
+      // Filter to only rituals whose title is offered in this city
+      rituals = rituals.filter(
+        (r) => availableTitles.has(String(r.title || "").trim().toLowerCase())
+      );
+    }
 
     const data = rituals.map((ritual) => ({
       _id: ritual._id,
@@ -201,6 +233,7 @@ export const getRitualsForBooking = async (req, res) => {
 
     res.json({
       success: true,
+      city,
       count: data.length,
       data,
     });

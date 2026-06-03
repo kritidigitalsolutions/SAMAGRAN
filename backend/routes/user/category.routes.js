@@ -1,14 +1,14 @@
 import express from "express";
-import { upload } from "../../middleware/upload.js";
+import { optionalProtect } from "../../middleware/auth.middleware.js";
 import {
-  deleteCategory,
-  getAllCategories,
+  getAllCategoriesUser,
   getCategoryById,
-} from "../../controllers/admin/category.controller.js";
+} from "../../controllers/category.controller.js";
 
 const router = express.Router();
 
-router.get("/", getAllCategories);
+// optionalProtect: allows guests (?city=) and authenticated users (selectedCity)
+router.get("/", optionalProtect, getAllCategoriesUser);
 router.get("/:id", getCategoryById);
 
 

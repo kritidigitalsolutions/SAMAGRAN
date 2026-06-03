@@ -1,13 +1,14 @@
 import express from "express";
-import { upload } from "../../middleware/upload.js";
+import { optionalProtect } from "../../middleware/auth.middleware.js";
 import {
-  getAllBrands,
+  getAllBrandsUser,
   getBrandById,
 } from "../../controllers/brand.controller.js";
 
 const router = express.Router();
 
-router.get("/", getAllBrands);
+// optionalProtect: allows guests (?city=) and authenticated users (selectedCity)
+router.get("/", optionalProtect, getAllBrandsUser);
 router.get("/:id", getBrandById);
 
 

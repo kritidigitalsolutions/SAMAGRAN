@@ -48,9 +48,14 @@ export const createRitual = async (req, res) => {
       });
     }
 
-    const exists = await Ritual.findOne({
-      title: { $regex: `^${title.trim()}$`, $options: "i" },
-    });
+    const existingFilter = { title: { $regex: `^${title.trim()}$`, $options: "i" } };
+    if (req.admin.role === "vendor") {
+      existingFilter.vendorId = req.vendor._id;
+    } else {
+      existingFilter.vendorId = null;
+    }
+
+    const exists = await Ritual.findOne(existingFilter);
 
     if (exists) {
       return res.status(400).json({
@@ -64,6 +69,7 @@ export const createRitual = async (req, res) => {
       : "";
 
     const ritual = await Ritual.create({
+      vendorId: req.admin.role === "vendor" ? req.vendor._id : null,
       title: title.trim(),
       description: String(description || "").trim(),
       image: uploadedImage || String(image || "").trim(),
@@ -97,9 +103,20 @@ export const getAllRitualsForAdmin = async (req, res) => {
       filter.status = status;
     }
 
-    if (search.trim()) {
-      const regex = { $regex: search.trim(), $options: "i" };
-      filter.$or = [{ title: regex }, { description: regex }];
+    const vendorFilter = req.admin.role === "vendor" 
+      ? { $or: [{ vendorId: req.vendor._id }, { vendorId: null }] } 
+      : {};
+
+    const searchFilter = search.trim() 
+      ? { $or: [{ title: { $regex: search.trim(), $options: "i" } }, { description: { $regex: search.trim(), $options: "i" } }] } 
+      : {};
+
+    if (Object.keys(vendorFilter).length > 0 && Object.keys(searchFilter).length > 0) {
+      filter.$and = [vendorFilter, searchFilter];
+    } else if (Object.keys(vendorFilter).length > 0) {
+      Object.assign(filter, vendorFilter);
+    } else if (Object.keys(searchFilter).length > 0) {
+      Object.assign(filter, searchFilter);
     }
 
     const rituals = await Ritual.find(filter).sort({ createdAt: -1 });
@@ -143,11 +160,25 @@ export const updateRitual = async (req, res) => {
       });
     }
 
+    if (req.admin.role === "vendor" && ritual.vendorId && ritual.vendorId.toString() !== req.vendor._id.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied",
+      });
+    }
+
     if (typeof title === "string" && title.trim()) {
-      const duplicate = await Ritual.findOne({
+      const existingFilter = {
         _id: { $ne: id },
         title: { $regex: `^${title.trim()}$`, $options: "i" },
-      });
+      };
+      if (req.admin.role === "vendor") {
+        existingFilter.vendorId = req.vendor._id;
+      } else {
+        existingFilter.vendorId = null;
+      }
+
+      const duplicate = await Ritual.findOne(existingFilter);
 
       if (duplicate) {
         return res.status(400).json({
@@ -209,7 +240,7 @@ export const updateRitual = async (req, res) => {
 
 export const deleteRitual = async (req, res) => {
   try {
-    const ritual = await Ritual.findByIdAndDelete(req.params.id);
+    const ritual = await Ritual.findById(req.params.id);
 
     if (!ritual) {
       return res.status(404).json({
@@ -217,6 +248,15 @@ export const deleteRitual = async (req, res) => {
         message: "Ritual not found",
       });
     }
+
+    if (req.admin.role === "vendor" && (!ritual.vendorId || ritual.vendorId.toString() !== req.vendor._id.toString())) {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied (Cannot delete global or other vendor's ritual)",
+      });
+    }
+
+    await Ritual.findByIdAndDelete(req.params.id);
 
     return res.json({
       success: true,

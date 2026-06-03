@@ -95,3 +95,34 @@ export const protectUserOrPandit = async (req, res, next) => {
     return res.status(401).json({ message: "Invalid or expired token" });
   }
 };
+
+/**
+ * optionalProtect — attach req.user if a valid JWT is present, but do NOT
+ * block the request if the token is missing or invalid.
+ *
+ * Use on user-facing listing endpoints that must also serve guest users.
+ * Downstream handlers check req.user?.selectedCity for the authenticated city.
+ */
+export const optionalProtect = async (req, res, next) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader?.startsWith("Bearer ")) {
+      return next(); // guest — no token present
+    }
+
+    const token = authHeader.split(" ")[1];
+    if (!token) return next();
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await User.findById(decoded.id).select("-otp -otpExpires");
+
+    if (user && !user.isBlocked) {
+      req.user = user;
+    }
+    // Whether or not user was found, continue — no hard rejection
+    return next();
+  } catch {
+    // Invalid / expired token — treat as guest, do not reject
+    return next();
+  }
+};

@@ -1,15 +1,27 @@
 import FestivalKit from "../models/festivalKit.model.js";
+import {
+  resolveCity,
+  buildVendorCityFilter,
+  sendCityRequired,
+} from "../utils/locationFilter.js";
 
 // @desc   Get all kits (User)
-// @route  GET /api/user/kits
+// @route  GET /api/user/kits/special
 // @access Public
 export const getAllKitsUser = async (req, res) => {
   try {
+    // ── City filtering ──────────────────────────────────────────────────
+    const city = resolveCity(req);
+    if (!city) return sendCityRequired(res);
+
+    const vendorFilter = await buildVendorCityFilter(city);
+
     const { search, festivalType } = req.query;
 
     const filter = {
       status: "active",
       kitType: "special",
+      ...vendorFilter,
     };
 
     if (search) {
@@ -26,6 +38,7 @@ export const getAllKitsUser = async (req, res) => {
 
     res.status(200).json({
       success: true,
+      city,
       count: kits.length,
       data: kits
     });

@@ -7,6 +7,8 @@ const ALL_PAGES = [
   "users",
   "orders",
   "products",
+  "category",
+  "brands",
   "kits",
   "pandits",
   "rituals",

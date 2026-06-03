@@ -1,5 +1,5 @@
 import express from "express";
-import protect from "../../middleware/auth.middleware.js";
+import protect, { optionalProtect } from "../../middleware/auth.middleware.js";
 import {
   addProductRating,
   getProductRatings,
@@ -9,7 +9,9 @@ import {
 
 const router = express.Router();
 
-router.get("/", getProductsUser);
+// optionalProtect: attaches req.user if JWT is present (for selectedCity),
+// but does NOT reject unauthenticated (guest) requests.
+router.get("/", optionalProtect, getProductsUser);
 router.get("/:id", getSingleProductUser);
 router.get("/:id/ratings", getProductRatings);
 router.post("/:id/ratings", protect, addProductRating);
