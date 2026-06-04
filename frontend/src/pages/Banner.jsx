@@ -449,7 +449,7 @@ export default function Banner() {
                     </td>
                     <td className="px-3 py-4 font-semibold">{banner.title}</td>
                     <td className="px-3 py-4 font-semibold">{banner.subTitle}</td>
-                    <td className="px-3 py-4 text-[#6e4b40] dark:text-[#f7e3c0]/80">{banner.description || "-"}</td>
+                    <td className="px-3 py-4 text-[#6e4b40] dark:text-[#f7e3c0]/80 max-w-[300px]" title={banner.discription}><span className="line-clamp-2">{banner.description || "-"}</span></td>
                     <td className="px-3 py-4 font-semibold">{banner.priceOff}</td>
                     <td className="px-3 py-4">
                       <span

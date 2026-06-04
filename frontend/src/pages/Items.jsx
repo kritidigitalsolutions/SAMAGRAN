@@ -1503,7 +1503,7 @@ export default function Items() {
                       )}
                       <div>
                         <p
-                          className="font-semibold items-title-ellipsis text-wrap"
+                          className="font-semibold items-title-ellipsis text-wrap line-clamp-2"
                           title={item.title}
                         >
                           {item.title}

@@ -168,7 +168,7 @@ export default function Navbar({ onMenuClick, onToggleSidebar, sidebarCollapsed 
               <h1 className="mt-1 text-2xl font-bold tracking-tight text-[var(--admin-text)]">
                 Samagran Dashboard
               </h1>
-              {isVendor && (
+              {/* {isVendor && (
                 <button
                   type="button"
                   onClick={() => navigate('/dashboard/settings')}
@@ -176,7 +176,7 @@ export default function Navbar({ onMenuClick, onToggleSidebar, sidebarCollapsed 
                 >
                   Open Vendor Panel
                 </button>
-              )}
+              )} */}
             </div>
             <p className="mt-1 text-sm text-[var(--admin-muted)]">
               Manage orders, users, pandits, kits and rituals from one place.

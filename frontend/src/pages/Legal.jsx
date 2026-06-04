@@ -3,6 +3,7 @@ import API from "../api/axios";
 
 const legalTypes = [
   { id: "privacy", label: "Privacy Policy" },
+  { id: "term", label: "Term and Conditions" },
   { id: "refund", label: "Refund Policy" },
   { id: "about", label: "About Us" },
 ];
@@ -146,7 +147,7 @@ export default function Legal() {
       </section>
 
       {/* Info Card */}
-      <section className="rounded-3xl border border-[var(--admin-border)] bg-gradient-to-r from-blue-500/10 to-purple-500/10 p-6">
+      {/* <section className="rounded-3xl border border-[var(--admin-border)] bg-gradient-to-r from-blue-500/10 to-purple-500/10 p-6">
         <h3 className="mb-3 font-bold text-blue-600 dark:text-blue-400">ℹ️ Tips for Content</h3>
         <ul className="space-y-2 text-sm">
           <li>• Keep the content clear and concise</li>
@@ -155,7 +156,7 @@ export default function Legal() {
           <li>• Review content before publishing</li>
           <li>• Update regularly as needed</li>
         </ul>
-      </section>
+      </section> */}
     </div>
   );
 }

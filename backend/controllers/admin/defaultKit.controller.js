@@ -103,7 +103,7 @@ export const createDefaultKit = async (req, res) => {
       description = "",
       kitPrice,
       status = "active",
-      category = "",
+      // category = "",
       isMostPopularKit,
       isMostUserUse,
       isPanditApproved,
@@ -130,7 +130,7 @@ export const createDefaultKit = async (req, res) => {
       name: name.trim(),
       description: description.trim(),
       image: imageUrl,
-      category: category.trim(),
+      // category: category.trim(),
       isMostPopularKit: toBoolean(isMostPopularKit),
       isMostUserUse: toBoolean(isMostUserUse),
       isPanditApproved: toBoolean(isPanditApproved),
@@ -171,7 +171,8 @@ export const getAdminDefaultKits = async (req, res) => {
     }
 
     const kits = await FestivalKit.find(filter)
-      .populate("items.product", "title pricing media category")
+      // .populate("items.product", "title pricing media category")
+      .populate("items.product", "title pricing media")
       .sort({ createdAt: -1 });
 
     res.json({
@@ -193,7 +194,8 @@ export const getAdminDefaultKitById = async (req, res) => {
       _id: req.params.id,
       kitType: "default",
       ...resolveVendorFilter(req),
-    }).populate("items.product", "title pricing media category");
+    // }).populate("items.product", "title pricing media category");
+    }).populate("items.product", "title pricing media");
 
     if (!kit) {
       return res.status(404).json({
@@ -234,7 +236,7 @@ export const updateDefaultKit = async (req, res) => {
       description = kit.description,
       kitPrice = kit.kitPrice,
       status = kit.status,
-      category = kit.category || "",
+      // category = kit.category || "",
       isMostPopularKit = kit.isMostPopularKit,
       isMostUserUse = kit.isMostUserUse,
       isPanditApproved = kit.isPanditApproved,
@@ -257,7 +259,7 @@ export const updateDefaultKit = async (req, res) => {
     kit.description = description.trim();
     kit.kitPrice = normalizedKitPrice;
     kit.status = status;
-    kit.category = String(category || "").trim();
+    // kit.category = String(category || "").trim();
     kit.isMostPopularKit = toBoolean(isMostPopularKit, kit.isMostPopularKit);
     kit.isMostUserUse = toBoolean(isMostUserUse, kit.isMostUserUse);
     kit.isPanditApproved = toBoolean(isPanditApproved, kit.isPanditApproved);

@@ -33,7 +33,8 @@ export const getAllKitsUser = async (req, res) => {
     }
 
     const kits = await FestivalKit.find(filter)
-      .populate("items.product", "title slug pricing media category")
+      // .populate("items.product", "title slug pricing media category")
+      .populate("items.product", "title slug pricing media")
       .sort({ createdAt: -1 });
 
     res.status(200).json({
@@ -61,7 +62,8 @@ export const getSingleKitUser = async (req, res) => {
       status: "active",
       kitType: "special",
     })
-      .populate("items.product", "title slug pricing media category");
+      // .populate("items.product", "title slug pricing media category");
+      .populate("items.product", "title slug pricing media");
 
     if (!kit) {
       return res.status(404).json({
@@ -75,7 +77,7 @@ export const getSingleKitUser = async (req, res) => {
       name: i.product.title,
       slug: i.product.slug,
       price: i.product.pricing.price,
-      category: i.product.category || null,
+      // category: i.product.category || null,
       image: i.product.media?.image?.[0] || i.product.media?.Images?.[0] || null,
       quantity: i.quantity
     }));
@@ -88,7 +90,7 @@ export const getSingleKitUser = async (req, res) => {
         slug: kit.slug,
         description: kit.description,
         image: kit.image,
-        category: kit.category || "",
+        // category: kit.category || "",
         kitType: kit.kitType,
         isMostPopularKit: kit.isMostPopularKit,
         isMostUserUse: kit.isMostUserUse,

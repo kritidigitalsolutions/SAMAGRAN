@@ -42,11 +42,11 @@ const festivalKitSchema = new mongoose.Schema(
     description: String,
     image: String,
 
-    category: {
-      type: String,
-      trim: true,
-      default: "",
-    },
+    // category: {
+    //   type: String,
+    //   trim: true,
+    //   default: "",
+    // },
 
     isMostPopularKit: {
       type: Boolean,

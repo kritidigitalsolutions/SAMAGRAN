@@ -84,7 +84,7 @@ export const createKit = async (req, res) => {
       kitPrice,
       festivalType,
       status = "active",
-      category = "",
+      // category = "",
       isMostPopularKit,
       isMostUserUse,
       isPanditApproved,
@@ -111,7 +111,7 @@ export const createKit = async (req, res) => {
       name,
       description,
       image,
-      category: String(category || "").trim(),
+      // category: String(category || "").trim(),
       isMostPopularKit: toBoolean(isMostPopularKit),
       isMostUserUse: toBoolean(isMostUserUse),
       isPanditApproved: toBoolean(isPanditApproved),
@@ -180,7 +180,8 @@ export const getSingleKit = async (req, res) => {
       kitType: "special",
       ...resolveVendorFilter(req),
     })
-      .populate("items.product", "title pricing media category");
+      .populate("items.product", "title pricing media");
+      // .populate("items.product", "title pricing media category");
 
     if (!kit) {
       return res.status(404).json({
@@ -194,7 +195,7 @@ export const getSingleKit = async (req, res) => {
       id: i.product._id,
       name: i.product.title,
       price: i.product.pricing.price,
-      category: i.product.category || null,
+      // category: i.product.category || null,
       image: i.product.media?.image?.[0] || i.product.media?.Images?.[0] || null,
       quantity: i.quantity
     }));
@@ -206,7 +207,7 @@ export const getSingleKit = async (req, res) => {
         name: kit.name,
         description: kit.description,
         image: kit.image,
-        category: kit.category || "",
+        // category: kit.category || "",
         kitType: kit.kitType,
         isMostPopularKit: kit.isMostPopularKit,
         isMostUserUse: kit.isMostUserUse,
@@ -276,7 +277,7 @@ export const updateKit = async (req, res) => {
       kitPrice = kit.kitPrice,
       festivalType = kit.festivalType,
       status = kit.status || "active",
-      category = kit.category || "",
+      // category = kit.category || "",
       isMostPopularKit = kit.isMostPopularKit,
       isMostUserUse = kit.isMostUserUse,
       isPanditApproved = kit.isPanditApproved,
@@ -308,7 +309,7 @@ export const updateKit = async (req, res) => {
     kit.description = String(description || "");
     kit.festivalType = festivalType;
     kit.status = status;
-    kit.category = String(category || "").trim();
+    // kit.category = String(category || "").trim();
     kit.isMostPopularKit = toBoolean(isMostPopularKit, kit.isMostPopularKit);
     kit.isMostUserUse = toBoolean(isMostUserUse, kit.isMostUserUse);
     kit.isPanditApproved = toBoolean(isPanditApproved, kit.isPanditApproved);

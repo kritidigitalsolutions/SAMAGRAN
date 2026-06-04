@@ -30,7 +30,8 @@ export const getAllKitsForUsers = async (req, res) => {
     }
 
     const kits = await FestivalKit.find(filter)
-      .populate("items.product", "title slug pricing media category")
+      // .populate("items.product", "title slug pricing media category")
+      .populate("items.product", "title slug pricing media")
       .sort({ createdAt: -1 });
 
     res.status(200).json({

@@ -400,10 +400,10 @@ export default function Brands() {
                           <div className="grid h-10 w-10 place-items-center rounded-lg bg-[#f8ecda] text-xs text-[#7b5a4e]">No</div>
                         )}
                       </td>
-                      <td className="px-4 py-3 font-semibold text-[#2f1618] dark:text-[#fff3dc]">{brand.name}</td>
-                      <td className="px-4 py-3 text-sm text-[#6f3945] dark:text-[#f7e3c0]">{brand.code || "-"}</td>
-                      <td className="px-4 py-3 text-sm text-[#6f3945] dark:text-[#f7e3c0]">{brand.description || "-"}</td>
-                      <td className="px-4 py-3 text-sm text-[#6f3945] dark:text-[#f7e3c0]">{brand.subBrand || "-"}</td>
+                      <td className="px-4 py-3 font-semibold text-[#2f1618] dark:text-[#fff3dc] line-">{brand.name}</td>
+                      <td className="px-4 py-3 text-sm text-[#6f3945] dark:text-[#f7e3c0] line-">{brand.code || "-"}</td>
+                      <td className="px-4 py-3 text-sm text-[#6f3945] dark:text-[#f7e3c0] max-w-[300px]" title={brand.description}><span className="line-clamp-2">{brand.description || "-"}</span></td>
+                      <td className="px-4 py-3 text-sm text-[#6f3945] dark:text-[#f7e3c0] line-">{brand.subBrand || "-"}</td>
                       <td className="px-4 py-3">
                         <span className={`rounded-full px-2.5 py-1 text-xs font-semibold uppercase ${brand.status === "inactive" ? "bg-red-100 text-red-700" : "bg-emerald-100 text-emerald-700"}`}>
                           {brand.status || "active"}

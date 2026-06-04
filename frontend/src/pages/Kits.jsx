@@ -480,7 +480,7 @@ export default function Kits() {
 
             <div className="space-y-2">
               <label className="text-sm font-medium">Kit Type</label>
-              <select name="kitType" value={form.kitType} onChange={handleFormChange} className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20">
+              <select name="kitType" value={form.kitType} onChange={handleFormChange} className="w-full rounded-xl border border-[#d9c3a2] bg-white text-black px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-[#171b23] dark:text-white">
                 <option value="default">Default Kit</option>
                 <option value="special">Special Kit</option>
               </select>
@@ -861,7 +861,7 @@ export default function Kits() {
                     </td>
                     <td className="px-4 py-3">
                       <div>
-                        <p className="font-semibold text-[#2f1618] dark:text-[#fff3dc]">{kit.name}</p>
+                        <p className="font-semibold text-[#2f1618] dark:text-[#fff3dc] max-w-[300px]" titile={kit.name}> <span className="line-clamp-2">{kit.name}</span></p>
                         <p className="line-clamp-1 max-w-[260px] text-xs text-[#7a5a4c] dark:text-[#f7e3c0]/70">{kit.description || "No description"}</p>
                       </div>
                     </td>

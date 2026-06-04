@@ -26,7 +26,8 @@ export const getDefaultKitsForUsers = async (req, res) => {
     }
 
     const kits = await FestivalKit.find(filter)
-      .populate("items.product", "title pricing media category")
+      // .populate("items.product", "title pricing media category")
+      .populate("items.product", "title pricing media")
       .sort({ createdAt: -1 });
 
     res.json({
@@ -59,7 +60,8 @@ export const getDefaultKitByIdForUsers = async (req, res) => {
     };
 
     const kit = await FestivalKit.findOne(kitFilter)
-      .populate("items.product", "title pricing media stock status category");
+      // .populate("items.product", "title pricing media stock status category");
+      .populate("items.product", "title pricing media stock status");
 
     if (!kit) {
       return res.status(404).json({
