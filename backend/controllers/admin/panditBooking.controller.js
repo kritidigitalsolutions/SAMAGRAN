@@ -5,12 +5,16 @@ import { createMeeting } from "../../utils/zoom.service.js";
 
 export const getAllPanditBookingsForAdmin = async (req, res) => {
   try {
-    const { search = "", status = "all" } = req.query;
+    const { search = "", status = "all", city = "" } = req.query;
 
     const filter = {};
 
     if (status !== "all") {
       filter.bookingStatus = status;
+    }
+
+    if (String(city || "").trim()) {
+      filter["address.city"] = { $regex: String(city).trim(), $options: "i" };
     }
 
     if (search.trim()) {

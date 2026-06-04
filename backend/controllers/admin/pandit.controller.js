@@ -5,7 +5,7 @@ import { notifyAdmins } from "../../utils/notification.service.js";
 
 export const getAllPanditsForAdmin = async (req, res) => {
   try {
-    const { search = "", status = "all" } = req.query;
+    const { search = "", status = "all", city = "" } = req.query;
 
     const filter = {};
 
@@ -27,12 +27,16 @@ export const getAllPanditsForAdmin = async (req, res) => {
         ] } 
       : {};
 
-    if (Object.keys(vendorFilter).length > 0 && Object.keys(searchFilter).length > 0) {
-      filter.$and = [vendorFilter, searchFilter];
-    } else if (Object.keys(vendorFilter).length > 0) {
-      Object.assign(filter, vendorFilter);
-    } else if (Object.keys(searchFilter).length > 0) {
-      Object.assign(filter, searchFilter);
+    const cityFilter = String(city || "").trim()
+      ? { "address.city": { $regex: String(city).trim(), $options: "i" } }
+      : {};
+
+    const allFilters = [vendorFilter, searchFilter, cityFilter].filter(
+      (f) => Object.keys(f).length > 0
+    );
+
+    if (allFilters.length > 0) {
+      filter.$and = allFilters;
     }
 
     const pandits = await Pandit.find(filter).sort({ createdAt: -1 });

@@ -56,8 +56,9 @@ export default function PanditBookings() {
   const [selectedBookingIds, setSelectedBookingIds] = useState([]);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const [cityFilter, setCityFilter] = useState("");
 
-  const fetchBookings = useCallback(async (searchValue = "", statusValue = "all") => {
+  const fetchBookings = useCallback(async (searchValue = "", statusValue = "all", cityValue = "") => {
     try {
       setLoading(true);
       setError("");
@@ -66,6 +67,7 @@ export default function PanditBookings() {
         params: {
           ...(searchValue.trim() ? { search: searchValue.trim() } : {}),
           ...(statusValue ? { status: statusValue } : {}),
+          ...(cityValue.trim() ? { city: cityValue.trim() } : {}),
         },
       });
 
@@ -97,11 +99,11 @@ export default function PanditBookings() {
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      fetchBookings(searchTerm, statusFilter);
+      fetchBookings(searchTerm, statusFilter, cityFilter);
     }, 350);
 
     return () => clearTimeout(timer);
-  }, [fetchBookings, searchTerm, statusFilter]);
+  }, [fetchBookings, searchTerm, statusFilter, cityFilter]);
 
   useEffect(() => {
     const handleClick = (event) => {
@@ -275,6 +277,17 @@ export default function PanditBookings() {
               <option value="cancelled">Cancelled</option>
               <option value="completed">Completed</option>
             </select>
+
+            <div className="flex items-center gap-2 rounded-xl border border-[#d7c3a3] bg-white/70 px-3 dark:border-white/10 dark:bg-white/5">
+              <FiSearch className="shrink-0 text-[var(--admin-primary)]" />
+              <input
+                type="search"
+                value={cityFilter}
+                onChange={(e) => setCityFilter(e.target.value)}
+                placeholder="Filter by city"
+                className="h-11 w-32 bg-transparent text-sm text-[#2f1618] outline-none placeholder:text-[#8c7461] dark:text-[#fff3dc]"
+              />
+            </div>
           </div>
         </div>
 

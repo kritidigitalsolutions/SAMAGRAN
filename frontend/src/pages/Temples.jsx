@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { FiEdit2, FiEye, FiMoreVertical, FiTrash2, FiX } from "react-icons/fi";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { FiEdit2, FiEye, FiMoreVertical, FiSearch, FiTrash2, FiX } from "react-icons/fi";
 import API from "../api/axios";
 import TablePagination from "../components/TablePagination";
 import TableMenuPopover from "../components/TableMenuPopover";
@@ -39,26 +39,38 @@ export default function Temples() {
   const [menuAnchorRect, setMenuAnchorRect] = useState(null);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [cityFilter, setCityFilter] = useState("");
   const pagedTemples = useMemo(() => {
     const start = (page - 1) * pageSize;
     return temples.slice(start, start + pageSize);
   }, [temples, page, pageSize]);
 
-  const fetchtemples = async () => {
+  const fetchtemples = useCallback(async (searchValue = "", statusValue = "all", cityValue = "") => {
     try {
       setLoading(true);
-      const res = await API.get("/admin/temples", { params: { status: "all" } });
+      const res = await API.get("/admin/temples", {
+        params: {
+          status: statusValue,
+          ...(searchValue.trim() ? { search: searchValue.trim() } : {}),
+          ...(cityValue.trim() ? { city: cityValue.trim() } : {}),
+        },
+      });
       settemples(res.data?.data || []);
     } catch (err) {
       setError(err.response?.data?.message || "Unable to load temples.");
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    fetchtemples();
-  }, []);
+    const timer = setTimeout(() => {
+      fetchtemples(searchTerm, statusFilter, cityFilter);
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [fetchtemples, searchTerm, statusFilter, cityFilter]);
 
   useEffect(() => {
     setPage(1);
@@ -537,7 +549,40 @@ export default function Temples() {
       )}
 
       <section className="rounded-3xl border border-[#dcc7ab]/60 bg-white/75 p-5 dark:border-white/10 dark:bg-white/5">
-        <h3 className="mb-4 text-lg font-bold">temple List</h3>
+        <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <h3 className="text-lg font-bold">temple List</h3>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-2 rounded-xl border border-[#d7c3a3] bg-white/70 px-3 dark:border-white/10 dark:bg-white/5">
+              <FiSearch className="shrink-0 text-[var(--admin-primary)]" />
+              <input
+                type="search"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Search temples"
+                className="h-11 w-40 bg-transparent text-sm text-[#2f1618] outline-none placeholder:text-[#8c7461] dark:text-[#fff3dc]"
+              />
+            </div>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="h-11 rounded-xl border border-[#d7c3a3] bg-white px-3 text-sm outline-none dark:border-white/20 dark:bg-[#181c24] dark:text-white"
+            >
+              <option value="all">All Status</option>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
+            <div className="flex items-center gap-2 rounded-xl border border-[#d7c3a3] bg-white/70 px-3 dark:border-white/10 dark:bg-white/5">
+              <FiSearch className="shrink-0 text-[var(--admin-primary)]" />
+              <input
+                type="search"
+                value={cityFilter}
+                onChange={(e) => setCityFilter(e.target.value)}
+                placeholder="Filter by city"
+                className="h-11 w-32 bg-transparent text-sm text-[#2f1618] outline-none placeholder:text-[#8c7461] dark:text-[#fff3dc]"
+              />
+            </div>
+          </div>
+        </div>
 
         {loading ? (
           <div className="rounded-2xl border border-dashed border-[#d7bf9b] px-4 py-6 text-sm text-[#7b5a4b] dark:border-white/15 dark:text-[#f7e3c0]/75">

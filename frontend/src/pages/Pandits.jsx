@@ -57,6 +57,7 @@ export default function Pandits() {
   const [success, setSuccess] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [cityFilter, setCityFilter] = useState("");
   const [activeTab, setActiveTab] = useState("all");
   const [selectedPandit, setSelectedPandit] = useState(null);
   const [panditBookings, setPanditBookings] = useState([]);
@@ -77,7 +78,7 @@ export default function Pandits() {
   const [bookingsPage, setBookingsPage] = useState(1);
   const [bookingsPageSize, setBookingsPageSize] = useState(10);
 
-  const fetchPandits = useCallback(async (searchValue = "", statusValue = "all") => {
+  const fetchPandits = useCallback(async (searchValue = "", statusValue = "all", cityValue = "") => {
     try {
       setLoading(true);
       setError("");
@@ -85,6 +86,7 @@ export default function Pandits() {
       const res = await API.get("/admin/pandits", {
         params: {
           ...(searchValue.trim() ? { search: searchValue.trim() } : {}),
+          ...(cityValue.trim() ? { city: cityValue.trim() } : {}),
           status: statusValue,
         },
       });
@@ -99,11 +101,11 @@ export default function Pandits() {
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      fetchPandits(searchTerm, statusFilter);
+      fetchPandits(searchTerm, statusFilter, cityFilter);
     }, 350);
 
     return () => clearTimeout(timer);
-  }, [fetchPandits, searchTerm, statusFilter]);
+  }, [fetchPandits, searchTerm, statusFilter, cityFilter]);
 
   useEffect(() => {
     setActiveTab(statusFilter === "pending" ? "requests" : "all");
@@ -555,6 +557,17 @@ export default function Pandits() {
               <option key={status} value={status}>{status}</option>
             ))}
           </select>
+
+          <div className="flex items-center gap-2 rounded-xl border border-[#d7c3a3] bg-white/70 px-3 dark:border-white/10 dark:bg-white/5">
+            <FiSearch className="shrink-0 text-[var(--admin-primary)]" />
+            <input
+              type="search"
+              value={cityFilter}
+              onChange={(e) => setCityFilter(e.target.value)}
+              placeholder="Filter by city"
+              className="h-11 w-32 bg-transparent text-sm text-[#2f1618] outline-none placeholder:text-[#8c7461] dark:text-[#fff3dc]"
+            />
+          </div>
         </div>
 
         {loading ? (

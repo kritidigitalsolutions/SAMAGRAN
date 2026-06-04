@@ -254,6 +254,7 @@ export const getAllOrdersForAdmin = async (req, res) => {
       paymentStatus = "all",
       paymentMethod = "all",
       userId = "",
+      city = "",
       page = 1,
       limit = 20,
     } = req.query;
@@ -276,6 +277,10 @@ export const getAllOrdersForAdmin = async (req, res) => {
 
     if (userId && mongoose.Types.ObjectId.isValid(userId)) {
       filter.user = userId;
+    }
+
+    if (String(city || "").trim()) {
+      filter["address.city"] = { $regex: String(city).trim(), $options: "i" };
     }
 
     if (String(search || "").trim()) {

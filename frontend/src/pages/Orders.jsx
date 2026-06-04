@@ -166,6 +166,7 @@ export default function Orders() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [paymentStatusFilter, setPaymentStatusFilter] = useState("all");
   const [paymentMethodFilter, setPaymentMethodFilter] = useState("all");
+  const [cityFilter, setCityFilter] = useState("");
 
   const [showForm, setShowForm] = useState(false);
   const [editingOrderId, setEditingOrderId] = useState("");
@@ -186,7 +187,7 @@ export default function Orders() {
   const [deliveryAssigningId, setDeliveryAssigningId] = useState("");
 
   const fetchOrders = useCallback(
-    async ({ search = "", status = "all", paymentStatus = "all", paymentMethod = "all", page = 1 } = {}) => {
+    async ({ search = "", status = "all", paymentStatus = "all", paymentMethod = "all", city = "", page = 1 } = {}) => {
       try {
         setLoading(true);
         setError("");
@@ -194,6 +195,7 @@ export default function Orders() {
         const res = await API.get("/admin/orders", {
           params: {
             ...(search.trim() ? { search: search.trim() } : {}),
+            ...(city && city.trim() ? { city: city.trim() } : {}),
             status,
             paymentStatus,
             paymentMethod,
@@ -252,6 +254,7 @@ export default function Orders() {
         status: statusFilter,
         paymentStatus: paymentStatusFilter,
         paymentMethod: paymentMethodFilter,
+        city: cityFilter,
         page: pagination.currentPage || 1,
       });
     }, 350);
@@ -263,6 +266,7 @@ export default function Orders() {
     statusFilter,
     paymentStatusFilter,
     paymentMethodFilter,
+    cityFilter,
     pagination.currentPage,
     pageSize,
   ]);
@@ -1103,6 +1107,17 @@ useEffect(() => {
                 <option key={method} value={method}>{method}</option>
               ))}
             </select>
+
+            <div className="flex items-center gap-2 rounded-xl border border-[#d7c3a3] bg-white/70 px-3 dark:border-white/10 dark:bg-white/5">
+              <FiSearch className="shrink-0 text-[var(--admin-primary)]" />
+              <input
+                type="search"
+                value={cityFilter}
+                onChange={(e) => setCityFilter(e.target.value)}
+                placeholder="Filter by city"
+                className="h-11 w-36 bg-transparent text-sm text-[#2f1618] outline-none placeholder:text-[#8c7461] dark:text-[#fff3dc]"
+              />
+            </div>
           </div>
         </div>
 
@@ -1110,7 +1125,7 @@ useEffect(() => {
           <p className="rounded-xl bg-white/60 p-6 text-sm dark:bg-white/5">Loading orders...</p>
         ) : !orders.length ? (
           <p className="rounded-xl bg-white/60 p-6 text-sm dark:bg-white/5">
-            {searchTerm || statusFilter !== "all" || paymentStatusFilter !== "all" || paymentMethodFilter !== "all"
+            {searchTerm || statusFilter !== "all" || paymentStatusFilter !== "all" || paymentMethodFilter !== "all" || cityFilter.trim()
               ? "No orders match current filters."
               : "No orders found."}
           </p>
