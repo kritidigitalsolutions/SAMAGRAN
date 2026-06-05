@@ -52,9 +52,11 @@ export default function Earnings() {
 
       <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         <StatCard label="Total Sales" value={formatMoney(summary.totalSales)} />
-        <StatCard label="Total Earnings" value={formatMoney(summary.totalEarnings)} />
+        <StatCard label="Vendor Net Earnings" value={formatMoney(summary.vendorNetEarning ?? summary.totalEarnings)} />
+        <StatCard label="Super Admin Commission" value={formatMoney(summary.superAdminCommission)} />
         <StatCard label="Available Balance" value={formatMoney(summary.availableBalance)} />
-        <StatCard label="Pending Balance" value={formatMoney(summary.pendingBalance)} />
+        <StatCard label="Pending Net Earnings" value={formatMoney(summary.pendingBalance)} />
+        <StatCard label="Pending Commission" value={formatMoney(summary.pendingCommission)} />
         <StatCard label="Completed Orders" value={summary.completedOrders} />
         <StatCard label="Pending Orders" value={summary.pendingOrders} />
       </div>

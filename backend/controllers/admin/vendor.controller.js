@@ -1,6 +1,8 @@
 import bcrypt from "bcryptjs";
 import Vendor from "../../models/vendor.model.js";
 import Admin from "../../models/admin.model.js";
+import Item from "../../models/product.model.js";
+import { buildVendorFinance, buildVendorMetricsMap } from "../../utils/vendorFinance.js";
 
 const isValidPhone = (phone) => /^[6-9]\d{9}$/.test(phone);
 
@@ -65,13 +67,25 @@ export const listVendors = async (req, res) => {
       .skip((pageNumber - 1) * limitNumber)
       .limit(limitNumber)
       .lean();
+    const metricsByVendor = await buildVendorMetricsMap(vendors);
+    const vendorsWithMetrics = vendors.map((vendor) => ({
+      ...vendor,
+      metrics: metricsByVendor.get(String(vendor._id)) || {
+        products: 0,
+        totalOrders: 0,
+        revenue: 0,
+        vendorEarning: 0,
+        superAdminEarning: 0,
+        pendingPayout: 0,
+      },
+    }));
 
     const totalPages = Math.max(Math.ceil(totalItems / limitNumber), 1);
 
     return res.json({
       success: true,
       data: {
-        vendors,
+        vendors: vendorsWithMetrics,
         totalPages,
         totalItems,
         page: pageNumber,
@@ -89,7 +103,37 @@ export const getVendorById = async (req, res) => {
       return res.status(404).json({ success: false, message: "Vendor not found" });
     }
 
-    return res.json({ success: true, data: { vendor } });
+    const [finance, products, productCount] = await Promise.all([
+      buildVendorFinance({ vendorId: vendor._id }),
+      Item.find({ vendorId: vendor._id })
+        .select("title itemCode pricing status media category categoryId compliance createdAt")
+        .populate("categoryId", "name subCategory superAdminCommissionPercent")
+        .sort({ createdAt: -1 })
+        .limit(20)
+        .lean(),
+      Item.countDocuments({ vendorId: vendor._id }),
+    ]);
+
+    return res.json({
+      success: true,
+      data: {
+        vendor: {
+          ...vendor,
+          metrics: {
+            products: productCount,
+            totalOrders: finance.totalOrders,
+            revenue: finance.totalRevenue,
+            vendorEarning: finance.vendorNetEarning,
+            superAdminEarning: finance.superAdminCommission,
+            pendingPayout: finance.withdrawals.totalPending,
+            pendingEarning: finance.pendingNetEarning,
+            availableBalance: finance.availableBalance,
+          },
+        },
+        finance,
+        products,
+      },
+    });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message || "Unable to load vendor" });
   }
@@ -100,6 +144,8 @@ export const createVendor = async (req, res) => {
     const {
       name,
       businessName = "",
+      image = "",
+      contactPerson = "",
       email,
       phone,
       password,
@@ -131,6 +177,8 @@ export const createVendor = async (req, res) => {
     const vendor = await Vendor.create({
       name: String(name).trim(),
       businessName: String(businessName || "").trim(),
+      image: String(image || "").trim(),
+      contactPerson: String(contactPerson || name || "").trim(),
       email: String(email).trim(),
       phone: String(phone).trim(),
       status: status === "inactive" ? "inactive" : status === "pending" ? "pending" : "active",
@@ -177,6 +225,8 @@ export const updateVendor = async (req, res) => {
 
     if (payload.name !== undefined) vendor.name = String(payload.name || "").trim();
     if (payload.businessName !== undefined) vendor.businessName = String(payload.businessName || "").trim();
+    if (payload.image !== undefined) vendor.image = String(payload.image || "").trim();
+    if (payload.contactPerson !== undefined) vendor.contactPerson = String(payload.contactPerson || "").trim();
     if (payload.email !== undefined) vendor.email = String(payload.email || "").trim();
     if (payload.phone !== undefined) vendor.phone = String(payload.phone || "").trim();
     if (payload.notes !== undefined) vendor.notes = String(payload.notes || "").trim();

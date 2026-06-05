@@ -34,6 +34,7 @@ import VendorSignup from "./pages/vendor/VendorSignup";
 import Vendors from "./pages/admin/Vendors";
 import VendorSettings from "./pages/VendorSettings";
 import VendorDetails from "./pages/admin/VendorDetails";
+import VendorCommissionReport from "./pages/admin/VendorCommissionReport";
 import BookingPricing from "./pages/BookingPricing";
 import { getHostRole } from "./utils/hostRouting";
 import Kits from "./pages/Kits";
@@ -103,6 +104,7 @@ function App() {
         <Route path="earnings" element={<AccessRoute pageKey="earnings"><Earnings /></AccessRoute>} />
         <Route path="withdrawals" element={<AccessRoute pageKey="withdrawals"><Withdrawals /></AccessRoute>} />
         <Route path="refunds" element={<AccessRoute pageKey="refunds"><Refunds /></AccessRoute>} />
+        <Route path="vendor-commission" element={<AccessRoute pageKey="vendor-commission"><VendorCommissionReport /></AccessRoute>} />
         <Route
           path="vendors"
           element={

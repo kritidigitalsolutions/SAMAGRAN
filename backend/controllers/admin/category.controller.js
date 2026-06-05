@@ -3,14 +3,36 @@ import { uploadFileToFirebase } from "../../utils/firebaseUpload.js";
 
 const normalizeName = (value = "") => String(value || "").trim();
 const normalizeCode = (value = "") => String(value || "").trim();
+const parseCommissionPercent = (value, fallback = 0) => {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.min(Math.max(parsed, 0), 100);
+};
+
+const ensureSuperAdmin = (req, res) => {
+  if (req.admin?.role !== "super") {
+    res.status(403).json({
+      success: false,
+      message: "Only super admin can manage categories",
+    });
+    return false;
+  }
+  return true;
+};
 
 export const createCategory = async (req, res) => {
   try {
+    if (!ensureSuperAdmin(req, res)) return;
+
     const name = normalizeName(req.body?.name);
     const code = normalizeCode(req.body?.code);
     const description = normalizeName(req.body?.description);
     const status = req.body?.status === "inactive" ? "inactive" : "active";
     const subCategory = normalizeName(req.body?.subCategory);
+    const superAdminCommissionPercent = parseCommissionPercent(
+      req.body?.superAdminCommissionPercent,
+      0
+    );
 
     if (!name) {
       return res.status(400).json({
@@ -19,12 +41,7 @@ export const createCategory = async (req, res) => {
       });
     }
 
-    const existingFilter = { name: { $regex: `^${name}$`, $options: "i" } };
-    if (req.admin.role === "vendor") {
-      existingFilter.vendorId = req.vendor._id;
-    } else {
-      existingFilter.vendorId = null;
-    }
+    const existingFilter = { name: { $regex: `^${name}$`, $options: "i" }, vendorId: null };
 
     const existing = await Category.findOne(existingFilter);
 
@@ -40,12 +57,13 @@ export const createCategory = async (req, res) => {
       : "";
 
     const category = await Category.create({
-      vendorId: req.admin.role === "vendor" ? req.vendor._id : null,
+      vendorId: null,
       name,
       code,
       description,
       image: uploadedImage || normalizeName(req.body?.image),
       subCategory,
+      superAdminCommissionPercent,
       status,
     });
 
@@ -71,9 +89,7 @@ export const getAllCategories = async (req, res) => {
       filter.status = status;
     }
 
-    const vendorFilter = req.admin.role === "vendor" 
-      ? { $or: [{ vendorId: req.vendor._id }, { vendorId: null }] } 
-      : {};
+    const vendorFilter = req.admin.role === "vendor" ? { vendorId: null } : {};
 
     const searchFilter = search.trim() 
       ? { $or: [{ name: { $regex: search.trim(), $options: "i" } }, { code: { $regex: search.trim(), $options: "i" } }] } 
@@ -134,6 +150,8 @@ export const getCategoryById = async (req, res) => {
 
 export const updateCategory = async (req, res) => {
   try {
+    if (!ensureSuperAdmin(req, res)) return;
+
     const category = await Category.findById(req.params.id);
 
     if (!category) {
@@ -143,29 +161,19 @@ export const updateCategory = async (req, res) => {
       });
     }
 
-    if (req.admin.role === "vendor" && category.vendorId && category.vendorId.toString() !== req.vendor._id.toString()) {
-      return res.status(403).json({
-        success: false,
-        message: "Access denied",
-      });
-    }
-
     const name = normalizeName(req.body?.name);
     const code = normalizeCode(req.body?.code);
     const description = normalizeName(req.body?.description);
     const status = req.body?.status;
     const subCategory = normalizeName(req.body?.subCategory);
+    const hasCommission = req.body?.superAdminCommissionPercent !== undefined;
 
     if (name) {
       const existingFilter = {
         _id: { $ne: category._id },
         name: { $regex: `^${name}$`, $options: "i" },
       };
-      if (req.admin.role === "vendor") {
-        existingFilter.vendorId = req.vendor._id;
-      } else {
-        existingFilter.vendorId = null;
-      }
+      existingFilter.vendorId = null;
 
       const duplicate = await Category.findOne(existingFilter);
 
@@ -189,6 +197,13 @@ export const updateCategory = async (req, res) => {
 
     if (subCategory !== undefined) {
       category.subCategory = subCategory;
+    }
+
+    if (hasCommission) {
+      category.superAdminCommissionPercent = parseCommissionPercent(
+        req.body?.superAdminCommissionPercent,
+        category.superAdminCommissionPercent || 0
+      );
     }
 
     if (status === "active" || status === "inactive") {
@@ -222,19 +237,14 @@ export const updateCategory = async (req, res) => {
 
 export const deleteCategory = async (req, res) => {
   try {
+    if (!ensureSuperAdmin(req, res)) return;
+
     const category = await Category.findById(req.params.id);
 
     if (!category) {
       return res.status(404).json({
         success: false,
         message: "Category not found",
-      });
-    }
-
-    if (req.admin.role === "vendor" && (!category.vendorId || category.vendorId.toString() !== req.vendor._id.toString())) {
-      return res.status(403).json({
-        success: false,
-        message: "Access denied (Cannot delete global or other vendor's category)",
       });
     }
 

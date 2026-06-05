@@ -13,6 +13,12 @@ const categorySchema = new mongoose.Schema(
     description: { type: String, trim: true, default: "" },
     image: { type: String, trim: true, default: "" },
     subCategory: { type: String, trim: true, default: "" },
+    superAdminCommissionPercent: {
+      type: Number,
+      min: 0,
+      max: 100,
+      default: 0,
+    },
     status: { type: String, default: "active" },
   },
   { timestamps: true }

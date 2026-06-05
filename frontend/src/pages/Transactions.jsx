@@ -73,6 +73,8 @@ export default function Transactions() {
               <th className="px-4 py-3">Date</th>
               <th className="px-4 py-3">Type</th>
               <th className="px-4 py-3">Amount</th>
+              <th className="px-4 py-3">Gross</th>
+              <th className="px-4 py-3">Commission</th>
               <th className="px-4 py-3">Status</th>
               <th className="px-4 py-3">Reference</th>
             </tr>
@@ -80,7 +82,7 @@ export default function Transactions() {
           <tbody>
             {transactions.length === 0 && (
               <tr>
-                <td colSpan="5" className="px-4 py-6 text-center text-[var(--admin-text-muted)]">
+                <td colSpan="7" className="px-4 py-6 text-center text-[var(--admin-text-muted)]">
                   No transactions found.
                 </td>
               </tr>
@@ -91,6 +93,10 @@ export default function Transactions() {
                 <td className="px-4 py-3 capitalize">{item.type}</td>
                 <td className="px-4 py-3 font-semibold text-[var(--admin-text-strong)]">
                   {formatMoney(item.amount)}
+                </td>
+                <td className="px-4 py-3">{item.grossAmount !== undefined ? formatMoney(item.grossAmount) : "-"}</td>
+                <td className="px-4 py-3 text-[#8B1E3F]">
+                  {item.superAdminCommission !== undefined ? formatMoney(item.superAdminCommission) : item.type === "super-admin-commission" ? formatMoney(item.amount) : "-"}
                 </td>
                 <td className="px-4 py-3">
                   <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${statusBadgeClass(item.status)}`}>

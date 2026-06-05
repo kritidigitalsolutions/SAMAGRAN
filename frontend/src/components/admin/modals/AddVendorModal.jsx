@@ -5,6 +5,8 @@ import { toast } from "react-toastify";
 const AddVendorModal = ({ onClose, onVendorAdded }) => {
   const [name, setName] = useState("");
   const [businessName, setBusinessName] = useState("");
+  const [contactPerson, setContactPerson] = useState("");
+  const [image, setImage] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
@@ -39,6 +41,8 @@ const AddVendorModal = ({ onClose, onVendorAdded }) => {
       await adminApi.post("/vendors", {
         name,
         businessName,
+        contactPerson,
+        image,
         email,
         phone,
         password,
@@ -70,6 +74,14 @@ const AddVendorModal = ({ onClose, onVendorAdded }) => {
             <div>
               <label className="block text-gray-700 dark:text-gray-300 mb-2 text-sm" htmlFor="businessName">Business Name</label>
               <input type="text" id="businessName" value={businessName} onChange={(e) => setBusinessName(e.target.value)} className="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 text-sm" />
+            </div>
+            <div>
+              <label className="block text-gray-700 dark:text-gray-300 mb-2 text-sm" htmlFor="contactPerson">Contact Person</label>
+              <input type="text" id="contactPerson" value={contactPerson} onChange={(e) => setContactPerson(e.target.value)} className="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 text-sm" />
+            </div>
+            <div>
+              <label className="block text-gray-700 dark:text-gray-300 mb-2 text-sm" htmlFor="image">Image URL</label>
+              <input type="url" id="image" value={image} onChange={(e) => setImage(e.target.value)} className="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 text-sm" />
             </div>
             <div>
               <label className="block text-gray-700 dark:text-gray-300 mb-2 text-sm" htmlFor="email">Owner Email</label>

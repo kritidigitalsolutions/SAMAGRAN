@@ -1,21 +1,6 @@
-import mongoose from "mongoose";
-import Order from "../../models/order.model.js";
 import VendorWithdrawal from "../../models/vendorWithdrawal.model.js";
-
-const ORDER_STATUSES = {
-  DELIVERED: "delivered",
-  CANCELLED: "cancelled",
-};
-
-const toMoney = (value) => {
-  const parsed = Number(value || 0);
-  return Number.isFinite(parsed) && parsed >= 0 ? Number(parsed.toFixed(2)) : 0;
-};
-
-const normalizeOrderStatus = (value = "Placed") => String(value || "").trim().toLowerCase();
-
-const getPayableAmount = (order = {}) =>
-  toMoney(order?.amountBreakup?.payableAmount ?? order?.payableAmount ?? order?.totalAmount ?? 0);
+import Vendor from "../../models/vendor.model.js";
+import { buildVendorFinance, toMoney, normalizeOrderStatus } from "../../utils/vendorFinance.js";
 
 const resolveVendorScope = (req) => {
   if (req.admin?.role === "vendor") {
@@ -25,7 +10,7 @@ const resolveVendorScope = (req) => {
     };
   }
 
-  if (req.query?.vendorId && mongoose.Types.ObjectId.isValid(req.query.vendorId)) {
+  if (req.query?.vendorId) {
     return { vendorId: String(req.query.vendorId), isAll: false };
   }
 
@@ -36,22 +21,6 @@ const resolveVendorScope = (req) => {
   return { vendorId: null, isAll: false };
 };
 
-const buildWithdrawalTotals = (withdrawals = []) => {
-  const paid = withdrawals.filter((item) => item.status === "paid");
-  const approved = withdrawals.filter((item) => item.status === "approved");
-  const pending = withdrawals.filter((item) => item.status === "pending");
-
-  const totalPaid = paid.reduce((sum, item) => sum + toMoney(item.amount), 0);
-  const totalApproved = approved.reduce((sum, item) => sum + toMoney(item.amount), 0);
-  const totalPending = pending.reduce((sum, item) => sum + toMoney(item.amount), 0);
-
-  return {
-    totalPaid: toMoney(totalPaid),
-    totalApproved: toMoney(totalApproved),
-    totalPending: toMoney(totalPending),
-  };
-};
-
 export const getVendorEarningsSummary = async (req, res) => {
   try {
     const { vendorId, isAll } = resolveVendorScope(req);
@@ -60,43 +29,22 @@ export const getVendorEarningsSummary = async (req, res) => {
       return res.status(400).json({ success: false, message: "Vendor not resolved" });
     }
 
-    const orders = await Order.find(vendorId ? { vendorId } : {}).lean();
-
-    const deliveredOrders = orders.filter(
-      (order) => normalizeOrderStatus(order.orderStatus) === ORDER_STATUSES.DELIVERED
-    );
-    const cancelledOrders = orders.filter(
-      (order) => normalizeOrderStatus(order.orderStatus) === ORDER_STATUSES.CANCELLED
-    );
-
-    const totalSales = toMoney(orders.reduce((sum, order) => sum + toMoney(order.totalAmount), 0));
-    const totalEarnings = toMoney(deliveredOrders.reduce((sum, order) => sum + getPayableAmount(order), 0));
-
-    const pendingBalance = toMoney(
-      orders
-        .filter((order) => {
-          const status = normalizeOrderStatus(order.orderStatus);
-          return status !== ORDER_STATUSES.DELIVERED && status !== ORDER_STATUSES.CANCELLED;
-        })
-        .reduce((sum, order) => sum + getPayableAmount(order), 0)
-    );
-
-    const withdrawals = await VendorWithdrawal.find(vendorId ? { vendor: vendorId } : {}).lean();
-    const withdrawalTotals = buildWithdrawalTotals(withdrawals);
-
-    const availableBalance = toMoney(totalEarnings - withdrawalTotals.totalPaid - withdrawalTotals.totalApproved - withdrawalTotals.totalPending);
+    const finance = await buildVendorFinance({ vendorId });
 
     return res.json({
       success: true,
       data: {
-        totalSales,
-        totalEarnings,
-        pendingBalance,
-        availableBalance: availableBalance >= 0 ? availableBalance : 0,
-        completedOrders: deliveredOrders.length,
-        cancelledOrders: cancelledOrders.length,
-        pendingOrders: orders.length - deliveredOrders.length - cancelledOrders.length,
-        withdrawals: withdrawalTotals,
+        totalSales: finance.totalSales,
+        totalEarnings: finance.vendorNetEarning,
+        vendorNetEarning: finance.vendorNetEarning,
+        superAdminCommission: finance.superAdminCommission,
+        pendingBalance: finance.pendingNetEarning,
+        pendingCommission: finance.pendingCommission,
+        availableBalance: finance.availableBalance,
+        completedOrders: finance.completedOrders,
+        cancelledOrders: finance.cancelledOrders,
+        pendingOrders: finance.pendingOrders,
+        withdrawals: finance.withdrawals,
       },
     });
   } catch (error) {
@@ -151,18 +99,9 @@ export const createVendorWithdrawal = async (req, res) => {
       }
     }
 
-    const orders = await Order.find({ vendorId }).lean();
-    const deliveredOrders = orders.filter(
-      (order) => normalizeOrderStatus(order.orderStatus) === ORDER_STATUSES.DELIVERED
-    );
-    const totalEarnings = toMoney(deliveredOrders.reduce((sum, order) => sum + getPayableAmount(order), 0));
+    const finance = await buildVendorFinance({ vendorId });
 
-    const withdrawals = await VendorWithdrawal.find({ vendor: vendorId }).lean();
-    const withdrawalTotals = buildWithdrawalTotals(withdrawals);
-
-    const availableBalance = toMoney(totalEarnings - withdrawalTotals.totalPaid - withdrawalTotals.totalApproved - withdrawalTotals.totalPending);
-
-    if (parsedAmount > availableBalance) {
+    if (parsedAmount > finance.availableBalance) {
       return res.status(400).json({ success: false, message: "Withdrawal amount exceeds available balance" });
     }
 
@@ -193,36 +132,52 @@ export const getVendorTransactions = async (req, res) => {
       return res.status(400).json({ success: false, message: "Vendor not resolved" });
     }
 
-    const orders = await Order.find(vendorId ? { vendorId } : {}).lean();
-    const withdrawals = await VendorWithdrawal.find(vendorId ? { vendor: vendorId } : {}).lean();
+    const finance = await buildVendorFinance({ vendorId });
 
-    const earningTransactions = orders
-      .filter((order) => normalizeOrderStatus(order.orderStatus) === ORDER_STATUSES.DELIVERED)
+    const earningTransactions = finance.commissionOrders
+      .filter((order) => normalizeOrderStatus(order.orderStatus) === "delivered")
       .map((order) => ({
-        id: String(order._id),
+        id: `${String(order.orderId)}-earning`,
         type: "earning",
         status: "completed",
-        amount: getPayableAmount(order),
-        reference: order.razorpayPaymentId || order.razorpayOrderId || String(order._id),
-        orderId: order._id,
+        amount: order.vendorNetEarning,
+        grossAmount: order.itemGrossTotal,
+        superAdminCommission: order.superAdminCommission,
+        reference: String(order.orderId),
+        orderId: order.orderId,
         vendorId: order.vendorId || null,
         createdAt: order.updatedAt || order.createdAt,
       }));
 
-    const refundTransactions = orders
-      .filter((order) => normalizeOrderStatus(order.orderStatus) === ORDER_STATUSES.CANCELLED)
+    const commissionTransactions = finance.commissionOrders
+      .filter((order) => normalizeOrderStatus(order.orderStatus) === "delivered" && order.superAdminCommission > 0)
       .map((order) => ({
-        id: String(order._id),
+        id: `${String(order.orderId)}-commission`,
+        type: "super-admin-commission",
+        status: "completed",
+        amount: order.superAdminCommission,
+        grossAmount: order.itemGrossTotal,
+        vendorNetEarning: order.vendorNetEarning,
+        reference: String(order.orderId),
+        orderId: order.orderId,
+        vendorId: order.vendorId || null,
+        createdAt: order.updatedAt || order.createdAt,
+      }));
+
+    const refundTransactions = finance.commissionOrders
+      .filter((order) => normalizeOrderStatus(order.orderStatus) === "cancelled")
+      .map((order) => ({
+        id: String(order.orderId),
         type: "refund",
         status: "completed",
-        amount: getPayableAmount(order),
-        reference: order.razorpayPaymentId || order.razorpayOrderId || String(order._id),
-        orderId: order._id,
+        amount: order.revenue,
+        reference: String(order.orderId),
+        orderId: order.orderId,
         vendorId: order.vendorId || null,
         createdAt: order.updatedAt || order.createdAt,
       }));
 
-    const withdrawalTransactions = withdrawals.map((withdrawal) => ({
+    const withdrawalTransactions = finance.withdrawalsList.map((withdrawal) => ({
       id: String(withdrawal._id),
       type: "withdrawal",
       status: withdrawal.status,
@@ -233,7 +188,7 @@ export const getVendorTransactions = async (req, res) => {
       createdAt: withdrawal.createdAt || withdrawal.requestedAt,
     }));
 
-    const transactions = [...earningTransactions, ...refundTransactions, ...withdrawalTransactions].sort(
+    const transactions = [...earningTransactions, ...commissionTransactions, ...refundTransactions, ...withdrawalTransactions].sort(
       (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
 
@@ -251,22 +206,18 @@ export const getVendorRefunds = async (req, res) => {
       return res.status(400).json({ success: false, message: "Vendor not resolved" });
     }
 
-    const orders = await Order.find(vendorId ? { vendorId } : {}).lean();
+    const finance = await buildVendorFinance({ vendorId });
 
-    const refunds = orders
-      .filter((order) => normalizeOrderStatus(order.orderStatus) === ORDER_STATUSES.CANCELLED)
+    const refunds = finance.commissionOrders
+      .filter((order) => normalizeOrderStatus(order.orderStatus) === "cancelled")
       .map((order) => {
-        const latestRequest = Array.isArray(order.cancellationRequests) && order.cancellationRequests.length
-          ? order.cancellationRequests[order.cancellationRequests.length - 1]
-          : null;
-
         return {
-          id: String(order._id),
-          orderId: order._id,
-          amount: getPayableAmount(order),
+          id: String(order.orderId),
+          orderId: order.orderId,
+          amount: order.revenue,
           status: order.orderStatus,
-          reason: latestRequest?.reason || "",
-          requestedAt: latestRequest?.requestedAt || order.updatedAt || order.createdAt,
+          reason: "",
+          requestedAt: order.updatedAt || order.createdAt,
           vendorId: order.vendorId || null,
         };
       });
@@ -274,5 +225,57 @@ export const getVendorRefunds = async (req, res) => {
     return res.json({ success: true, data: { refunds } });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message || "Unable to fetch refunds" });
+  }
+};
+
+export const getSuperAdminCommissionReport = async (req, res) => {
+  try {
+    if (req.admin?.role !== "super") {
+      return res.status(403).json({ success: false, message: "Super admin access required" });
+    }
+
+    const vendors = await Vendor.find({}).select("name businessName email phone status address image").lean();
+    const rows = await Promise.all(
+      vendors.map(async (vendor) => {
+        const finance = await buildVendorFinance({ vendorId: vendor._id });
+        return {
+          vendor,
+          totalRevenue: finance.totalRevenue,
+          vendorNetEarning: finance.vendorNetEarning,
+          superAdminCommission: finance.superAdminCommission,
+          pendingVendorEarning: finance.pendingNetEarning,
+          pendingCommission: finance.pendingCommission,
+          pendingPayout: finance.withdrawals.totalPending,
+          availableBalance: finance.availableBalance,
+          totalOrders: finance.totalOrders,
+          completedOrders: finance.completedOrders,
+          commissionOrders: finance.commissionOrders
+            .filter((order) => normalizeOrderStatus(order.orderStatus) === "delivered")
+            .map((order) => ({
+              orderId: order.orderId,
+              grossAmount: order.itemGrossTotal,
+              vendorNetEarning: order.vendorNetEarning,
+              superAdminCommission: order.superAdminCommission,
+              createdAt: order.createdAt,
+              lines: order.lines,
+            })),
+        };
+      })
+    );
+
+    return res.json({
+      success: true,
+      data: {
+        summary: {
+          totalRevenue: toMoney(rows.reduce((sum, row) => sum + row.totalRevenue, 0)),
+          vendorNetEarning: toMoney(rows.reduce((sum, row) => sum + row.vendorNetEarning, 0)),
+          superAdminCommission: toMoney(rows.reduce((sum, row) => sum + row.superAdminCommission, 0)),
+          pendingPayout: toMoney(rows.reduce((sum, row) => sum + row.pendingPayout, 0)),
+        },
+        vendors: rows,
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message || "Unable to load commission report" });
   }
 };

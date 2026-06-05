@@ -13,13 +13,33 @@ import { adminApi } from "../../api/admin/api";
 import { toast } from "react-toastify";
 import EditVendorAccessModal from "../../components/admin/modals/EditVendorAccessModal";
 import AddVendorModal from "../../components/admin/modals/AddVendorModal";
+import EditVendorProfileModal from "../../components/admin/modals/EditVendorProfileModal";
 import Pagination from "../../components/common/Pagination";
 import TableMenuPopover from "../../components/TableMenuPopover";
+
+const formatCurrency = (value) =>
+  new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    maximumFractionDigits: 0,
+  }).format(Number(value || 0));
+
+const formatDate = (value) => {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+  return date.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+};
 
 const Vendors = () => {
   const [vendors, setVendors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedVendor, setSelectedVendor] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -84,6 +104,16 @@ const Vendors = () => {
   const closeEditModal = () => {
     setSelectedVendor(null);
     setIsEditModalOpen(false);
+  };
+
+  const openProfileModal = (vendor) => {
+    setSelectedVendor(vendor);
+    setIsProfileModalOpen(true);
+  };
+
+  const closeProfileModal = () => {
+    setSelectedVendor(null);
+    setIsProfileModalOpen(false);
   };
 
   const openAddModal = () => {
@@ -205,7 +235,15 @@ const Vendors = () => {
                 <thead>
                   <tr className="border-b border-[#e6d8c5] text-xs uppercase tracking-[0.18em] text-[#7f5a4f] dark:border-white/10 dark:text-[#e7c98b]">
                     <th className="px-4 py-3 font-semibold">Vendor Name</th>
-                    <th className="px-4 py-3 font-semibold">Owner Email</th>
+                    <th className="px-4 py-3 font-semibold">City</th>
+                    <th className="px-4 py-3 font-semibold">Contact</th>
+                    <th className="px-4 py-3 font-semibold">Products</th>
+                    <th className="px-4 py-3 font-semibold">Total Orders</th>
+                    <th className="px-4 py-3 font-semibold">Revenue</th>
+                    <th className="px-4 py-3 font-semibold">Vendor Earning</th>
+                    <th className="px-4 py-3 font-semibold">Super Admin Earning</th>
+                    <th className="px-4 py-3 font-semibold">Pending Payout</th>
+                    <th className="px-4 py-3 font-semibold">Joining</th>
                     <th className="px-4 py-3 font-semibold">Status</th>
                     <th className="px-4 py-3 font-semibold text-center">Actions</th>
                   </tr>
@@ -222,7 +260,35 @@ const Vendors = () => {
                           ID: {vendor._id}
                         </p>
                       </td>
-                      <td className="px-4 py-3">{vendor.email || vendor.owner?.email || "N/A"}</td>
+                      <td className="px-4 py-3">
+                        <p className="font-medium text-[#2f1618] dark:text-[#fff3dc]">
+                          {vendor.address?.city || "-"}
+                        </p>
+                        <p className="text-xs text-[#7c5b4b] dark:text-[#dbcdb8]/70">
+                          {vendor.address?.state || ""}
+                        </p>
+                      </td>
+                      <td className="px-4 py-3">
+                        <p className="font-medium text-[#2f1618] dark:text-[#fff3dc]">
+                          {vendor.phone || "-"}
+                        </p>
+                        <p className="text-xs text-[#7c5b4b] dark:text-[#dbcdb8]/70">
+                          {vendor.contactPerson || vendor.email || vendor.owner?.email || ""}
+                        </p>
+                      </td>
+                      <td className="px-4 py-3 font-semibold">{vendor.metrics?.products || 0}</td>
+                      <td className="px-4 py-3 font-semibold">{vendor.metrics?.totalOrders || 0}</td>
+                      <td className="px-4 py-3 font-semibold">{formatCurrency(vendor.metrics?.revenue)}</td>
+                      <td className="px-4 py-3 font-semibold text-emerald-700 dark:text-emerald-200">
+                        {formatCurrency(vendor.metrics?.vendorEarning)}
+                      </td>
+                      <td className="px-4 py-3 font-semibold text-[#8B1E3F] dark:text-[#f7b8ca]">
+                        {formatCurrency(vendor.metrics?.superAdminEarning)}
+                      </td>
+                      <td className="px-4 py-3 font-semibold text-amber-700 dark:text-amber-200">
+                        {formatCurrency(vendor.metrics?.pendingPayout)}
+                      </td>
+                      <td className="px-4 py-3">{formatDate(vendor.createdAt)}</td>
                       <td className="px-4 py-3">
                         <span
                           className={`w-fit rounded-full px-2 py-1 text-xs font-semibold ${
@@ -266,6 +332,16 @@ const Vendors = () => {
                               >
                                 <EyeIcon className="h-4 w-4" /> View Details
                               </Link>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setOpenMenuId("");
+                                  openProfileModal(vendor);
+                                }}
+                                className="flex w-full items-center gap-2 px-4 py-2 text-left hover:bg-[#8B1E3F]/10"
+                              >
+                                <PencilSquareIcon className="h-4 w-4" /> Edit Profile
+                              </button>
                               <button
                                 type="button"
                                 onClick={() => {
@@ -347,6 +423,13 @@ const Vendors = () => {
           vendor={selectedVendor}
           onClose={closeEditModal}
           onAccessUpdate={handleAccessUpdate}
+        />
+      )}
+      {isProfileModalOpen && selectedVendor && (
+        <EditVendorProfileModal
+          vendor={selectedVendor}
+          onClose={closeProfileModal}
+          onUpdated={handleAccessUpdate}
         />
       )}
       {isAddModalOpen && (

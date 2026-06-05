@@ -4,6 +4,8 @@ const vendorSchema = new mongoose.Schema(
   {
     name: { type: String, trim: true, required: true },
     businessName: { type: String, trim: true, default: "" },
+    image: { type: String, trim: true, default: "" },
+    contactPerson: { type: String, trim: true, default: "" },
     email: { type: String, trim: true, required: true, unique: true },
     phone: { type: String, trim: true, required: true, unique: true },
     status: {
