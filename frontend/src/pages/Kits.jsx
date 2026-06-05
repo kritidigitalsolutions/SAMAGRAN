@@ -488,7 +488,7 @@ export default function Kits() {
 
             <div className="space-y-2">
               <label className="text-sm font-medium">Kit Name</label>
-              <input name="name" value={form.name} onChange={handleFormChange} className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20" required />
+              <input name="name" value={form.name} onChange={handleFormChange} className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-[#16181d] dark:text-white text-black" required />
             </div>
 
             <div className="space-y-2">
@@ -498,7 +498,7 @@ export default function Kits() {
                 list="kit-category-list"
                 value={form.category}
                 onChange={handleFormChange}
-                className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20"
+                className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-[#16181d] dark:text-white text-black"
                 placeholder="e.g. Pooja Essentials"
               />
               <datalist id="kit-category-list">
@@ -511,19 +511,19 @@ export default function Kits() {
             {form.kitType === "special" && (
               <div className="space-y-2">
                 <label className="text-sm font-medium">Special/Festival Type</label>
-                <input name="festivalType" value={form.festivalType} onChange={handleFormChange} className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20" placeholder="e.g. Diwali" />
+                <input name="festivalType" value={form.festivalType} onChange={handleFormChange} className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-[#16181d] dark:text-white text-black" placeholder="e.g. Diwali" />
               </div>
             )}
 
             <div className="space-y-2">
               <label className="text-sm font-medium">Description</label>
-              <textarea name="description" rows={3} value={form.description} onChange={handleFormChange} className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20" />
+              <textarea name="description" rows={3} value={form.description} onChange={handleFormChange} className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-[#16181d] dark:text-white text-black" />
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-2">
                 <label className="text-sm font-medium">Kit Price</label>
-                <input type="number" min="0" name="kitPrice" value={form.kitPrice} onChange={handleFormChange} className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20" required />
+                <input type="number" min="0" name="kitPrice" value={form.kitPrice} onChange={handleFormChange} className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-[#16181d] dark:text-white text-black" required />
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium">Status</label>
@@ -536,7 +536,7 @@ export default function Kits() {
 
             <div className="space-y-2">
               <label className="text-sm font-medium">Image (optional)</label>
-              <input type="file" accept="image/*" onChange={(event) => setImageFile(event.target.files?.[0] || null)} className="w-full rounded-xl border border-dashed border-[#d9c3a2] bg-white px-3 py-2 text-sm dark:border-white/20 dark:bg-black/20" />
+              <input type="file" accept="image/*" onChange={(event) => setImageFile(event.target.files?.[0] || null)} className="w-full rounded-xl border border-dashed border-[#d9c3a2] bg-white px-3 py-2 text-sm dark:border-white/20 dark:bg-[#16181d] dark:text-white text-black" />
             </div>
 
             <div className="rounded-2xl border border-[#d9c3a2]/60 bg-[#fff8eb] p-4 text-sm dark:border-white/10 dark:bg-white/5">
@@ -546,7 +546,7 @@ export default function Kits() {
             </div>
 
             <div className="flex gap-2">
-              <button type="button" onClick={closeForm} className="w-full rounded-2xl border border-[#d9c3a2] bg-white px-4 py-3 text-sm font-semibold text-[#7b3a4b] dark:border-white/20 dark:bg-black/20">Cancel</button>
+              <button type="button" onClick={closeForm} className="w-full rounded-2xl border border-[#d9c3a2] bg-white px-4 py-3 text-sm font-semibold text-[#7b3a4b] dark:border-white/20 dark:bg-[#16181d] dark:text-white text-black">Cancel</button>
               <button type="submit" disabled={submitting} className="admin-btn-primary w-full rounded-2xl px-4 py-3 text-sm font-semibold shadow disabled:opacity-60">{submitting ? "Saving..." : editingKit ? "Save Changes" : "Create Kit"}</button>
             </div>
           </div>
@@ -579,7 +579,7 @@ export default function Kits() {
             </div>
 
             {loadingProducts ? (
-              <div className="rounded-xl bg-white/70 p-4 text-sm dark:bg-black/20">Loading products...</div>
+              <div className="rounded-xl bg-white/70 p-4 text-sm dark:bg-[#16181d] dark:text-white text-black">Loading products...</div>
             ) : (
               <div className="max-h-[620px] space-y-2 overflow-auto pr-1">
                 {filteredProducts.map((product) => {
@@ -814,7 +814,7 @@ export default function Kits() {
         ) : (
           <>
             <div className="admin-table-wrap overflow-x-auto">
-              <table className="admin-table min-w-full text-sm">
+              <table className="admin-table text-left min-w-full text-sm">
               <thead>
                 <tr className="border-b border-[#e6d8c5] text-xs uppercase tracking-[0.18em] text-[#7f5a4f] dark:border-white/10 dark:text-[#e7c98b]">
                   <th className="text-center py-3 font-semibold">

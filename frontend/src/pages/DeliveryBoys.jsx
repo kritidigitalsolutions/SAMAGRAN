@@ -306,7 +306,7 @@ export default function DeliveryBoys() {
                 value={form.fullName}
                 onChange={handleChange}
                 placeholder="Full name"
-                className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20"
+                className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-[#16181d] dark:text-white text-black"
                 required
               />
             </div>
@@ -319,7 +319,7 @@ export default function DeliveryBoys() {
                 value={form.phone}
                 onChange={handleChange}
                 placeholder="10 digit phone"
-                className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20"
+                className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-[#16181d] dark:text-white text-black"
                 required
               />
             </div>
@@ -330,7 +330,7 @@ export default function DeliveryBoys() {
                 name="status"
                 value={form.status}
                 onChange={handleChange}
-                className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20"
+                className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-[#16181d] dark:text-white text-black"
               >
                 <option value="active">Active</option>
                 <option value="inactive">Inactive</option>
@@ -345,7 +345,7 @@ export default function DeliveryBoys() {
                 value={form.notes}
                 onChange={handleChange}
                 placeholder="Notes (optional)"
-                className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20"
+                className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-[#16181d] dark:text-white text-black"
               />
             </div>
           </div>
@@ -441,7 +441,7 @@ export default function DeliveryBoys() {
                 <tbody>
                   {pagedDeliveryBoys.map((deliveryBoy, index) => (
                     <tr key={deliveryBoy._id} className="border-b border-[#f0e3d1] align-top last:border-none dark:border-white/10">
-                      <td className="px-4 py-3 text-center">
+                      <td className="px-4 py-3 text-left">
                         <input
                           type="checkbox"
                           checked={selectedIds.includes(deliveryBoy._id)}

@@ -451,31 +451,31 @@ export default function Pandits() {
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <label className="text-sm font-medium">Phone</label>
-              <input name="phone" value={form.phone} onChange={handleFormChange} required className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20" />
+              <input name="phone" value={form.phone} onChange={handleFormChange} required className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-[#16181d] dark:text-white text-black" />
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Full Name</label>
-              <input name="fullName" value={form.fullName} onChange={handleFormChange} className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20" />
+              <input name="fullName" value={form.fullName} onChange={handleFormChange} className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-[#16181d] dark:text-white text-black" />
             </div>
             <div className="space-y-2 md:col-span-2">
               <label className="text-sm font-medium">Profile Image URL</label>
-              <input name="profileImage" value={form.profileImage} onChange={handleFormChange} className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20" />
+              <input name="profileImage" value={form.profileImage} onChange={handleFormChange} className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-[#16181d] dark:text-white text-black" />
             </div>
             <div className="space-y-2 md:col-span-2">
               <label className="text-sm font-medium">Bio</label>
-              <textarea name="bio" rows={3} value={form.bio} onChange={handleFormChange} className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20" />
+              <textarea name="bio" rows={3} value={form.bio} onChange={handleFormChange} className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-[#16181d] dark:text-white text-black" />
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Experience (years)</label>
-              <input type="number" min="0" name="yearsOfExperience" value={form.yearsOfExperience} onChange={handleFormChange} className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20" />
+              <input type="number" min="0" name="yearsOfExperience" value={form.yearsOfExperience} onChange={handleFormChange} className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-[#16181d] dark:text-white text-black" />
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Temple Associated</label>
-              <input name="templeAssociated" value={form.templeAssociated} onChange={handleFormChange} className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20" />
+              <input name="templeAssociated" value={form.templeAssociated} onChange={handleFormChange} className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-[#16181d] dark:text-white text-black" />
             </div>
             <div className="space-y-2 md:col-span-2">
               <label className="text-sm font-medium">Languages (comma separated)</label>
-              <input name="languagesSpoken" value={form.languagesSpoken} onChange={handleFormChange} className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20" />
+              <input name="languagesSpoken" value={form.languagesSpoken} onChange={handleFormChange} className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-[#16181d] dark:text-white text-black" />
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Status</label>
@@ -487,23 +487,23 @@ export default function Pandits() {
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">City</label>
-              <input name="city" value={form.city} onChange={handleFormChange} className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20" />
+              <input name="city" value={form.city} onChange={handleFormChange} className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-[#16181d] dark:text-white text-black" />
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">State</label>
-              <input name="state" value={form.state} onChange={handleFormChange} className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20" />
+              <input name="state" value={form.state} onChange={handleFormChange} className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-[#16181d] dark:text-white text-black" />
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">PinCode</label>
-              <input name="pinCode" value={form.pinCode} onChange={handleFormChange} className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20" />
+              <input name="pinCode" value={form.pinCode} onChange={handleFormChange} className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-[#16181d] dark:text-white text-black" />
             </div>
             <div className="space-y-2 md:col-span-2">
               <label className="text-sm font-medium">Address Line 1</label>
-              <input name="addressLine1" value={form.addressLine1} onChange={handleFormChange} className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20" />
+              <input name="addressLine1" value={form.addressLine1} onChange={handleFormChange} className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-[#16181d] dark:text-white text-black" />
             </div>
             <div className="space-y-2 md:col-span-2">
               <label className="text-sm font-medium">Address Line 2</label>
-              <input name="addressLine2" value={form.addressLine2} onChange={handleFormChange} className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20" />
+              <input name="addressLine2" value={form.addressLine2} onChange={handleFormChange} className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-[#16181d] dark:text-white text-black" />
             </div>
             <label className="inline-flex items-center gap-2 text-sm"><input type="checkbox" name="isVerified" checked={form.isVerified} onChange={handleFormChange} /> Verified</label>
             <label className="inline-flex items-center gap-2 text-sm"><input type="checkbox" name="isPhoneVerified" checked={form.isPhoneVerified} onChange={handleFormChange} /> Phone Verified</label>
@@ -581,7 +581,7 @@ export default function Pandits() {
         ) : (
           <>
             <div className="admin-table-wrap overflow-x-auto">
-              <table className="admin-table min-w-full text-sm">
+              <table className="admin-table text-left min-w-full text-sm">
               <thead>
                 <tr className="border-b border-[#e6d8c5] text-xs uppercase tracking-[0.18em] text-[#7f5a4f] dark:border-white/10 dark:text-[#e7c98b]">
                   <th className="px-4 py-3 font-semibold">

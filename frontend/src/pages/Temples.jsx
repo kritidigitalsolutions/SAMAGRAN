@@ -362,7 +362,7 @@ export default function Temples() {
                 value={form.name}
                 onChange={handleFieldChange}
                 placeholder="e.g. Shri Durga temple"
-                className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20"
+                className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-[#16181d] dark:text-white text-black"
                 required
               />
             </div>
@@ -373,7 +373,7 @@ export default function Temples() {
                 type="file"
                 accept="image/*"
                 onChange={(event) => setImageFile(event.target.files?.[0] || null)}
-                className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20"
+                className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-[#16181d] dark:text-white text-black"
               />
             </div>
 
@@ -385,7 +385,7 @@ export default function Temples() {
                 onChange={handleFieldChange}
                 rows={3}
                 placeholder="Short details about this temple"
-                className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20"
+                className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-[#16181d] dark:text-white text-black"
               />
             </div>
 
@@ -397,7 +397,7 @@ export default function Temples() {
                 value={form.contactPerson}
                 onChange={handleFieldChange}
                 placeholder="Priest / Manager"
-                className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20"
+                className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-[#16181d] dark:text-white text-black"
               />
             </div>
 
@@ -409,7 +409,7 @@ export default function Temples() {
                 value={form.contactPhone}
                 onChange={handleFieldChange}
                 placeholder="+91..."
-                className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20"
+                className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-[#16181d] dark:text-white text-black"
               />
             </div>
 
@@ -421,7 +421,7 @@ export default function Temples() {
                 value={form.openingTime}
                 onChange={handleFieldChange}
                 placeholder="06:00 AM"
-                className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20"
+                className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-[#16181d] dark:text-white text-black"
               />
             </div>
 
@@ -433,7 +433,7 @@ export default function Temples() {
                 value={form.closingTime}
                 onChange={handleFieldChange}
                 placeholder="09:00 PM"
-                className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20"
+                className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-[#16181d] dark:text-white text-black"
               />
             </div>
 
@@ -445,7 +445,7 @@ export default function Temples() {
                 value={form.facilitiesText}
                 onChange={handleFieldChange}
                 placeholder="Parking, Wheelchair access, Prasad"
-                className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20"
+                className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-[#16181d] dark:text-white text-black"
               />
             </div>
 
@@ -456,7 +456,7 @@ export default function Temples() {
                 name="line1"
                 value={form.address.line1}
                 onChange={handleAddressChange}
-                className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20"
+                className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-[#16181d] dark:text-white text-black"
               />
             </div>
 
@@ -467,7 +467,7 @@ export default function Temples() {
                 name="line2"
                 value={form.address.line2}
                 onChange={handleAddressChange}
-                className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20"
+                className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-[#16181d] dark:text-white text-black"
               />
             </div>
 
@@ -478,7 +478,7 @@ export default function Temples() {
                 name="city"
                 value={form.address.city}
                 onChange={handleAddressChange}
-                className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20"
+                className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-[#16181d] dark:text-white text-black"
               />
             </div>
 
@@ -489,7 +489,7 @@ export default function Temples() {
                 name="state"
                 value={form.address.state}
                 onChange={handleAddressChange}
-                className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20"
+                className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-[#16181d] dark:text-white text-black"
               />
             </div>
 
@@ -500,7 +500,7 @@ export default function Temples() {
                 name="pinCode"
                 value={form.address.pinCode}
                 onChange={handleAddressChange}
-                className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20"
+                className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-[#16181d] dark:text-white text-black"
               />
             </div>
 
@@ -511,7 +511,7 @@ export default function Temples() {
                 name="landmark"
                 value={form.address.landmark}
                 onChange={handleAddressChange}
-                className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20"
+                className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-[#16181d] dark:text-white text-black"
               />
             </div>
 

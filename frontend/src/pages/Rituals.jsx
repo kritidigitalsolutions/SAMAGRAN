@@ -329,7 +329,7 @@ export default function Rituals() {
                 value={form.title}
                 onChange={handleChange}
                 placeholder="e.g. Satyanarayan Pooja"
-                className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20"
+                className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-[#16181d] dark:text-white text-black"
                 required
               />
             </div>
@@ -342,7 +342,7 @@ export default function Rituals() {
                 onChange={handleChange}
                 rows={4}
                 placeholder="Short ritual description"
-                className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20"
+                className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-[#16181d] dark:text-white text-black"
               />
             </div>
 
@@ -354,7 +354,7 @@ export default function Rituals() {
                 onChange={(event) =>
                   setImageFile(event.target.files?.[0] || null)
                 }
-                className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20"
+                className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-[#16181d] dark:text-white text-black"
               />
             </div>
 

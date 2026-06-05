@@ -943,7 +943,7 @@ useEffect(() => {
                 value={form.user}
                 onChange={handleFormChange}
                 placeholder="Mongo user id"
-                className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20"
+                className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-[#16181d] dark:text-white text-black"
                 required
               />
             </div>
@@ -956,7 +956,7 @@ useEffect(() => {
                 value={form.deliveryFee}
                 onChange={handleFormChange}
                 min="0"
-                className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20"
+                className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-[#16181d] dark:text-white text-black"
               />
             </div>
 
@@ -966,7 +966,7 @@ useEffect(() => {
                 name="paymentMethod"
                 value={form.paymentMethod}
                 onChange={handleFormChange}
-                className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20"
+                className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-[#16181d] dark:text-white text-black"
               >
                 {PAYMENT_METHODS.map((method) => (
                   <option key={method} value={method}>{method}</option>
@@ -980,7 +980,7 @@ useEffect(() => {
                 name="paymentStatus"
                 value={form.paymentStatus}
                 onChange={handleFormChange}
-                className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20"
+                className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-[#16181d] dark:text-white text-black"
               >
                 {PAYMENT_STATUSES.map((status) => (
                   <option key={status} value={status}>{status}</option>
@@ -994,7 +994,7 @@ useEffect(() => {
                 name="orderStatus"
                 value={form.orderStatus}
                 onChange={handleFormChange}
-                className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20"
+                className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-[#16181d] dark:text-white text-black"
               >
                 {ORDER_STATUSES.map((status) => (
                   <option key={status} value={status}>{status}</option>
@@ -1010,7 +1010,7 @@ useEffect(() => {
                 value={form.paymentGateway}
                 onChange={handleFormChange}
                 placeholder="Razorpay"
-                className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20"
+                className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-[#16181d] dark:text-white text-black"
               />
             </div>
 
@@ -1021,7 +1021,7 @@ useEffect(() => {
                 rows={7}
                 value={form.itemsJson}
                 onChange={handleFormChange}
-                className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 font-mono text-xs outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20"
+                className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 font-mono text-xs outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-[#16181d] dark:text-white text-black"
               />
             </div>
 
@@ -1032,7 +1032,7 @@ useEffect(() => {
                 rows={7}
                 value={form.addressJson}
                 onChange={handleFormChange}
-                className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 font-mono text-xs outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20"
+                className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 font-mono text-xs outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-[#16181d] dark:text-white text-black"
               />
             </div>
           </div>
@@ -1147,10 +1147,10 @@ useEffect(() => {
               </div>
 
               <div className="admin-table-wrap overflow-x-auto">
-                <table className="admin-table min-w-full text-sm">
+                <table className="admin-table text-left min-w-full text-sm">
                   <thead>
                     <tr className="border-b border-[#e6d8c5] text-xs uppercase tracking-[0.18em] text-[#7f5a4f] dark:border-white/10 dark:text-[#e7c98b]">
-                      <th className="px-4  py-3 font-semibold">
+                      <th className="px-4 py-3 font-semibold">
                         <input
                           type="checkbox"
                           checked={orders.length > 0 && selectedOrderIds.length === orders.length}
@@ -1178,7 +1178,7 @@ useEffect(() => {
                           selectedOrder?._id === order._id ? "bg-[#8B1E3F]/8" : ""
                         }`}
                       >
-                        <td className="px-4 text-center py-3" onClick={(event) => event.stopPropagation()}>
+                        <td className="px-4 text-left py-3" onClick={(event) => event.stopPropagation()}>
                           <input
                             type="checkbox"
                             checked={selectedOrderIds.includes(order._id)}

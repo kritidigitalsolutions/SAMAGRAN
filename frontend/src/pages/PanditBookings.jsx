@@ -302,7 +302,7 @@ export default function PanditBookings() {
         ) : (
           <>
             <div className="admin-table-wrap overflow-x-auto">
-              <table className="admin-table min-w-full text-sm">
+              <table className="admin-table text-left min-w-full text-sm">
               <thead>
                 <tr className="border-b border-[#e6d8c5] text-xs uppercase tracking-[0.18em] text-[#7f5a4f] dark:border-white/10 dark:text-[#e7c98b]">
                   <th className="px-4 py-3 font-semibold">
