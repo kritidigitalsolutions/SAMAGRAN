@@ -1462,7 +1462,9 @@ export default function Items() {
                   {/* <th className="px-4 py-3 font-semibold">Base</th> */}
                   <th className="px-4 py-3 font-semibold">GST %</th>
                   {/* <th className="px-4 py-3 font-semibold">GST Amt</th> */}
-                  <th className="px-4 py-3 font-semibold">Selling</th>
+                  <th className="px-4 py-3 font-semibold">Selling Price (₹)</th>
+                  <th className="px-4 py-3 font-semibold">Earning Price (₹)</th>
+                  <th className="px-4 py-3 font-semibold">Earning %</th>
                   <th className="px-4 py-3 font-semibold">HSN</th>
                   <th className="px-4 py-3 font-semibold">Stock</th>
                   <th className="px-4 py-3 font-semibold">City</th>
@@ -1559,8 +1561,24 @@ export default function Items() {
                     {/* <td className="px-4 py-3">
                     {formatCurrency(item.pricing?.gstAmount)}
                   </td> */}
-                    <td className="px-4 py-3 font-semibold">
+                    <td className="px-4 py-3 font-semibold text-[#8B1E3F] dark:text-[#f7a8b8]">
                       {formatCurrency(item.pricing?.price)}
+                    </td>
+                    <td className="px-4 py-3 font-semibold text-emerald-700 dark:text-emerald-400">
+                      {(() => {
+                        const mrp = Number(item.pricing?.mrp || 0);
+                        const price = Number(item.pricing?.price || 0);
+                        const earning = mrp > price ? mrp - price : 0;
+                        return earning > 0 ? formatCurrency(earning) : "—";
+                      })()}
+                    </td>
+                    <td className="px-4 py-3 font-semibold text-emerald-700 dark:text-emerald-400">
+                      {(() => {
+                        const mrp = Number(item.pricing?.mrp || 0);
+                        const price = Number(item.pricing?.price || 0);
+                        if (!mrp || price >= mrp) return "—";
+                        return `${Math.round(((mrp - price) / mrp) * 100)}%`;
+                      })()}
                     </td>
                     <td className="px-4 py-3">
                       {item.compliance?.hsnCode || "-"}

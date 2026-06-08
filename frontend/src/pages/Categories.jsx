@@ -3,7 +3,6 @@ import { FiEdit2, FiMoreVertical, FiPlus, FiRefreshCw, FiSearch, FiTrash2, FiX }
 import API from "../api/axios";
 import TablePagination from "../components/TablePagination";
 import TableMenuPopover from "../components/TableMenuPopover";
-import { getAdminRole } from "../utils/auth";
 
 const apiOrigin = (API.defaults.baseURL || "http://localhost:8000/api").replace(/\/api\/?$/, "");
 
@@ -12,7 +11,6 @@ const initialForm = {
   code: "",
   description: "",
   subCategory: "",
-  superAdminCommissionPercent: "",
   status: "active",
 };
 
@@ -39,7 +37,6 @@ export default function Categories() {
   const [pageSize, setPageSize] = useState(10);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const isSuperAdmin = getAdminRole() === "super-admin";
 
   const pagedCategories = useMemo(() => {
     const start = (page - 1) * pageSize;
@@ -109,10 +106,6 @@ export default function Categories() {
       code: category?.code || "",
       description: category?.description || "",
       subCategory: category?.subCategory?._id || category?.subCategory || "",
-      superAdminCommissionPercent:
-        category?.superAdminCommissionPercent === undefined
-          ? ""
-          : String(category.superAdminCommissionPercent),
       status: category?.status || "active",
     });
     setEditingId(category?._id || "");
@@ -141,13 +134,6 @@ export default function Categories() {
       return;
     }
 
-    const commissionPercent = Number(form.superAdminCommissionPercent || 0);
-    if (!Number.isFinite(commissionPercent) || commissionPercent < 0 || commissionPercent > 100) {
-      setError("Super admin commission must be between 0 and 100%.");
-      setSuccess("");
-      return;
-    }
-
     try {
       setSubmitting(true);
       setError("");
@@ -159,7 +145,6 @@ export default function Categories() {
       payload.append("description", form.description.trim());
       payload.append("status", form.status);
       payload.append("subCategory", form.subCategory || "");
-      payload.append("superAdminCommissionPercent", String(commissionPercent));
 
       if (imageFile) {
         payload.append("imageFile", imageFile);
@@ -212,10 +197,6 @@ export default function Categories() {
     payload.append("description", String(overrides.description ?? category.description ?? "").trim());
     payload.append("status", overrides.status ?? category.status ?? "inactive");
     payload.append("subCategory", overrides.subCategory ?? category.subCategory?._id ?? "");
-    payload.append(
-      "superAdminCommissionPercent",
-      String(overrides.superAdminCommissionPercent ?? category.superAdminCommissionPercent ?? 0)
-    );
     return payload;
   };
 
@@ -278,21 +259,18 @@ export default function Categories() {
             <h2 className="mt-2 text-2xl font-bold">Manage categories</h2>
             <p className="mt-2 text-sm text-[#6e4b40] dark:text-[#f7e3c0]/75">Add, update and organize categories for products.</p>
           </div>
-          {isSuperAdmin && (
-            <button type="button" onClick={openCreate} className="admin-btn-primary inline-flex items-center gap-2 rounded-2xl px-4 py-2 text-sm font-semibold shadow">
-              <FiPlus className="h-4 w-4" /> Add Category
-            </button>
-          )}
+          <button type="button" onClick={openCreate} className="admin-btn-primary inline-flex items-center gap-2 rounded-2xl px-4 py-2 text-sm font-semibold shadow">
+            <FiPlus className="h-4 w-4" /> Add Category
+          </button>
         </div>
       </section>
 
       {(error || success) && (
         <div
-          className={`rounded-2xl border px-4 py-3 text-sm ${
-            error
-              ? "border-red-300 bg-red-50 text-red-700 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-200"
-              : "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-200"
-          }`}
+          className={`rounded-2xl border px-4 py-3 text-sm ${error
+            ? "border-red-300 bg-red-50 text-red-700 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-200"
+            : "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-200"
+            }`}
         >
           {error || success}
         </div>
@@ -310,19 +288,15 @@ export default function Categories() {
           <div className="grid gap-3 md:grid-cols-2">
             <div className="space-y-2">
               <label className="text-sm font-medium">Category Name</label>
-              <input name="name" value={form.name} onChange={handleChange} className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-[#16181d] dark:text-white text-black" required />
+              <input name="name" value={form.name} onChange={handleChange} className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20" required />
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Code</label>
-              <input name="code" value={form.code} onChange={handleChange} className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-[#16181d] dark:text-white text-black" />
+              <input name="code" value={form.code} onChange={handleChange} className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20" />
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Sub Category</label>
-              <input name="subCategory" value={form.subCategory} onChange={handleChange} className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-[#16181d] dark:text-white text-black" placeholder="Enter sub-category name" />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Super Admin Commission (%)</label>
-              <input type="number" min="0" max="100" step="0.01" name="superAdminCommissionPercent" value={form.superAdminCommissionPercent} onChange={handleChange} className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-[#16181d] dark:text-white text-black" placeholder="0" />
+              <input name="subCategory" value={form.subCategory} onChange={handleChange} className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20" placeholder="Enter sub-category name" />
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Status</label>
@@ -335,16 +309,16 @@ export default function Categories() {
 
           <div className="space-y-2">
             <label className="text-sm font-medium">Description</label>
-            <textarea name="description" rows={3} value={form.description} onChange={handleChange} className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-[#16181d] dark:text-white text-black" />
+            <textarea name="description" rows={3} value={form.description} onChange={handleChange} className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20" />
           </div>
 
           <div className="space-y-2">
             <label className="text-sm font-medium">Image (optional)</label>
-            <input type="file" accept="image/*" onChange={(event) => setImageFile(event.target.files?.[0] || null)} className="w-full rounded-xl border border-dashed border-[#d9c3a2] bg-white px-3 py-2 text-sm dark:border-white/20 dark:bg-[#16181d] dark:text-white text-black" />
+            <input type="file" accept="image/*" onChange={(event) => setImageFile(event.target.files?.[0] || null)} className="w-full rounded-xl border border-dashed border-[#d9c3a2] bg-white px-3 py-2 text-sm dark:border-white/20 dark:bg-black/20" />
           </div>
 
           <div className="flex gap-2">
-            <button type="button" onClick={closeForm} className="w-full rounded-2xl border border-[#d9c3a2] bg-white px-4 py-3 text-sm font-semibold text-[#7b3a4b] dark:border-white/20 dark:bg-[#16181d] dark:text-white text-black">Cancel</button>
+            <button type="button" onClick={closeForm} className="w-full rounded-2xl border border-[#d9c3a2] bg-white px-4 py-3 text-sm font-semibold text-[#7b3a4b] dark:border-white/20 dark:bg-black/20">Cancel</button>
             <button type="submit" disabled={submitting} className="admin-btn-primary w-full rounded-2xl px-4 py-3 text-sm font-semibold shadow disabled:opacity-60">{submitting ? "Saving..." : editingId ? "Save Changes" : "Create Category"}</button>
           </div>
         </form>
@@ -372,11 +346,9 @@ export default function Categories() {
             <button type="button" onClick={fetchCategories} className="inline-flex items-center gap-2 rounded-xl border border-[#d7bf9b] px-3 py-2 text-sm font-medium text-[#6f3945] hover:bg-[#8B1E3F]/10 dark:border-white/20 dark:text-[#f7e3c0]">
               <FiRefreshCw className="h-4 w-4" /> Refresh
             </button>
-            {isSuperAdmin && (
-              <button type="button" onClick={handleDeleteSelected} disabled={!selectedIds.length} className="h-11 rounded-xl border border-red-200 bg-red-50 px-4 text-sm font-semibold text-red-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200">
-                Delete Selected
-              </button>
-            )}
+            <button type="button" onClick={handleDeleteSelected} disabled={!selectedIds.length} className="h-11 rounded-xl border border-red-200 bg-red-50 px-4 text-sm font-semibold text-red-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200">
+              Delete Selected
+            </button>
           </div>
         </div>
 
@@ -387,43 +359,38 @@ export default function Categories() {
         ) : (
           <>
             <div className="admin-table-wrap overflow-x-auto">
-              <table className="admin-table text-left min-w-full text-sm">
+              <table className="admin-table min-w-full text-sm">
                 <thead>
                   <tr className="border-b border-[#e6d8c5] text-xs uppercase tracking-[0.18em] text-[#7f5a4f] dark:border-white/10 dark:text-[#e7c98b]">
-                    {isSuperAdmin && (
-                      <th className="text-center py-3 font-semibold">
-                        <input
-                          type="checkbox"
-                          checked={categories.length > 0 && selectedIds.length === categories.length}
-                          onChange={(event) => toggleAll(event.target.checked)}
-                          className="h-4 w-4 rounded-[4px] border border-[#d7c3a3]"
-                        />
-                      </th>
-                    )}
+                    <th className="text-center py-3 font-semibold">
+                      <input
+                        type="checkbox"
+                        checked={categories.length > 0 && selectedIds.length === categories.length}
+                        onChange={(event) => toggleAll(event.target.checked)}
+                        className="h-4 w-4 rounded-[4px] border border-[#d7c3a3]"
+                      />
+                    </th>
                     <th className="px-4 py-3 font-semibold">S.No</th>
                     <th className="px-4 py-3 font-semibold">Image</th>
                     <th className="px-4 py-3 font-semibold">Name</th>
                     <th className="px-4 py-3 font-semibold">Code</th>
                     <th className="px-4 py-3 font-semibold">Description</th>
                     <th className="px-4 py-3 font-semibold">Sub Category</th>
-                    <th className="px-4 py-3 font-semibold">Super Admin Commission</th>
                     <th className="px-4 py-3 font-semibold">Status</th>
-                    {isSuperAdmin && <th className="px-4 py-3 font-semibold text-right">Actions</th>}
+                    <th className="px-4 py-3 font-semibold text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {pagedCategories.map((category, index) => (
                     <tr key={category._id} className="border-b border-[#f0e3d1] align-top last:border-none dark:border-white/10">
-                      {isSuperAdmin && (
-                        <td className="text-center px-4 py-3">
-                          <input
-                            type="checkbox"
-                            checked={selectedIds.includes(category._id)}
-                            onChange={(event) => toggleSelection(category._id, event.target.checked)}
-                            className="h-4 w-4 rounded-[4px] border border-[#d7c3a3]"
-                          />
-                        </td>
-                      )}
+                      <td className="text-center px-4 py-3">
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.includes(category._id)}
+                          onChange={(event) => toggleSelection(category._id, event.target.checked)}
+                          className="h-4 w-4 rounded-[4px] border border-[#d7c3a3]"
+                        />
+                      </td>
                       <td className="px-4 py-3 text-sm text-[#6f3945] dark:text-[#f7e3c0]">{(page - 1) * pageSize + index + 1}</td>
                       <td className="px-4 py-3">
                         {category.image ? (
@@ -434,24 +401,14 @@ export default function Categories() {
                       </td>
                       <td className="px-4 py-3 font-semibold text-[#2f1618] dark:text-[#fff3dc]">{category.name}</td>
                       <td className="px-4 py-3 text-sm text-[#6f3945] dark:text-[#f7e3c0]">{category.code || "-"}</td>
-                      <td className="px-4 py-3 text-sm text-[#6f3945] dark:text-[#f7e3c0] max-w-[300px]"
-                       title={category.description}
-                       >
-                        <span className="line-clamp-2">
-                          {category.description || "-"}
-                        </span>
-                      </td>
-                      
+                      <td className="px-4 py-3 text-sm text-[#6f3945] dark:text-[#f7e3c0]">{category.description || "-"}</td>
                       <td className="px-4 py-3 text-sm text-[#6f3945] dark:text-[#f7e3c0]">{category.subCategory || "-"}</td>
-                      <td className="px-4 py-3 text-sm font-semibold text-[#6f3945] dark:text-[#f7e3c0]">
-                        {Number(category.superAdminCommissionPercent || 0).toFixed(2)}%
-                      </td>
                       <td className="px-4 py-3">
                         <span className={`rounded-full px-2.5 py-1 text-xs font-semibold uppercase ${category.status === "inactive" ? "bg-red-100 text-red-700" : "bg-emerald-100 text-emerald-700"}`}>
                           {category.status || "active"}
                         </span>
                       </td>
-                      {isSuperAdmin && <td className="px-4 py-3 text-right" data-category-menu>
+                      <td className="px-4 py-3 text-right" data-category-menu>
                         <div className="relative inline-flex">
                           <button
                             type="button"
@@ -507,7 +464,7 @@ export default function Categories() {
                             </TableMenuPopover>
                           )}
                         </div>
-                      </td>}
+                      </td>
                     </tr>
                   ))}
                 </tbody>

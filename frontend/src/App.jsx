@@ -6,7 +6,7 @@ import PrivateRoute from "./routes/PrivateRoute";
 import DeliveryRoute from "./routes/DeliveryRoute";
 import AccessRoute from "./routes/AccessRoute";
 
-// Example pages
+// Pages
 import Dashboard from "./pages/Dashboard";
 import Users from "./pages/Users";
 import Orders from "./pages/Orders";
@@ -36,8 +36,9 @@ import VendorSettings from "./pages/VendorSettings";
 import VendorDetails from "./pages/admin/VendorDetails";
 import VendorCommissionReport from "./pages/admin/VendorCommissionReport";
 import BookingPricing from "./pages/BookingPricing";
-import { getHostRole } from "./utils/hostRouting";
 import Kits from "./pages/Kits";
+import Invoices from "./pages/Invoices";
+import { getHostRole } from "./utils/hostRouting";
 
 function HostEntry() {
   const role = getHostRole();
@@ -56,7 +57,7 @@ function HostEntry() {
 function App() {
   return (
     <Routes>
-      {/* Public Route */}
+      {/* Public Routes */}
       <Route path="/" element={<HostEntry />} />
       <Route path="/admin/login" element={<AdminLogin />} />
       <Route path="/delivery/login" element={<DeliveryLogin />} />
@@ -83,6 +84,7 @@ function App() {
         <Route index element={<AccessRoute pageKey="dashboard"><Dashboard /></AccessRoute>} />
         <Route path="users" element={<AccessRoute pageKey="users"><Users /></AccessRoute>} />
         <Route path="orders" element={<AccessRoute pageKey="orders"><Orders /></AccessRoute>} />
+        <Route path="invoices" element={<AccessRoute pageKey="orders"><Invoices /></AccessRoute>} />
         <Route path="items" element={<AccessRoute pageKey="products"><Items /></AccessRoute>} />
         <Route path="category" element={<AccessRoute pageKey="category"><Category /></AccessRoute>} />
         <Route path="brands" element={<AccessRoute pageKey="brands"><Brands /></AccessRoute>} />

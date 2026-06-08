@@ -24,5 +24,3 @@ router.delete(
 );
 
 export default router;
-router.post("/", protectPandit, addRitualForPandit);
-// router.post("/:ritualId/custom-samagri", protectPandit, addCustomSamagriToPanditRitual);

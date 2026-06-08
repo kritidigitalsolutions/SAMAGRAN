@@ -20,35 +20,42 @@ const normalizeCode = (value = "") => String(value || "").trim();
 export const getAllCategoriesUser = async (req, res) => {
   try {
     const city = resolveCity(req);
-
-    if (!city) {
-      return sendCityRequired(res);
-    }
-
-    // Find all active products available in this city
-    const vendorFilter = await buildVendorCityFilter(city);
-    const cityProducts = await Item.find(
-      { status: "active", ...vendorFilter },
-      { categoryId: 1 }
-    ).lean();
-
-    // Collect the unique categoryId values present in city products
-    const categoryIdSet = new Set(
-      cityProducts
-        .map((p) => p.categoryId?.toString())
-        .filter(Boolean)
-    );
+    const { search = "" } = req.query;
 
     let categories;
-    if (categoryIdSet.size === 0) {
-      // No products in this city — return empty list
-      categories = [];
+
+    if (city) {
+      // City provided: filter to categories with products in this city
+      const vendorFilter = await buildVendorCityFilter(city);
+      const cityProducts = await Item.find(
+        { status: "active", ...vendorFilter },
+        { categoryId: 1 }
+      ).lean();
+
+      const categoryIdSet = new Set(
+        cityProducts
+          .map((p) => p.categoryId?.toString())
+          .filter(Boolean)
+      );
+
+      if (categoryIdSet.size === 0) {
+        categories = [];
+      } else {
+        const filter = {
+          status: "active",
+          _id: { $in: [...categoryIdSet] },
+        };
+
+        if (search.trim()) {
+          const regex = { $regex: search.trim(), $options: "i" };
+          filter.$or = [{ name: regex }, { code: regex }];
+        }
+
+        categories = await Category.find(filter).sort({ createdAt: -1 });
+      }
     } else {
-      const { search = "" } = req.query;
-      const filter = {
-        status: "active",
-        _id: { $in: [...categoryIdSet] },
-      };
+      // No city: return all active categories
+      const filter = { status: "active" };
 
       if (search.trim()) {
         const regex = { $regex: search.trim(), $options: "i" };
@@ -60,7 +67,7 @@ export const getAllCategoriesUser = async (req, res) => {
 
     return res.json({
       success: true,
-      city,
+      ...(city ? { city } : {}),
       count: categories.length,
       data: categories,
     });

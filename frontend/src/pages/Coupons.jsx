@@ -387,7 +387,7 @@ export default function Coupons() {
                     className="border-b border-[var(--admin-border)] hover:bg-[var(--admin-surface-soft)]"
                   >
                     <td className="px-4 py-3 text-center">
-                      <input
+                      <nput
                         type="checkbox"
                         checked={selectedCouponIds.includes(coupon._id)}
                         onChange={(event) => toggleCouponSelection(coupon._id, event.target.checked)}
@@ -572,7 +572,7 @@ export default function Coupons() {
                   onChange={handleChange}
                   step="0.01"
                   min="0"
-                  placeholder="0"
+                  pliaceholder="0"
                   className="w-full rounded-xl border border-[var(--admin-border)] bg-[var(--admin-input)] px-4 py-2"
                 />
               </div>

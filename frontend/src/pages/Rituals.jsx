@@ -291,11 +291,10 @@ export default function Rituals() {
 
       {(error || success) && (
         <div
-          className={`rounded-2xl border px-4 py-3 text-sm ${
-            error
+          className={`rounded-2xl border px-4 py-3 text-sm ${error
               ? "border-red-300 bg-red-50 text-red-700 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-200"
               : "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-200"
-          }`}
+            }`}
         >
           {error || success}
         </div>
@@ -329,7 +328,7 @@ export default function Rituals() {
                 value={form.title}
                 onChange={handleChange}
                 placeholder="e.g. Satyanarayan Pooja"
-                className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-[#16181d] dark:text-white text-black"
+                className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20"
                 required
               />
             </div>
@@ -342,7 +341,7 @@ export default function Rituals() {
                 onChange={handleChange}
                 rows={4}
                 placeholder="Short ritual description"
-                className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-[#16181d] dark:text-white text-black"
+                className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20"
               />
             </div>
 
@@ -354,7 +353,7 @@ export default function Rituals() {
                 onChange={(event) =>
                   setImageFile(event.target.files?.[0] || null)
                 }
-                className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-[#16181d] dark:text-white text-black"
+                className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20"
               />
             </div>
 
@@ -498,11 +497,10 @@ export default function Rituals() {
                       </td>
                       <td className="px-3 py-4">
                         <span
-                          className={`rounded-full px-2 py-1 text-xs font-semibold ${
-                            ritual.status === "active"
+                          className={`rounded-full px-2 py-1 text-xs font-semibold ${ritual.status === "active"
                               ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-200"
                               : "bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-200"
-                          }`}
+                            }`}
                         >
                           {ritual.status}
                         </span>

@@ -8,6 +8,17 @@ const ritualSchema = new mongoose.Schema(
       default: null,
       index: true,
     },
+    panditId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Pandit",
+      default: null,
+      index: true,
+    },
+    city: {
+      type: String,
+      default: "",
+      trim: true,
+    },
     title: {
       type: String,
       required: true,

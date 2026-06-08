@@ -20,34 +20,42 @@ const normalizeCode = (value = "") => String(value || "").trim();
 export const getAllBrandsUser = async (req, res) => {
   try {
     const city = resolveCity(req);
-
-    if (!city) {
-      return sendCityRequired(res);
-    }
-
-    // Find all active products available in this city
-    const vendorFilter = await buildVendorCityFilter(city);
-    const cityProducts = await Item.find(
-      { status: "active", ...vendorFilter },
-      { brandId: 1 }
-    ).lean();
-
-    // Collect the unique brandId values present in city products
-    const brandIdSet = new Set(
-      cityProducts
-        .map((p) => p.brandId?.toString())
-        .filter(Boolean)
-    );
+    const { search = "" } = req.query;
 
     let brands;
-    if (brandIdSet.size === 0) {
-      brands = [];
+
+    if (city) {
+      // City provided: filter to brands with products in this city
+      const vendorFilter = await buildVendorCityFilter(city);
+      const cityProducts = await Item.find(
+        { status: "active", ...vendorFilter },
+        { brandId: 1 }
+      ).lean();
+
+      const brandIdSet = new Set(
+        cityProducts
+          .map((p) => p.brandId?.toString())
+          .filter(Boolean)
+      );
+
+      if (brandIdSet.size === 0) {
+        brands = [];
+      } else {
+        const filter = {
+          status: "active",
+          _id: { $in: [...brandIdSet] },
+        };
+
+        if (search.trim()) {
+          const regex = { $regex: search.trim(), $options: "i" };
+          filter.$or = [{ name: regex }, { code: regex }];
+        }
+
+        brands = await Brand.find(filter).sort({ createdAt: -1 });
+      }
     } else {
-      const { search = "" } = req.query;
-      const filter = {
-        status: "active",
-        _id: { $in: [...brandIdSet] },
-      };
+      // No city: return all active brands
+      const filter = { status: "active" };
 
       if (search.trim()) {
         const regex = { $regex: search.trim(), $options: "i" };
@@ -59,7 +67,7 @@ export const getAllBrandsUser = async (req, res) => {
 
     return res.json({
       success: true,
-      city,
+      ...(city ? { city } : {}),
       count: brands.length,
       data: brands,
     });

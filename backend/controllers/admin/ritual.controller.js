@@ -103,8 +103,26 @@ export const getAllRitualsForAdmin = async (req, res) => {
       filter.status = status;
     }
 
+    const escapeRegex = (val) => String(val || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const vendorCity = String(req.vendor?.address?.city || "").trim();
+
     const vendorFilter = req.admin.role === "vendor" 
-      ? { $or: [{ vendorId: req.vendor._id }, { vendorId: null }] } 
+      ? { 
+          $or: [
+            { vendorId: req.vendor._id },
+            { vendorId: null, panditId: null },
+            { vendorId: null, panditId: { $exists: false } },
+            ...(vendorCity 
+              ? [
+                  { 
+                    vendorId: null, 
+                    panditId: { $ne: null, $exists: true }, 
+                    city: { $regex: `^${escapeRegex(vendorCity)}$`, $options: "i" } 
+                  }
+                ] 
+              : [])
+          ] 
+        } 
       : {};
 
     const searchFilter = search.trim() 
@@ -272,8 +290,24 @@ export const deleteRitual = async (req, res) => {
 
 export const getPendingCustomSamagriItems = async (req, res) => {
   try {
+    const escapeRegex = (val) => String(val || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const panditFilter = {};
+
+    if (req.admin.role === "vendor") {
+      const vendorCity = String(req.vendor?.address?.city || "").trim();
+      if (vendorCity) {
+        const cityRegex = { $regex: `^${escapeRegex(vendorCity)}$`, $options: "i" };
+        panditFilter.$or = [
+          { "address.city": cityRegex },
+          { "serviceTypes.detectedLocation.city": cityRegex },
+        ];
+      } else {
+        panditFilter._id = null;
+      }
+    }
+
     const [pandits, rituals] = await Promise.all([
-      Pandit.find({}, { fullName: 1, phone: 1, poojaOfferings: 1 }).lean(),
+      Pandit.find(panditFilter, { fullName: 1, phone: 1, poojaOfferings: 1 }).lean(),
       Ritual.find({}, { title: 1 }).lean(),
     ]);
 

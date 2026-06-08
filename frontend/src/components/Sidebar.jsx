@@ -12,6 +12,7 @@ const navSections = [
     heading: "Commerce",
     items: [
       { label: "Orders", path: "/dashboard/orders", icon: "orders", accessKey: "orders" },
+      { label: "Invoices", path: "/dashboard/invoices", icon: "invoice", accessKey: "orders" },
       { label: "Users", path: "/dashboard/users", icon: "users", accessKey: "users" },
       { label: "Delivery Boys", path: "/dashboard/delivery-boys", icon: "delivery", accessKey: "delivery-boys" },
       {
@@ -95,6 +96,15 @@ function SidebarIcon({ icon }) {
         <path d="M7 12H17" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
         <path d="M7 16H13" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
         <rect x="4" y="4" width="16" height="16" rx="3" stroke="currentColor" strokeWidth="1.8" />
+      </svg>
+    );
+  }
+
+  if (icon === "invoice") {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" className={common}>
+        <path d="M9 12H15M9 8H15M9 16H12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M7 4H4C3.44772 4 3 4.44772 3 5V20C3 20.5523 3.44772 21 4 21H20C20.5523 21 21 20.5523 21 20V5C21 4.44772 20.5523 4 20 4H17M7 4C7 4 7 2 12 2C17 2 17 4 17 4M7 4H17" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
     );
   }

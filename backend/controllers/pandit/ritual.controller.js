@@ -190,40 +190,37 @@ const getRitualAndPanditOfferingContext = async ({ panditId, ritualId }) => {
 // };
 export const getRitualsForBooking = async (req, res) => {
   try {
-    // ── 1. Resolve city ──────────────────────────────────────────────────────
-    // This endpoint is public (no auth), so only ?city= is used.
-    // Authenticated users' selectedCity is resolved via resolveCity(req)
-    // if optionalProtect is applied upstream in future.
     const city = resolveCity(req);
 
-    if (!city) {
-      return sendCityRequired(res);
-    }
-
-    // ── 2. Find ritual titles offered by pandits in this city ────────────────
-    const availableTitles = await getRitualTitlesAvailableInCity(city);
-
-    // ── 3. Fetch active rituals that match available titles ──────────────────
     let rituals;
-    if (availableTitles.size === 0) {
-      // No pandits in this city offer any ritual
-      rituals = [];
+
+    if (city) {
+      // ── City provided: filter rituals to those offered by pandits in this city
+      const availableTitles = await getRitualTitlesAvailableInCity(city);
+
+      if (availableTitles.size === 0) {
+        rituals = [];
+      } else {
+        rituals = await Ritual.find({ status: "active" })
+          .sort({ createdAt: -1 })
+          .lean();
+
+        rituals = rituals.filter(
+          (r) => availableTitles.has(String(r.title || "").trim().toLowerCase())
+        );
+      }
     } else {
+      // ── No city: return all active rituals
       rituals = await Ritual.find({ status: "active" })
         .sort({ createdAt: -1 })
         .lean();
-
-      // Filter to only rituals whose title is offered in this city
-      rituals = rituals.filter(
-        (r) => availableTitles.has(String(r.title || "").trim().toLowerCase())
-      );
     }
 
     const data = rituals.map((ritual) => ({
       _id: ritual._id,
       title: ritual.title,
       name: ritual.title,
-      description: ritual.description || buildRitualDescription(ritual.title),
+      description: ritual.description || "",
       image: ritual.image || "",
       durationHours: Number(ritual.durationHours || 2),
       travelForSpecialPooja: Boolean(ritual.travelForSpecialPooja),
@@ -233,7 +230,7 @@ export const getRitualsForBooking = async (req, res) => {
 
     res.json({
       success: true,
-      city,
+      ...(city ? { city } : {}),
       count: data.length,
       data,
     });
@@ -291,6 +288,26 @@ export const addRitualForPandit = async (req, res) => {
       isSelected = true,
     } = req.body;
 
+    let pandit = null;
+    if (req.pandit?._id) {
+      pandit = await Pandit.findById(req.pandit._id);
+    } else {
+      const resolvedPanditId = req.body.panditId || req.query.panditId;
+      const resolvedPhone = req.body.phone || req.query.phone;
+      if (resolvedPanditId) {
+        pandit = await Pandit.findById(resolvedPanditId);
+      } else if (resolvedPhone) {
+        pandit = await Pandit.findOne({ phone: String(resolvedPhone).trim() });
+      }
+    }
+
+    if (!pandit) {
+      return res.status(404).json({
+        success: false,
+        message: "Pandit not found",
+      });
+    }
+
     let ritual = null;
 
     if (ritualId) {
@@ -315,6 +332,7 @@ export const addRitualForPandit = async (req, res) => {
       });
 
       if (!ritual) {
+        const panditCity = String(pandit.address?.city || pandit.serviceTypes?.detectedLocation?.city || "").trim();
         ritual = await Ritual.create({
           title: finalTitle,
           description: String(description || "").trim(),
@@ -324,16 +342,10 @@ export const addRitualForPandit = async (req, res) => {
           standardSamagri: Boolean(standardSamagri),
           customSamagri: Boolean(customSamagri),
           status: "active",
+          panditId: pandit._id,
+          city: panditCity,
         });
       }
-    }
-
-    const pandit = await Pandit.findById(req.pandit._id);
-    if (!pandit) {
-      return res.status(404).json({
-        success: false,
-        message: "Pandit not found",
-      });
     }
 
     if (!Array.isArray(pandit.poojaOfferings)) {
@@ -355,46 +367,46 @@ export const addRitualForPandit = async (req, res) => {
       durationHours: Number(durationHours) > 0
         ? Number(durationHours)
         : Number(
-            (existingIndex >= 0 && pandit.poojaOfferings[existingIndex]?.durationHours) ||
-              ritual.durationHours ||
-              2
-          ),
+          (existingIndex >= 0 && pandit.poojaOfferings[existingIndex]?.durationHours) ||
+          ritual.durationHours ||
+          2
+        ),
       travelForSpecialPooja:
         travelForSpecialPooja !== undefined
           ? Boolean(travelForSpecialPooja)
           : Boolean(
-              (existingIndex >= 0 &&
-                pandit.poojaOfferings[existingIndex]?.travelForSpecialPooja) ||
-                ritual.travelForSpecialPooja
-            ),
+            (existingIndex >= 0 &&
+              pandit.poojaOfferings[existingIndex]?.travelForSpecialPooja) ||
+            ritual.travelForSpecialPooja
+          ),
       standardSamagri:
         standardSamagri !== undefined
           ? Boolean(standardSamagri)
           : Boolean(
-              (existingIndex >= 0 && pandit.poojaOfferings[existingIndex]?.standardSamagri) ||
-                ritual.standardSamagri
-            ),
+            (existingIndex >= 0 && pandit.poojaOfferings[existingIndex]?.standardSamagri) ||
+            ritual.standardSamagri
+          ),
       customSamagri:
         customSamagri !== undefined
           ? Boolean(customSamagri)
           : Boolean(
-              (existingIndex >= 0 && pandit.poojaOfferings[existingIndex]?.customSamagri) ||
-                ritual.customSamagri
-            ),
+            (existingIndex >= 0 && pandit.poojaOfferings[existingIndex]?.customSamagri) ||
+            ritual.customSamagri
+          ),
       customSamagriNotes:
         customSamagriNotes !== undefined
           ? sanitizeCustomSamagriNotes(normalizeNotesInput(customSamagriNotes))
           : sanitizeCustomSamagriNotes(
-              (existingIndex >= 0 && pandit.poojaOfferings[existingIndex]?.customSamagriNotes) ||
-                []
-            ),
+            (existingIndex >= 0 && pandit.poojaOfferings[existingIndex]?.customSamagriNotes) ||
+            []
+          ),
       customSamagriItems:
         customSamagriItems !== undefined
           ? sanitizeCustomSamagriItems(customSamagriItems)
           : sanitizeCustomSamagriItems(
-              (existingIndex >= 0 && pandit.poojaOfferings[existingIndex]?.customSamagriItems) ||
-                []
-            ),
+            (existingIndex >= 0 && pandit.poojaOfferings[existingIndex]?.customSamagriItems) ||
+            []
+          ),
     };
 
     if (existingIndex >= 0) {

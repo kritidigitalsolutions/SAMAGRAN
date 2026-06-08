@@ -2,6 +2,7 @@ import { useState } from "react";
 import API from "../api/axios";
 import { Navigate, useNavigate } from "react-router-dom";
 import { isAdminTokenValid, setAdminSession } from "../utils/auth";
+import { BsArrowBarRight } from "react-icons/bs";
 
 export default function AdminLogin() {
   const navigate = useNavigate();
@@ -13,6 +14,16 @@ export default function AdminLogin() {
   const [error, setError] = useState("");
   const [showForgot, setShowForgot] = useState(false);
   const [otpStep, setOtpStep] = useState(false);
+  const [changeAdmin, setChangeAdmin] = useState("Admin Login");
+
+  const handleOnChange = () => {
+    if (changeAdmin === "Admin Login") {
+      setChangeAdmin("Vendor Login");
+    } else {
+      setChangeAdmin("Admin Login");
+    }
+  };
+
   const [forgotForm, setForgotForm] = useState({
     email: "",
     otp: "",
@@ -32,25 +43,22 @@ export default function AdminLogin() {
   };
 
   const handleLogin = async (e) => {
-  e.preventDefault();
-  setLoading(true);
-  setError("");
+    e.preventDefault();
+    setLoading(true);
+    setError("");
 
-  try {
-    const res = await API.post("/admin/auth/login", form);
+    try {
+      const res = await API.post("/admin/auth/login", form);
 
-    setAdminSession(res.data.token, res.data.admin);
+      setAdminSession(res.data.token, res.data.admin);
 
-    navigate("/dashboard", { replace: true });
-
-  } catch (err) {
-    setError(
-      err.response?.data?.message || "Login failed"
-    );
-  } finally {
-    setLoading(false);
-  }
-};
+      navigate("/dashboard", { replace: true });
+    } catch (err) {
+      setError(err.response?.data?.message || "Login failed");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleForgotChange = (e) => {
     setForgotForm({
@@ -62,7 +70,9 @@ export default function AdminLogin() {
   const requestOtp = async () => {
     try {
       setForgotStatus({ type: "", message: "" });
-      await API.post("/admin/auth/forgot-password", { email: forgotForm.email });
+      await API.post("/admin/auth/forgot-password", {
+        email: forgotForm.email,
+      });
       setOtpStep(true);
       setForgotStatus({ type: "success", message: "OTP sent to your email" });
     } catch (err) {
@@ -81,7 +91,10 @@ export default function AdminLogin() {
         otp: forgotForm.otp,
         newPassword: forgotForm.newPassword,
       });
-      setForgotStatus({ type: "success", message: "Password reset successful" });
+      setForgotStatus({
+        type: "success",
+        message: "Password reset successful",
+      });
       setShowForgot(false);
       setOtpStep(false);
       setForgotForm({ email: "", otp: "", newPassword: "" });
@@ -98,9 +111,52 @@ export default function AdminLogin() {
       <div className="absolute -left-20 top-10 h-64 w-64 rounded-full bg-[#D4AF37]/20 blur-3xl" />
       <div className="absolute -right-10 bottom-0 h-72 w-72 rounded-full bg-[#8B1E3F]/20 blur-3xl" />
 
-      <div className="relative w-full max-w-md rounded-3xl border border-[#dcc7ab]/60 bg-[var(--admin-surface)] p-8 shadow-[0_28px_80px_rgba(59,13,20,0.18)] backdrop-blur-xl dark:border-white/10 dark:bg-[var(--admin-surface)]">
+      <div className="relative w-full max-w-md rounded-3xl flex flex-col items-center border border-[#dcc7ab]/60 bg-[var(--admin-surface)] p-8 shadow-[0_28px_80px_rgba(59,13,20,0.18)] backdrop-blur-xl dark:border-white/10 dark:bg-[var(--admin-surface)]">
+        {/* <div
+          className="flex  items-end justify-end text-[#ca1755] hover:cursor-pointer font-bold w-full"
+          onClick={handleOnChange}
+        >
+          <span>SWITCH</span>
+          <BsArrowBarRight className="text-[25px]  " />
+        </div> */}
+        <div
+          className="group flex items-center justify-end gap-2  text-[#ca1755] font-bold w-full cursor-pointer"
+          onClick={handleOnChange}
+        >
+          <div className="group relative flex items-center justify-end w-[120px] cursor-pointer">
+            <div className="relative flex items-center overflow-hidden w-[90px] h-[30px]">
+              <span
+                className="
+        absolute
+        right-6
+        whitespace-nowrap
+        translate-x-full
+        opacity-0
+        transition-all
+        duration-500
+        ease-in-out
+        group-hover:translate-x-0
+        group-hover:opacity-100
+      "
+              >
+                SWITCH
+              </span>
+
+              <BsArrowBarRight
+                className="
+        absolute
+        right-0
+        text-[25px]
+        bg-white
+        z-10
+      "
+              />
+            </div>
+          </div>
+        </div>
+        <img src="../panel-logo.jpeg" alt="" className="h-36" />
         <h2 className="text-center text-3xl font-bold text-[#2f1618] dark:text-[#fff3dc]">
-          Admin Login
+          {changeAdmin}
         </h2>
 
         <form onSubmit={handleLogin} className="mt-6 space-y-4">
@@ -188,7 +244,9 @@ export default function AdminLogin() {
               {forgotStatus.message && (
                 <p
                   className={`text-xs font-semibold ${
-                    forgotStatus.type === "success" ? "text-emerald-600" : "text-red-500"
+                    forgotStatus.type === "success"
+                      ? "text-emerald-600"
+                      : "text-red-500"
                   }`}
                 >
                   {forgotStatus.message}
@@ -233,5 +291,3 @@ export default function AdminLogin() {
     </div>
   );
 }
-
-
