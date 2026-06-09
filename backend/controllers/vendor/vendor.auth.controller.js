@@ -1,94 +1,75 @@
 import bcrypt from "bcryptjs";
 import Vendor from "../../models/vendor.model.js";
 import Admin from "../../models/admin.model.js";
+import generateToken from "../../utils/generateToken.js";
 
-const isValidPhone = (phone) => /^[6-9]\d{9}$/.test(phone);
-
-const DEFAULT_VENDOR_ACCESS = [
-  "dashboard",
-  "orders",
-  "products",
-  "items",
-  "kits",
-  "pandits",
-  "rituals",
-  "temples",
-  "pandit-bookings",
-  "banners",
-  "coupons",
-  "offers",
-  "legal",
-  "custom-samagri",
-  "notifications",
-  "delivery-boys",
-  "settings",
-  "transactions",
-  "earnings",
-  "withdrawals",
-  "refunds",
-];
-
-export const vendorSignup = async (req, res) => {
+export const vendorLogin = async (req, res) => {
   try {
-    const {
-      name,
-      businessName = "",
-      email,
-      phone,
-      password,
-      address = {},
-    } = req.body || {};
+    const { email, password } = req.body;
 
-    if (!name || !email || !phone || !password) {
-      return res.status(400).json({ success: false, message: "name, email, phone and password are required" });
+    if (!email || !password) {
+      return res.status(400).json({ success: false, message: "Email and password required" });
     }
 
-    if (!isValidPhone(String(phone).trim())) {
-      return res.status(400).json({ success: false, message: "Invalid phone number" });
+    // Check admin exists
+    const admin = await Admin.findOne({ email });
+    if (!admin) {
+      return res.status(401).json({ success: false, message: "Vendor not found" });
     }
 
-    const existingVendor = await Vendor.findOne({ $or: [{ email }, { phone }] });
-    if (existingVendor) {
-      return res.status(409).json({ success: false, message: "Vendor already exists" });
+    if (admin.role !== "vendor") {
+      return res.status(403).json({ success: false, message: "Access denied: Not a vendor" });
     }
 
-    const existingAdmin = await Admin.findOne({ email });
-    if (existingAdmin) {
-      return res.status(409).json({ success: false, message: "Admin email already exists" });
+    // Compare password
+    const isMatch = await bcrypt.compare(password, admin.password);
+    if (!isMatch) {
+      return res.status(401).json({ success: false, message: "Invalid password" });
     }
 
-    const vendor = await Vendor.create({
-      name: String(name).trim(),
-      businessName: String(businessName || "").trim(),
-      email: String(email).trim(),
-      phone: String(phone).trim(),
-      status: "pending",
-      pageAccess: DEFAULT_VENDOR_ACCESS,
-      address: {
-        line1: String(address?.line1 || "").trim(),
-        line2: String(address?.line2 || "").trim(),
-        city: String(address?.city || "").trim(),
-        state: String(address?.state || "").trim(),
-        pincode: String(address?.pincode || "").trim(),
+    if (!admin.vendorId) {
+      return res.status(403).json({ success: false, message: "Vendor account not linked" });
+    }
+
+    const vendor = await Vendor.findById(admin.vendorId).lean();
+    if (!vendor) {
+      return res.status(403).json({ success: false, message: "Vendor not found" });
+    }
+
+    if (vendor.status !== "active") {
+      return res.status(403).json({ success: false, message: "Vendor account not active/approved" });
+    }
+
+    // Generate token (with admin flag + role)
+    const token = generateToken(admin._id, true, {
+      role: admin.role || "vendor",
+      vendorId: String(admin.vendorId),
+      pageAccess: vendor.pageAccess || [],
+      isVendor: true,
+    });
+
+    res.json({
+      success: true,
+      message: "Vendor login successful",
+      token,
+      admin: {
+        id: admin._id,
+        name: admin.name,
+        email: admin.email,
+        role: admin.role || "vendor",
+        vendorId: admin.vendorId,
+        vendor: {
+          id: vendor._id,
+          name: vendor.name,
+          businessName: vendor.businessName,
+          status: vendor.status,
+          pageAccess: vendor.pageAccess || [],
+        },
       },
     });
 
-    const hashedPassword = await bcrypt.hash(String(password), 10);
-
-    await Admin.create({
-      name: String(name).trim(),
-      email: String(email).trim(),
-      password: hashedPassword,
-      role: "vendor",
-      vendorId: vendor._id,
-    });
-
-    return res.status(201).json({
-      success: true,
-      message: "Vendor signup submitted. Await approval.",
-      data: { vendorId: vendor._id, status: vendor.status },
-    });
   } catch (error) {
-    return res.status(500).json({ success: false, message: error.message || "Unable to signup vendor" });
+    res.status(500).json({ success: false, message: error.message || "Login failed" });
   }
 };
+

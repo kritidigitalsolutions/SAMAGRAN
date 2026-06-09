@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import API from "../api/axios";
-import TablePagination from "../components/TablePagination";
+import Pagination from "../components/common/Pagination";
+import { toast } from "react-toastify";
 
 const formatMoney = (value) => `INR ${Number(value || 0).toFixed(2)}`;
 
@@ -30,21 +31,22 @@ export default function Transactions() {
   const [error, setError] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const [selectedIds, setSelectedIds] = useState([]);
+
+  const fetchTransactions = async () => {
+    try {
+      setLoading(true);
+      setError("");
+      const res = await API.get("/admin/vendor/transactions");
+      setTransactions(res.data?.data?.transactions || []);
+    } catch (err) {
+      setError(err?.response?.data?.message || "Failed to load transactions");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchTransactions = async () => {
-      try {
-        setLoading(true);
-        setError("");
-        const res = await API.get("/admin/vendor/transactions");
-        setTransactions(res.data?.data?.transactions || []);
-      } catch (err) {
-        setError(err?.response?.data?.message || "Failed to load transactions");
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchTransactions();
   }, []);
 
@@ -53,73 +55,169 @@ export default function Transactions() {
     return transactions.slice(start, start + pageSize);
   }, [transactions, page, pageSize]);
 
-  if (loading) {
+  const totalPages = useMemo(() => {
+    return Math.max(Math.ceil(transactions.length / pageSize), 1);
+  }, [transactions.length, pageSize]);
+
+  const toggleAll = (checked) => {
+    if (checked) {
+      setSelectedIds(pagedTransactions.map((item) => item.id || item._id));
+      return;
+    }
+    setSelectedIds([]);
+  };
+
+  const handleDeleteSelected = async () => {
+    if (!window.confirm(`Delete ${selectedIds.length} selected transactions?`)) return;
+    try {
+      setLoading(true);
+      setError("");
+      await Promise.all(
+        selectedIds.map((id) => API.delete(`/admin/vendor/transactions/${id}`))
+      );
+      setSelectedIds([]);
+      toast.success("Selected transactions deleted successfully.");
+      await fetchTransactions();
+    } catch (err) {
+      setError(err?.response?.data?.message || "Failed to delete selected transactions");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading && transactions.length === 0) {
     return <div className="p-6">Loading transactions...</div>;
   }
 
-  if (error) {
-    return <div className="p-6 text-red-600">{error}</div>;
-  }
-
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-semibold text-[var(--admin-text)]">Transactions</h1>
-      <p className="mt-2 text-sm text-[var(--admin-text-muted)]">Order earnings, refunds, and withdrawals.</p>
+    <div className="space-y-4 p-4 md:p-6">
+      <section className="rounded-[30px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-6 shadow-[var(--admin-shadow)]">
+        <p className="text-sm font-semibold uppercase tracking-[0.32em] text-[var(--admin-primary)]">
+          Finance
+        </p>
+        <h2 className="mt-2 text-2xl font-bold text-[#2f1618] dark:text-[#fff3dc]">
+          Transactions
+        </h2>
+        <p className="mt-2 text-sm text-[var(--admin-text-muted)]">Order earnings, refunds, and withdrawals.</p>
+      </section>
 
-      <div className="mt-6 overflow-hidden rounded-2xl border border-[var(--admin-border)] bg-[var(--admin-surface)] shadow-[var(--admin-shadow)]">
-        <table className="min-w-full text-left text-sm text-[var(--admin-text)]">
-          <thead className="bg-[var(--admin-surface-soft)] text-xs uppercase tracking-wide text-[var(--admin-text-muted)]">
-            <tr>
-              <th className="px-4 py-3">Date</th>
-              <th className="px-4 py-3">Type</th>
-              <th className="px-4 py-3">Amount</th>
-              <th className="px-4 py-3">Gross</th>
-              <th className="px-4 py-3">Commission</th>
-              <th className="px-4 py-3">Status</th>
-              <th className="px-4 py-3">Reference</th>
-            </tr>
-          </thead>
-          <tbody>
-            {transactions.length === 0 && (
-              <tr>
-                <td colSpan="7" className="px-4 py-6 text-center text-[var(--admin-text-muted)]">
-                  No transactions found.
-                </td>
-              </tr>
+      {error && (
+        <div className="rounded-2xl border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-200">
+          {error}
+        </div>
+      )}
+
+      <section className="rounded-[30px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-6 shadow-[var(--admin-shadow)]">
+        <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.35em] text-[var(--admin-primary)]">
+              Records
+            </p>
+            <h3 className="mt-1 text-xl font-bold text-[#2f1618] dark:text-[#fff3dc]">
+              All Transactions
+            </h3>
+          </div>
+
+          <div className="flex items-center gap-4">
+            {selectedIds.length > 0 && (
+              <button
+                onClick={handleDeleteSelected}
+                className="flex items-center bg-red-600 hover:bg-red-700 whitespace-nowrap rounded-lg px-4 py-2 text-sm font-semibold text-white transition duration-300 shadow-sm"
+              >
+                Delete Selected ({selectedIds.length})
+              </button>
             )}
-            {pagedTransactions.map((item) => (
-              <tr key={item._id || item.id} className="border-t border-[var(--admin-border)]">
-                <td className="px-4 py-3">{formatDate(item.createdAt)}</td>
-                <td className="px-4 py-3 capitalize">{item.type}</td>
-                <td className="px-4 py-3 font-semibold text-[var(--admin-text-strong)]">
-                  {formatMoney(item.amount)}
-                </td>
-                <td className="px-4 py-3">{item.grossAmount !== undefined ? formatMoney(item.grossAmount) : "-"}</td>
-                <td className="px-4 py-3 text-[#8B1E3F]">
-                  {item.superAdminCommission !== undefined ? formatMoney(item.superAdminCommission) : item.type === "super-admin-commission" ? formatMoney(item.amount) : "-"}
-                </td>
-                <td className="px-4 py-3">
-                  <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${statusBadgeClass(item.status)}`}>
-                    {item.status}
-                  </span>
-                </td>
-                <td className="px-4 py-3 text-[var(--admin-text-muted)]">{item.reference || "-"}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            
+            <button
+              onClick={fetchTransactions}
+              className="inline-flex items-center gap-2 rounded-xl border border-[#d7bf9b] px-3 py-2 text-sm font-medium text-[#6f3945] hover:bg-[#8B1E3F]/10 dark:border-white/20 dark:text-[#f7e3c0] transition-colors"
+            >
+              Refresh
+            </button>
+          </div>
+        </div>
 
-      <TablePagination
-        page={page}
-        pageSize={pageSize}
-        total={transactions.length}
-        onPageChange={setPage}
-        onPageSizeChange={(size) => {
-          setPageSize(size);
-          setPage(1);
-        }}
-      />
+        <div className="admin-table-wrap overflow-x-auto">
+          <table className="admin-table min-w-full text-sm">
+            <thead>
+              <tr className="border-b border-[#e6d8c5] text-xs uppercase tracking-[0.18em] text-[#7f5a4f] dark:border-white/10 dark:text-[#e7c98b]">
+                <th className="px-4 py-3 font-semibold text-center w-12">
+                  <input
+                    type="checkbox"
+                    checked={pagedTransactions.length > 0 && selectedIds.length === pagedTransactions.length}
+                    onChange={(e) => toggleAll(e.target.checked)}
+                    className="h-4 w-4 rounded-[4px] border border-[#d7c3a3]"
+                  />
+                </th>
+                <th className="px-4 py-3 font-semibold">Date</th>
+                <th className="px-4 py-3 font-semibold">Type</th>
+                <th className="px-4 py-3 font-semibold">Amount</th>
+                <th className="px-4 py-3 font-semibold">Gross</th>
+                <th className="px-4 py-3 font-semibold">Commission</th>
+                <th className="px-4 py-3 font-semibold">Status</th>
+                <th className="px-4 py-3 font-semibold">Reference</th>
+              </tr>
+            </thead>
+            <tbody>
+              {transactions.length === 0 ? (
+                <tr>
+                  <td colSpan="8" className="px-4 py-6 text-center text-[var(--admin-text-muted)]">
+                    No transactions found.
+                  </td>
+                </tr>
+              ) : (
+                pagedTransactions.map((item) => {
+                  const itemId = item.id || item._id;
+                  return (
+                    <tr
+                      key={itemId}
+                      className="border-b border-[#f0e3d1] align-middle last:border-none dark:border-white/10 hover:bg-[#fdf8f2] dark:hover:bg-white/[0.03] transition-colors"
+                    >
+                      <td className="px-4 py-3 text-center">
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.includes(itemId)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedIds((prev) => [...prev, itemId]);
+                            } else {
+                              setSelectedIds((prev) => prev.filter((x) => x !== itemId));
+                            }
+                          }}
+                          className="h-4 w-4 rounded-[4px] border border-[#d7c3a3]"
+                        />
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">{formatDate(item.createdAt)}</td>
+                      <td className="px-4 py-3 capitalize font-semibold">{item.type}</td>
+                      <td className="px-4 py-3 font-semibold text-emerald-700 dark:text-emerald-200">
+                        {formatMoney(item.amount)}
+                      </td>
+                      <td className="px-4 py-3">{item.grossAmount !== undefined ? formatMoney(item.grossAmount) : "-"}</td>
+                      <td className="px-4 py-3 text-[#8B1E3F] dark:text-[#f7b8ca]">
+                        {item.superAdminCommission !== undefined ? formatMoney(item.superAdminCommission) : item.type === "super-admin-commission" ? formatMoney(item.amount) : "-"}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${statusBadgeClass(item.status)}`}>
+                          {item.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-[var(--admin-text-muted)] font-mono text-xs break-all">{item.reference || "-"}</td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="mt-4">
+          <Pagination
+            currentPage={page}
+            totalPages={totalPages}
+            onPageChange={setPage}
+          />
+        </div>
+      </section>
     </div>
   );
 }

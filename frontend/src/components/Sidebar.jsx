@@ -70,6 +70,18 @@ const navSections = [
     ],
   },
   {
+    heading: "Commission",
+    items: [
+      {
+        label: "Category Commission",
+        path: "/dashboard/category-commission",
+        icon: "pricing",
+        accessKey: "category-commission",
+        role: "super-admin",
+      },
+    ],
+  },
+  {
     heading: "Settings",
     items: [
       { label: "Settings", path: "/dashboard/settings", icon: "settings", accessKey: "settings", vendorOnly: true },

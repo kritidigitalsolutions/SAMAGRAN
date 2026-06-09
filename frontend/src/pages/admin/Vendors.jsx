@@ -14,7 +14,7 @@ import { toast } from "react-toastify";
 import EditVendorAccessModal from "../../components/admin/modals/EditVendorAccessModal";
 import AddVendorModal from "../../components/admin/modals/AddVendorModal";
 import EditVendorProfileModal from "../../components/admin/modals/EditVendorProfileModal";
-import Pagination from "../../components/common/Pagination";
+import TablePagination from "../../components/TablePagination";
 import TableMenuPopover from "../../components/TableMenuPopover";
 
 const formatCurrency = (value) =>
@@ -43,10 +43,34 @@ const Vendors = () => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedVendor, setSelectedVendor] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
+  // const [totalPages, setTotalPages] = useState(1);
   const [searchTerm, setSearchTerm] = useState("");
   const [openMenuId, setOpenMenuId] = useState("");
   const [menuAnchorRect, setMenuAnchorRect] = useState(null);
+  const [selectedVendorIds, setSelectedVendorIds] = useState([]);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
+  const handleDeleteSelectedVendors = async () => {
+    if (!window.confirm(`Delete ${selectedVendorIds.length} selected vendors?`)) return;
+    try {
+      setLoading(true);
+      await Promise.all(
+        selectedVendorIds.map((vendorId) => adminApi.delete(`/vendors/${vendorId}`))
+      );
+      setSelectedVendorIds([]);
+      toast.success("Selected vendors deleted successfully.");
+      fetchVendors(currentPage, searchTerm);
+    } catch (error) {
+      console.error("Failed to delete vendors:", error);
+      toast.error("Failed to delete selected vendors");
+    } finally {
+      setLoading(false);
+    }
+  };
+  useEffect(() => {
+    setPage(1);
+  }, [vendors.length]);
 
   const fetchVendors = async (page = 1, search = "") => {
     try {
@@ -54,9 +78,9 @@ const Vendors = () => {
       const response = await adminApi.get(
         `/vendors?page=${page}&limit=10&search=${search}`
       );
-      const { vendors: vendorData, totalPages: newTotalPages } = response.data.data;
+      const { vendors: vendorData, pageSize: newPageSize } = response.data.data;
       setVendors(Array.isArray(vendorData) ? vendorData : []);
-      setTotalPages(newTotalPages);
+      setPageSize(newPageSize);
       setCurrentPage(page);
     } catch (error) {
       console.error("Failed to fetch vendors:", error);
@@ -212,6 +236,16 @@ const Vendors = () => {
                 </button>
               )}
             </div>
+
+            {selectedVendorIds.length > 0 && (
+              <button
+                onClick={handleDeleteSelectedVendors}
+                className="flex items-center bg-red-600 hover:bg-red-700 whitespace-nowrap rounded-lg px-4 py-2 text-sm font-semibold text-white transition duration-300 shadow-sm"
+              >
+                Delete Selected ({selectedVendorIds.length})
+              </button>
+            )}
+
             <button
               onClick={openAddModal}
               className="flex items-center admin-btn-primary whitespace-nowrap rounded-lg px-4 py-2 text-sm font-semibold text-white transition duration-300"
@@ -234,6 +268,20 @@ const Vendors = () => {
               <table className="admin-table min-w-full text-sm">
                 <thead>
                   <tr className="border-b border-[#e6d8c5] text-xs uppercase tracking-[0.18em] text-[#7f5a4f] dark:border-white/10 dark:text-[#e7c98b]">
+                    <th className="px-4 py-3 font-semibold text-center">
+                      <input
+                        type="checkbox"
+                        checked={vendors.length > 0 && selectedVendorIds.length === vendors.length}
+                        onChange={(event) => {
+                          if (event.target.checked) {
+                            setSelectedVendorIds(vendors.map((v) => v._id));
+                          } else {
+                            setSelectedVendorIds([]);
+                          }
+                        }}
+                        className="h-4 w-4 rounded-[4px] border border-[#d7c3a3]"
+                      />
+                    </th>
                     <th className="px-4 py-3 font-semibold">Vendor Name</th>
                     <th className="px-4 py-3 font-semibold">City</th>
                     <th className="px-4 py-3 font-semibold">Contact</th>
@@ -243,7 +291,7 @@ const Vendors = () => {
                     <th className="px-4 py-3 font-semibold">Vendor Earning</th>
                     <th className="px-4 py-3 font-semibold">Super Admin Earning</th>
                     <th className="px-4 py-3 font-semibold">Pending Payout</th>
-                    <th className="px-4 py-3 font-semibold">Joining</th>
+                    {/* <th className="px-4 py-3 font-semibold">Joining</th> */}
                     <th className="px-4 py-3 font-semibold">Status</th>
                     <th className="px-4 py-3 font-semibold text-center">Actions</th>
                   </tr>
@@ -254,6 +302,20 @@ const Vendors = () => {
                       key={vendor._id}
                       className="border-b border-[#f0e3d1] align-top last:border-none dark:border-white/10"
                     >
+                      <td className="px-4 py-3 text-center">
+                        <input
+                          type="checkbox"
+                          checked={selectedVendorIds.includes(vendor._id)}
+                          onChange={(event) => {
+                            if (event.target.checked) {
+                              setSelectedVendorIds((prev) => [...prev, vendor._id]);
+                            } else {
+                              setSelectedVendorIds((prev) => prev.filter((id) => id !== vendor._id));
+                            }
+                          }}
+                          className="h-4 w-4 rounded-[4px] border border-[#d7c3a3]"
+                        />
+                      </td>
                       <td className="px-4 py-3">
                         <p className="font-semibold text-[#2f1618] dark:text-[#fff3dc]">{vendor.name}</p>
                         <p className="text-xs text-[#7c5b4b] dark:text-[#dbcdb8]/70">
@@ -288,16 +350,15 @@ const Vendors = () => {
                       <td className="px-4 py-3 font-semibold text-amber-700 dark:text-amber-200">
                         {formatCurrency(vendor.metrics?.pendingPayout)}
                       </td>
-                      <td className="px-4 py-3">{formatDate(vendor.createdAt)}</td>
+                      {/* <td className="px-4 py-3">{formatDate(vendor.createdAt)}</td> */}
                       <td className="px-4 py-3">
                         <span
-                          className={`w-fit rounded-full px-2 py-1 text-xs font-semibold ${
-                            vendor.status === "active"
+                          className={`w-fit rounded-full px-2 py-1 text-xs font-semibold ${vendor.status === "active"
                               ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-200"
                               : vendor.status === "pending"
-                              ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-500/20 dark:text-yellow-200"
-                              : "bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-200"
-                          }`}
+                                ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-500/20 dark:text-yellow-200"
+                                : "bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-200"
+                            }`}
                         >
                           {vendor.status}
                         </span>
@@ -409,10 +470,21 @@ const Vendors = () => {
                 </tbody>
               </table>
             </div>
-            <Pagination
+            {/* <Pagination
               currentPage={currentPage}
               totalPages={totalPages}
               onPageChange={(page) => fetchVendors(page, searchTerm)}
+            /> */}
+            <TablePagination
+              page={page}
+              pageSize={pageSize}
+              total={vendors.length}
+              onPageChange={setPage}
+              onPageSizeChange={(size) => {
+                setPageSize(size);
+                setPage(1);
+              }}
+              pageSizeOptions={[10]}
             />
           </>
         )}

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import API from "../api/axios";
 import TablePagination from "../components/TablePagination";
+import { toast } from "react-toastify";
 
 /* ─── helpers ─────────────────────────────────────────────── */
 const fmt = (v) =>
@@ -12,13 +13,13 @@ const fmtDate = (v) =>
 const shortId = (id = "") => String(id).slice(-8).toUpperCase();
 
 const ORDER_STATUSES = [
-  { value: "all",              label: "All Status" },
-  { value: "placed",           label: "Placed" },
-  { value: "confirmed",        label: "Confirmed" },
-  { value: "preparing",        label: "Preparing" },
+  { value: "all", label: "All Status" },
+  { value: "placed", label: "Placed" },
+  { value: "confirmed", label: "Confirmed" },
+  { value: "preparing", label: "Preparing" },
   { value: "out for delivery", label: "Out for Delivery" },
-  { value: "delivered",        label: "Delivered" },
-  { value: "cancelled",        label: "Cancelled" },
+  { value: "delivered", label: "Delivered" },
+  { value: "cancelled", label: "Cancelled" },
 ];
 
 const statusColor = (s = "") => {
@@ -67,9 +68,9 @@ function InvoicePreview({ order, onClose, onDownload }) {
   const total = Number(order.totalAmount || subtotal + deliveryFee);
 
   const customer = order.user?.name || order.address?.name || "N/A";
-  const email    = order.user?.email || "—";
-  const phone    = order.user?.phone || order.address?.phone || "—";
-  const address  = [
+  const email = order.user?.email || "—";
+  const phone = order.user?.phone || order.address?.phone || "—";
+  const address = [
     order.address?.fullAddress,
     order.address?.city,
     order.address?.state,
@@ -101,7 +102,7 @@ function InvoicePreview({ order, onClose, onDownload }) {
                 onClick={onDownload}
                 className="inline-flex items-center gap-2 rounded-xl border border-[#d7bf9b] px-4 py-2 text-sm font-semibold text-[#6f3945] hover:bg-[#8B1E3F]/10 dark:border-white/20 dark:text-[#f7e3c0] transition-colors"
               >
-                <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4"><path d="M12 15V4M12 15L8 11M12 15L16 11" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><path d="M4 20H20" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>
+                <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4"><path d="M12 15V4M12 15L8 11M12 15L16 11" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /><path d="M4 20H20" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>
                 Download PDF
               </button>
               <button
@@ -109,7 +110,7 @@ function InvoicePreview({ order, onClose, onDownload }) {
                 onClick={onClose}
                 className="grid h-9 w-9 place-items-center rounded-xl border border-[#d7bf9b] text-[#6f3945] hover:bg-[#8B1E3F]/10 dark:border-white/20 dark:text-[#f7e3c0] transition-colors"
               >
-                <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4"><path d="M6 6L18 18M18 6L6 18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>
+                <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4"><path d="M6 6L18 18M18 6L6 18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>
               </button>
             </div>
           </div>
@@ -272,18 +273,44 @@ function InvoicePreview({ order, onClose, onDownload }) {
 /*  Main Invoices page                                         */
 /* ═══════════════════════════════════════════════════════════ */
 export default function Invoices() {
-  const [orders, setOrders]             = useState([]);
-  const [pagination, setPagination]     = useState({ total: 0, currentPage: 1, totalPages: 1, limit: 10 });
-  const [pageSize, setPageSize]         = useState(10);
-  const [loading, setLoading]           = useState(true);
-  const [error, setError]               = useState("");
+  const [selectedIds, setSelectedIds] = useState([]);
 
-  const [searchTerm, setSearchTerm]     = useState("");
+  const [orders, setOrders] = useState([]);
+  const [pagination, setPagination] = useState({ total: 0, currentPage: 1, totalPages: 1, limit: 10 });
+  const [pageSize, setPageSize] = useState(10);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
 
-  const [selectedOrder, setSelectedOrder]   = useState(null);
-  const [loadingDetail, setLoadingDetail]   = useState(false);
-  const [generatingId, setGeneratingId]     = useState("");
+  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [loadingDetail, setLoadingDetail] = useState(false);
+  const [generatingId, setGeneratingId] = useState("");
+
+  // multiselection toggle
+  const toggleAll = (checked) => {
+    if (checked) {
+      setSelectedIds(orders.map((entry) => entry._id));
+      return;
+    }
+    setSelectedIds([]);
+  };
+
+  const handleDeleteSelected = async () => {
+    if (!window.confirm(`Delete ${selectedIds.length} selected orders?`)) return;
+    try {
+      setLoading(true);
+      await Promise.all(selectedIds.map((id) => API.delete(`/admin/orders/${id}`)));
+      setSelectedIds([]);
+      toast.success("Selected orders deleted successfully.");
+      fetchOrders({ search: searchTerm, status: statusFilter, page: pagination.currentPage });
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to delete selected orders.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   /* ── Fetch orders ──────────────────────────────────────── */
   const fetchOrders = useCallback(
@@ -299,14 +326,14 @@ export default function Invoices() {
             limit: pageSize,
           },
         });
-        const incoming   = res.data?.data?.orders || [];
+        const incoming = res.data?.data?.orders || [];
         const incomingPg = res.data?.data?.pagination || {};
         setOrders(incoming);
         setPagination({
-          total:       Number(incomingPg.total || incoming.length || 0),
+          total: Number(incomingPg.total || incoming.length || 0),
           currentPage: Number(incomingPg.currentPage || page),
-          totalPages:  Number(incomingPg.totalPages || 1),
-          limit:       Number(incomingPg.limit || pageSize),
+          totalPages: Number(incomingPg.totalPages || 1),
+          limit: Number(incomingPg.limit || pageSize),
         });
       } catch (err) {
         setError(err.response?.data?.message || "Unable to load orders.");
@@ -357,9 +384,9 @@ export default function Invoices() {
     const total = Number(order.totalAmount || subtotal + deliveryFee);
 
     const customer = order.user?.name || order.address?.name || "N/A";
-    const email    = order.user?.email || "";
-    const phone    = order.user?.phone || order.address?.phone || "";
-    const address  = [order.address?.fullAddress, order.address?.city, order.address?.state, order.address?.pincode].filter(Boolean).join(", ");
+    const email = order.user?.email || "";
+    const phone = order.user?.phone || order.address?.phone || "";
+    const address = [order.address?.fullAddress, order.address?.city, order.address?.state, order.address?.pincode].filter(Boolean).join(", ");
 
     const getName = (item) => {
       const p = item.product;
@@ -516,8 +543,8 @@ export default function Invoices() {
 
   /* ── Stats ────────────────────────────────────────────── */
   const totalRevenue = orders.reduce((s, o) => s + Number(o.totalAmount || 0), 0);
-  const delivered    = orders.filter((o) => o.orderStatus?.toLowerCase() === "delivered").length;
-  const pending      = orders.filter((o) => o.paymentStatus?.toLowerCase() === "pending").length;
+  const delivered = orders.filter((o) => o.orderStatus?.toLowerCase() === "delivered").length;
+  const pending = orders.filter((o) => o.paymentStatus?.toLowerCase() === "pending").length;
 
   return (
     <div className="space-y-6 text-[#2f1618] dark:text-[#fff3dc]">
@@ -535,10 +562,10 @@ export default function Invoices() {
           {/* Stats cards */}
           <div className="flex gap-3 flex-wrap">
             {[
-              { label: "Total Orders",    value: pagination.total, color: "text-violet-600 dark:text-violet-400",  bg: "bg-violet-50 dark:bg-violet-500/10",  icon: <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5"><path d="M9 12H15M9 8H15M9 16H12M7 4H4C3.44772 4 3 4.44772 3 5V20C3 20.5523 3.44772 21 4 21H20C20.5523 21 21 20.5523 21 20V5C21 4.44772 20.5523 4 20 4H17M7 4C7 4 7 2 12 2C17 2 17 4 17 4M7 4H17" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg> },
-              { label: "Delivered",       value: delivered,        color: "text-emerald-600 dark:text-emerald-400", bg: "bg-emerald-50 dark:bg-emerald-500/10", icon: <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5"><path d="M5 13L9 17L19 7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg> },
-              { label: "Pending Payment", value: pending,          color: "text-amber-600 dark:text-amber-400",    bg: "bg-amber-50 dark:bg-amber-500/10",     icon: <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5"><path d="M12 6V12L16 14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/><circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.8"/></svg> },
-              { label: "Revenue",         value: fmt(totalRevenue),color: "text-[#8B1E3F] dark:text-[#f7a8b8]",   bg: "bg-rose-50 dark:bg-rose-500/10",       icon: <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5"><path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2z" stroke="currentColor" strokeWidth="1.8"/><path d="M12 6v2M12 16v2M8.5 9.5a3.5 1.5 0 117 0c0 1.5-7 1.5-7 3a3.5 1.5 0 107 0" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg> },
+              { label: "Total Orders", value: pagination.total, color: "text-violet-600 dark:text-violet-400", bg: "bg-violet-50 dark:bg-violet-500/10", icon: <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5"><path d="M9 12H15M9 8H15M9 16H12M7 4H4C3.44772 4 3 4.44772 3 5V20C3 20.5523 3.44772 21 4 21H20C20.5523 21 21 20.5523 21 20V5C21 4.44772 20.5523 4 20 4H17M7 4C7 4 7 2 12 2C17 2 17 4 17 4M7 4H17" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg> },
+              { label: "Delivered", value: delivered, color: "text-emerald-600 dark:text-emerald-400", bg: "bg-emerald-50 dark:bg-emerald-500/10", icon: <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5"><path d="M5 13L9 17L19 7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg> },
+              { label: "Pending Payment", value: pending, color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-50 dark:bg-amber-500/10", icon: <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5"><path d="M12 6V12L16 14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /><circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.8" /></svg> },
+              { label: "Revenue", value: fmt(totalRevenue), color: "text-[#8B1E3F] dark:text-[#f7a8b8]", bg: "bg-rose-50 dark:bg-rose-500/10", icon: <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5"><path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2z" stroke="currentColor" strokeWidth="1.8" /><path d="M12 6v2M12 16v2M8.5 9.5a3.5 1.5 0 117 0c0 1.5-7 1.5-7 3a3.5 1.5 0 107 0" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg> },
             ].map(({ label, value, color, bg, icon }) => (
               <div key={label} className={`flex items-center gap-3 rounded-2xl border border-[var(--admin-border)] ${bg} px-4 py-3 min-w-[130px]`}>
                 <span className={color}>{icon}</span>
@@ -566,8 +593,8 @@ export default function Invoices() {
           {/* Search */}
           <div className="flex flex-1 min-w-[220px] items-center gap-2 rounded-xl border border-[#d7c3a3] bg-white/70 px-3 dark:border-white/10 dark:bg-white/5">
             <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4 shrink-0 text-[var(--admin-primary)]">
-              <circle cx="11" cy="11" r="8" stroke="currentColor" strokeWidth="1.8"/>
-              <path d="M21 21L16.65 16.65" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+              <circle cx="11" cy="11" r="8" stroke="currentColor" strokeWidth="1.8" />
+              <path d="M21 21L16.65 16.65" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
             </svg>
             <input
               type="search"
@@ -605,12 +632,22 @@ export default function Invoices() {
             className="inline-flex items-center gap-2 rounded-xl border border-[#d7bf9b] px-3 py-2 text-sm font-medium text-[#6f3945] hover:bg-[#8B1E3F]/10 dark:border-white/20 dark:text-[#f7e3c0] transition-colors"
           >
             <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4">
-              <path d="M4 4V9H9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M20 20V15H15" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M20.49 9A9 9 0 0 0 5.64 5.64L4 9M4 15l1.64 3.36A9 9 0 0 0 20.36 15" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M4 4V9H9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M20 20V15H15" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M20.49 9A9 9 0 0 0 5.64 5.64L4 9M4 15l1.64 3.36A9 9 0 0 0 20.36 15" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
             Refresh
           </button>
+
+          {selectedIds.length > 0 && (
+            <button
+              type="button"
+              onClick={handleDeleteSelected}
+              className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 transition-colors shadow-sm"
+            >
+              Delete Selected ({selectedIds.length})
+            </button>
+          )}
         </div>
 
         {/* Table */}
@@ -622,7 +659,7 @@ export default function Invoices() {
         ) : !orders.length ? (
           <div className="flex flex-col items-center justify-center py-16 gap-3">
             <svg viewBox="0 0 24 24" fill="none" className="h-12 w-12 text-[#d8c4a5] dark:text-white/10">
-              <path d="M9 12H15M9 8H15M9 16H12M7 4H4C3.44772 4 3 4.44772 3 5V20C3 20.5523 3.44772 21 4 21H20C20.5523 21 21 20.5523 21 20V5C21 4.44772 20.5523 4 20 4H17M7 4C7 4 7 2 12 2C17 2 17 4 17 4M7 4H17" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M9 12H15M9 8H15M9 16H12M7 4H4C3.44772 4 3 4.44772 3 5V20C3 20.5523 3.44772 21 4 21H20C20.5523 21 21 20.5523 21 20V5C21 4.44772 20.5523 4 20 4H17M7 4C7 4 7 2 12 2C17 2 17 4 17 4M7 4H17" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
             <p className="text-sm text-[#7b5a4b] dark:text-[#dbcdb8]/70">No orders found.</p>
           </div>
@@ -631,7 +668,7 @@ export default function Invoices() {
             {/* Order count badge */}
             <div className="mb-3 flex items-center gap-2">
               <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4 text-[var(--admin-primary)]">
-                <path d="M9 12H15M9 8H15M9 16H12M7 4H4C3.44772 4 3 4.44772 3 5V20C3 20.5523 3.44772 21 4 21H20C20.5523 21 21 20.5523 21 20V5C21 4.44772 20.5523 4 20 4H17M7 4C7 4 7 2 12 2C17 2 17 4 17 4M7 4H17" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M9 12H15M9 8H15M9 16H12M7 4H4C3.44772 4 3 4.44772 3 5V20C3 20.5523 3.44772 21 4 21H20C20.5523 21 21 20.5523 21 20V5C21 4.44772 20.5523 4 20 4H17M7 4C7 4 7 2 12 2C17 2 17 4 17 4M7 4H17" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
               <span className="text-sm font-semibold">Orders ({pagination.total})</span>
             </div>
@@ -639,7 +676,16 @@ export default function Invoices() {
             <div className="admin-table-wrap overflow-x-auto">
               <table className="admin-table min-w-full text-left text-sm">
                 <thead>
+
                   <tr className="border-b border-[#e6d8c5] text-xs uppercase tracking-[0.18em] text-[#7f5a4f] dark:border-white/10 dark:text-[#e7c98b]">
+                    <th className="px-4 py-3 font-semibold">
+                      <input
+                        type="checkbox"
+                        checked={orders.length > 0 && selectedIds.length === orders.length}
+                        onChange={(event) => toggleAll(event.target.checked)}
+                        className="h-4 w-4 rounded-[4px] border border-[#d7c3a3]"
+                      />
+                    </th>
                     <th className="px-4 py-3 font-semibold">Order ID</th>
                     <th className="px-4 py-3 font-semibold">Customer</th>
                     <th className="px-4 py-3 font-semibold">Date</th>
@@ -655,6 +701,22 @@ export default function Invoices() {
                       key={order._id}
                       className="border-b border-[#f0e3d1] align-middle last:border-none dark:border-white/10 hover:bg-[#fdf8f2] dark:hover:bg-white/[0.03] transition-colors"
                     >
+                      {/* Checkbox */}
+                      <td className="px-4 py-3">
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.includes(order._id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedIds((prev) => [...prev, order._id]);
+                            } else {
+                              setSelectedIds((prev) => prev.filter((id) => id !== order._id));
+                            }
+                          }}
+                          className="h-4 w-4 rounded-[4px] border border-[#d7c3a3]"
+                        />
+                      </td>
+
                       {/* Order ID */}
                       <td className="px-4 py-3">
                         <span className="font-mono text-xs font-semibold text-[#6f3945] dark:text-[#f7e3c0]">
@@ -713,7 +775,7 @@ export default function Invoices() {
                           ) : (
                             <>
                               <svg viewBox="0 0 24 24" fill="none" className="h-3.5 w-3.5">
-                                <path d="M9 12H15M9 8H15M9 16H12M7 4H4C3.44772 4 3 4.44772 3 5V20C3 20.5523 3.44772 21 4 21H20C20.5523 21 21 20.5523 21 20V5C21 4.44772 20.5523 4 20 4H17M7 4C7 4 7 2 12 2C17 2 17 4 17 4M7 4H17" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                                <path d="M9 12H15M9 8H15M9 16H12M7 4H4C3.44772 4 3 4.44772 3 5V20C3 20.5523 3.44772 21 4 21H20C20.5523 21 21 20.5523 21 20V5C21 4.44772 20.5523 4 20 4H17M7 4C7 4 7 2 12 2C17 2 17 4 17 4M7 4H17" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
                               </svg>
                               Generate
                             </>

@@ -1,5 +1,18 @@
 import mongoose from "mongoose";
 
+const timeSlotSchema = new mongoose.Schema(
+  {
+    time: { type: String, required: true, trim: true },
+    status: {
+      type: String,
+      required: true,
+      trim: true,
+      default: "available",
+    },
+  },
+  { _id: false }
+);
+
 const availabilityEntrySchema = new mongoose.Schema(
   {
     date: { type: String, required: true, trim: true },
@@ -8,6 +21,10 @@ const availabilityEntrySchema = new mongoose.Schema(
       // enum: ["available", "booked", "not_available"],
       required: true,
       trim: true,
+    },
+    slots: {
+      type: [timeSlotSchema],
+      default: [],
     },
   },
   { _id: false }

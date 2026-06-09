@@ -401,7 +401,7 @@ export default function Categories() {
                       </td>
                       <td className="px-4 py-3 font-semibold text-[#2f1618] dark:text-[#fff3dc]">{category.name}</td>
                       <td className="px-4 py-3 text-sm text-[#6f3945] dark:text-[#f7e3c0]">{category.code || "-"}</td>
-                      <td className="px-4 py-3 text-sm text-[#6f3945] dark:text-[#f7e3c0]">{category.description || "-"}</td>
+                      <td className="px-4 py-3 text-sm text-[#6f3945] dark:text-[#f7e3c0] max-w-[300px]"><span className="line-clamp-2" title={category.description}>{category.description || "-"}</span></td>
                       <td className="px-4 py-3 text-sm text-[#6f3945] dark:text-[#f7e3c0]">{category.subCategory || "-"}</td>
                       <td className="px-4 py-3">
                         <span className={`rounded-full px-2.5 py-1 text-xs font-semibold uppercase ${category.status === "inactive" ? "bg-red-100 text-red-700" : "bg-emerald-100 text-emerald-700"}`}>

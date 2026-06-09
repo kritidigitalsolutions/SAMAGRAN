@@ -6,6 +6,7 @@ import {
   resolveCity,
   getRitualTitlesAvailableInCity,
   sendCityRequired,
+  getVendorIdsByCity,
 } from "../../utils/locationFilter.js";
 
 const normalizeName = (value = "") => String(value || "").trim().toLowerCase();
@@ -195,20 +196,38 @@ export const getRitualsForBooking = async (req, res) => {
     let rituals;
 
     if (city) {
-      // ── City provided: filter rituals to those offered by pandits in this city
-      const availableTitles = await getRitualTitlesAvailableInCity(city);
+      const escapeRegex = (val) => String(val || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const cityRegex = { $regex: `^${escapeRegex(city.trim())}$`, $options: "i" };
 
-      if (availableTitles.size === 0) {
-        rituals = [];
-      } else {
-        rituals = await Ritual.find({ status: "active" })
-          .sort({ createdAt: -1 })
-          .lean();
+      // Get vendor IDs active in this city (or global ones)
+      const vendorIds = await getVendorIdsByCity(city) || [];
 
-        rituals = rituals.filter(
-          (r) => availableTitles.has(String(r.title || "").trim().toLowerCase())
-        );
-      }
+      // Return rituals that are:
+      // 1. Global (no vendor, no pandit)
+      // 2. Pandit-created custom rituals for this city
+      // 3. Vendor-created rituals for this city (vendor's city matches)
+      rituals = await Ritual.find({
+        status: "active",
+        $or: [
+          // A. Global admin-created rituals
+          { vendorId: null, panditId: null },
+          { vendorId: { $exists: false }, panditId: { $exists: false } },
+          
+          // B. Pandit-created custom rituals matching the city
+          {
+            vendorId: null,
+            panditId: { $ne: null, $exists: true },
+            city: cityRegex,
+          },
+
+          // C. Vendor-created rituals matching the city
+          {
+            vendorId: { $in: vendorIds },
+          },
+        ],
+      })
+        .sort({ createdAt: -1 })
+        .lean();
     } else {
       // ── No city: return all active rituals
       rituals = await Ritual.find({ status: "active" })

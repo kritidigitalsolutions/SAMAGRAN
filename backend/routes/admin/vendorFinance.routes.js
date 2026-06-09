@@ -7,6 +7,7 @@ import {
   getVendorTransactions,
   getVendorWithdrawals,
   getSuperAdminCommissionReport,
+  deleteVendorTransaction,
 } from "../../controllers/admin/vendorFinance.controller.js";
 
 const router = express.Router();
@@ -17,5 +18,6 @@ router.get("/vendor/withdrawals", protectAdmin, getVendorWithdrawals);
 router.post("/vendor/withdrawals", protectAdmin, createVendorWithdrawal);
 router.get("/vendor/refunds", protectAdmin, getVendorRefunds);
 router.get("/vendor/commission-report", protectAdmin, getSuperAdminCommissionReport);
+router.delete("/vendor/transactions/:id", protectAdmin, deleteVendorTransaction);
 
 export default router;

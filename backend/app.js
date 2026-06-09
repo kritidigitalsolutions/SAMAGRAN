@@ -109,6 +109,7 @@ import vendorProfileRoutes from "./routes/admin/vendorProfile.routes.js";
 import vendorFinanceRoutes from "./routes/admin/vendorFinance.routes.js";
 import adminBrandRoutes from "./routes/admin/brand.routes.js";
 import adminCategoryRoutes from "./routes/admin/category.routes.js";
+import adminCategoryCommissionRoutes from "./routes/admin/categoryCommission.routes.js";
 
 import authRoutes from "./routes/user/auth.routes.js";
 import panditAuthRoutes from "./routes/pandit/pandit.auth.routes.js";
@@ -226,6 +227,7 @@ app.use("/api/admin", vendorProfileRoutes);
 app.use("/api/admin", vendorFinanceRoutes);
 app.use("/api/admin", adminBrandRoutes);
 app.use("/api/admin", adminCategoryRoutes);
+app.use("/api/admin", adminCategoryCommissionRoutes);
 
 // ############ User Routes ##########################
 

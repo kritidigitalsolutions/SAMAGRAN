@@ -1,8 +1,9 @@
 import express from "express";
-import { vendorSignup } from "../../controllers/vendor/vendor.auth.controller.js";
+import { vendorLogin } from "../../controllers/vendor/vendor.auth.controller.js";
 
 const router = express.Router();
 
-router.post("/signup", vendorSignup);
+router.post("/login", vendorLogin);
 
 export default router;
+

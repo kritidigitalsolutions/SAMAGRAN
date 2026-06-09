@@ -196,13 +196,11 @@ export default function Dashboard() {
                 Synced with backend
               </div>
             </div>
-          </div>
-
-          <div className="rounded-[24px] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] p-5">
+          <div className="pt-5  w-full">
             <p className="text-xs uppercase tracking-[0.35em] text-[var(--admin-primary)]">Stats</p>
-            <div className="mt-4 grid gap-3">
+            <div className="mt-4 grid grid-flow-row grid-cols-4 gap-4">
               {metrics.map((metric) => (
-                <div key={metric.title} className="rounded-xl border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 py-3">
+                <div key={metric.title} className="rounded-xl w-auto border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 py-3">
                   <p className="text-xs text-[var(--admin-muted)]">{metric.title}</p>
                   <p className={`text-2xl font-bold ${metric.tone}`}>{metric.value}</p>
                   <p className="text-xs text-[var(--admin-muted)]">{metric.sub}</p>
@@ -210,6 +208,8 @@ export default function Dashboard() {
               ))}
             </div>
           </div>
+          </div>
+
         </div>
       </section>
 

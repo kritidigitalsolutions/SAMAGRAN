@@ -1,5 +1,6 @@
 import VendorWithdrawal from "../../models/vendorWithdrawal.model.js";
 import Vendor from "../../models/vendor.model.js";
+import Order from "../../models/order.model.js";
 import { buildVendorFinance, toMoney, normalizeOrderStatus } from "../../utils/vendorFinance.js";
 
 const resolveVendorScope = (req) => {
@@ -279,3 +280,29 @@ export const getSuperAdminCommissionReport = async (req, res) => {
     return res.status(500).json({ success: false, message: error.message || "Unable to load commission report" });
   }
 };
+
+export const deleteVendorTransaction = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (id.endsWith("-earning")) {
+      const orderId = id.replace("-earning", "");
+      await Order.findByIdAndDelete(orderId);
+    } else if (id.endsWith("-commission")) {
+      const orderId = id.replace("-commission", "");
+      await Order.findByIdAndDelete(orderId);
+    } else {
+      // Try deleting withdrawal first
+      const withdrawal = await VendorWithdrawal.findByIdAndDelete(id);
+      if (!withdrawal) {
+        // If not withdrawal, delete order
+        await Order.findByIdAndDelete(id);
+      }
+    }
+
+    return res.json({ success: true, message: "Transaction deleted successfully" });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message || "Unable to delete transaction" });
+  }
+};
+

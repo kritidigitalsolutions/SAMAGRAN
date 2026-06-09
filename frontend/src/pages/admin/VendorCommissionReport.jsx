@@ -117,20 +117,22 @@ export default function VendorCommissionReport() {
               </tr>
             </thead>
             <tbody>
-              {(report.vendors || []).map((entry) => (
-                <tr key={entry.vendor?._id} className="border-t border-[var(--admin-border)]">
-                  <td className="px-4 py-3">
-                    <p className="font-semibold">{entry.vendor?.businessName || entry.vendor?.name}</p>
-                    <p className="text-xs text-[var(--admin-text-muted)]">{entry.vendor?.phone || entry.vendor?.email}</p>
-                  </td>
-                  <td className="px-4 py-3">{entry.totalOrders}</td>
-                  <td className="px-4 py-3">{formatMoney(entry.totalRevenue)}</td>
-                  <td className="px-4 py-3 text-emerald-700">{formatMoney(entry.vendorNetEarning)}</td>
-                  <td className="px-4 py-3 text-[#8B1E3F]">{formatMoney(entry.superAdminCommission)}</td>
-                  <td className="px-4 py-3">{formatMoney(entry.pendingPayout)}</td>
-                  <td className="px-4 py-3">{formatMoney(entry.availableBalance)}</td>
-                </tr>
-              ))}
+              {(report.vendors || [])
+                .filter((entry) => selectedVendorId === "all" || String(entry.vendor?._id) === selectedVendorId)
+                .map((entry) => (
+                  <tr key={entry.vendor?._id} className="border-t border-[var(--admin-border)]">
+                    <td className="px-4 py-3">
+                      <p className="font-semibold">{entry.vendor?.businessName || entry.vendor?.name}</p>
+                      <p className="text-xs text-[var(--admin-text-muted)]">{entry.vendor?.phone || entry.vendor?.email}</p>
+                    </td>
+                    <td className="px-4 py-3">{entry.totalOrders}</td>
+                    <td className="px-4 py-3">{formatMoney(entry.totalRevenue)}</td>
+                    <td className="px-4 py-3 text-emerald-700">{formatMoney(entry.vendorNetEarning)}</td>
+                    <td className="px-4 py-3 text-[#8B1E3F]">{formatMoney(entry.superAdminCommission)}</td>
+                    <td className="px-4 py-3">{formatMoney(entry.pendingPayout)}</td>
+                    <td className="px-4 py-3">{formatMoney(entry.availableBalance)}</td>
+                  </tr>
+                ))}
             </tbody>
           </table>
         </div>

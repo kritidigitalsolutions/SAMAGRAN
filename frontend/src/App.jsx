@@ -12,6 +12,7 @@ import Users from "./pages/Users";
 import Orders from "./pages/Orders";
 import Items from "./pages/Items";
 import Category from "./pages/Categories";
+import CategoryCommission from "./pages/CategoryCommission";
 import Brands from "./pages/Brands";
 import Pandits from "./pages/Pandits";
 import PanditBookings from "./pages/PanditBookings";
@@ -30,7 +31,6 @@ import Withdrawals from "./pages/Withdrawals";
 import Refunds from "./pages/Refunds";
 import DeliveryLogin from "./pages/DeliveryLogin";
 import DeliveryDashboard from "./pages/DeliveryDashboard";
-import VendorSignup from "./pages/vendor/VendorSignup";
 import Vendors from "./pages/admin/Vendors";
 import VendorSettings from "./pages/VendorSettings";
 import VendorDetails from "./pages/admin/VendorDetails";
@@ -44,7 +44,7 @@ function HostEntry() {
   const role = getHostRole();
 
   if (role === "vendor") {
-    return <Navigate to="/vendor/signup" replace />;
+    return <Navigate to="/vendor/login" replace />;
   }
 
   if (role === "delivery") {
@@ -69,7 +69,7 @@ function App() {
           </DeliveryRoute>
         }
       />
-      <Route path="/vendor/signup" element={<VendorSignup />} />
+      <Route path="/vendor/login" element={<AdminLogin />} />
 
       {/* Protected Routes with Layout */}
       <Route
@@ -87,6 +87,7 @@ function App() {
         <Route path="invoices" element={<AccessRoute pageKey="orders"><Invoices /></AccessRoute>} />
         <Route path="items" element={<AccessRoute pageKey="products"><Items /></AccessRoute>} />
         <Route path="category" element={<AccessRoute pageKey="category"><Category /></AccessRoute>} />
+        <Route path="category-commission" element={<AccessRoute pageKey="category-commission"><CategoryCommission /></AccessRoute>} />
         <Route path="brands" element={<AccessRoute pageKey="brands"><Brands /></AccessRoute>} />
         <Route path="kits" element={<AccessRoute pageKey="kits"><Kits /></AccessRoute>} />
         <Route path="pandits" element={<AccessRoute pageKey="pandits"><Pandits /></AccessRoute>} />

@@ -48,6 +48,19 @@ const normalizeAvailability = ({ availability, year, month }) => {
   availability.forEach((entry, index) => {
     const date = String(entry?.date || "").trim();
     const status = String(entry?.status || "").trim();
+    const slots = Array.isArray(entry?.slots)
+      ? entry.slots
+          .map((slot) => {
+            const time = String(slot?.time || "").trim();
+            const slotStatus = String(slot?.status || "").trim();
+            if (!time) return null;
+            return {
+              time,
+              status: VALID_STATUSES.has(slotStatus) ? slotStatus : "available",
+            };
+          })
+          .filter(Boolean)
+      : [];
 
     if (!date || !status) {
       errors.push(`availability[${index}] requires date and status`);
@@ -64,7 +77,7 @@ const normalizeAvailability = ({ availability, year, month }) => {
       return;
     }
 
-    data.push({ date, status });
+    data.push({ date, status, slots });
   });
 
   if (errors.length) {

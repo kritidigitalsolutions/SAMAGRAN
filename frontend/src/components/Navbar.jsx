@@ -189,8 +189,8 @@ export default function Navbar({ onMenuClick, onToggleSidebar, sidebarCollapsed 
           <div
             className="relative"
             ref={bellRef}
-            // onMouseEnter={() => setBellOpen(true)}
-            // onMouseLeave={() => setBellOpen(false)}
+          // onMouseEnter={() => setBellOpen(true)}
+          // onMouseLeave={() => setBellOpen(false)}
           >
             <button
               type="button"
@@ -305,36 +305,36 @@ export default function Navbar({ onMenuClick, onToggleSidebar, sidebarCollapsed 
             </button>
 
             {profileOpen && (
-  <div className="absolute right-0 mt-3 w-56 overflow-hidden rounded-2xl border border-[var(--admin-border)] bg-[var(--admin-surface)] p-2 shadow-[var(--admin-shadow)]">
+              <div className="absolute right-0 mt-3 w-56 overflow-hidden rounded-2xl border border-[var(--admin-border)] bg-[var(--admin-surface)] p-2 shadow-[var(--admin-shadow)]">
 
-    <button className="flex w-full flex-col items-start rounded-xl px-4 py-3 text-sm font-medium text-[var(--admin-text)]">
-      <span>{adminName}</span>
-      <span className="mt-1 text-xs font-normal text-[var(--admin-muted)]">
-        {admin?.email || "Admin profile"}
-      </span>
-    </button>
+                <button className="flex w-full flex-col items-start rounded-xl px-4 py-3 text-sm font-medium text-[var(--admin-text)]">
+                  <span>{adminName}</span>
+                  <span className="mt-1 text-xs font-normal text-[var(--admin-muted)]">
+                    {admin?.email || "Admin profile"}
+                  </span>
+                </button>
 
-    {isVendor && (
-      <button
-        onClick={() => {
-          setProfileOpen(false);
-          navigate("/dashboard/settings");
-        }}
-        className="flex w-full items-center rounded-xl px-4 py-3 text-sm font-medium text-[var(--admin-text)]"
-      >
-        Account Settings
-      </button>
-    )}
+                {isVendor && (
+                  <button
+                    onClick={() => {
+                      setProfileOpen(false);
+                      navigate("/dashboard/settings");
+                    }}
+                    className="flex w-full items-center rounded-xl px-4 py-3 text-sm font-medium text-[var(--admin-text)]"
+                  >
+                    Account Settings
+                  </button>
+                )}
 
-    <button
-      onClick={handleLogout}
-      className="flex w-full items-center rounded-xl px-4 py-3 text-sm font-medium text-[var(--admin-primary)]"
-    >
-      Sign out
-    </button>
+                <button
+                  onClick={handleLogout}
+                  className="flex w-full items-center rounded-xl px-4 py-3 text-sm font-medium text-[var(--admin-primary)]"
+                >
+                  Sign out
+                </button>
 
-  </div>
-)}
+              </div>
+            )}
           </div>
         </div>
       </div>

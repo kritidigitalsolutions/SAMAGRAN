@@ -3,6 +3,7 @@ import Category from "../models/category.model.js";
 import Order from "../models/order.model.js";
 import Item from "../models/product.model.js";
 import VendorWithdrawal from "../models/vendorWithdrawal.model.js";
+import CategoryCommission from "../models/categoryCommission.model.js";
 
 const DELIVERED = "delivered";
 const CANCELLED = "cancelled";
@@ -37,7 +38,7 @@ export const buildCommissionLines = async (orders = []) => {
   let productCategoryMap = new Map();
   if (productIds.size) {
     const products = await Item.find({ _id: { $in: buildObjectIds([...productIds]) } })
-      .select("categoryId title")
+      .select("categoryId title category")
       .lean();
     productCategoryMap = new Map(products.map((product) => [String(product._id), product]));
     products.forEach((product) => {
@@ -50,6 +51,9 @@ export const buildCommissionLines = async (orders = []) => {
     .lean();
   const categoryMap = new Map(categories.map((category) => [String(category._id), category]));
 
+  // Fetch all active category commissions
+  const categoryCommissions = await CategoryCommission.find({ status: "active" }).lean();
+
   return orders.map((order) => {
     const lines = (order.items || []).map((item) => {
       const productDoc = item.product && typeof item.product === "object" ? item.product : productCategoryMap.get(String(item.product || ""));
@@ -57,16 +61,48 @@ export const buildCommissionLines = async (orders = []) => {
       const category = categoryMap.get(categoryId);
       const quantity = Number(item.quantity || 0);
       const grossAmount = toMoney(Number(item.price || 0) * quantity);
-      const commissionPercent = Number(category?.superAdminCommissionPercent || 0);
-      const superAdminCommission = toMoney((grossAmount * commissionPercent) / 100);
-      const vendorNetEarning = toMoney(Math.max(grossAmount - superAdminCommission, 0));
+
+      // Find customized category commission
+      const itemSubCategory = String(productDoc?.category?.subCategory || category?.subCategory || "").trim();
+      
+      let commissionRule = categoryCommissions.find(
+        (c) => String(c.categoryId) === String(categoryId) && c.subCategory.toLowerCase() === itemSubCategory.toLowerCase()
+      );
+      if (!commissionRule) {
+        // Fallback to "All" subcategories for this category
+        commissionRule = categoryCommissions.find(
+          (c) => String(c.categoryId) === String(categoryId) && c.subCategory.toLowerCase() === "all"
+        );
+      }
+
+      let commissionPercent = 0;
+      let superAdminCommission = 0;
+      let vendorNetEarning = grossAmount;
+
+      if (commissionRule) {
+        if (commissionRule.commissionType === "Percentage (%)") {
+          commissionPercent = Number(commissionRule.superAdminSharePercent || 0);
+          superAdminCommission = toMoney((grossAmount * commissionPercent) / 100);
+          vendorNetEarning = toMoney(Math.max(grossAmount - superAdminCommission, 0));
+        } else {
+          // Flat Amount (₹)
+          const flatAmt = Number(commissionRule.superAdminShareFlat || 0) * quantity;
+          superAdminCommission = toMoney(flatAmt);
+          vendorNetEarning = toMoney(Math.max(grossAmount - superAdminCommission, 0));
+          commissionPercent = grossAmount > 0 ? toMoney((superAdminCommission / grossAmount) * 100) : 0;
+        }
+      } else {
+        commissionPercent = Number(category?.superAdminCommissionPercent || 0);
+        superAdminCommission = toMoney((grossAmount * commissionPercent) / 100);
+        vendorNetEarning = toMoney(Math.max(grossAmount - superAdminCommission, 0));
+      }
 
       return {
         productId: productDoc?._id || item.product || null,
         productName: productDoc?.title || item.product?.title || "",
         categoryId: category?._id || categoryId || null,
         categoryName: category?.name || "",
-        subCategory: category?.subCategory || "",
+        subCategory: itemSubCategory || category?.subCategory || "",
         quantity,
         grossAmount,
         commissionPercent,

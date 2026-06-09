@@ -23,7 +23,7 @@ export default function TablePagination({
           disabled={page <= 1}
           className="rounded-lg border border-[var(--admin-border)] text-black dark:text-white px-2.5 py-1.5 text-xs "
         >
-          Prev
+          <span className="opacity-30 hover:opacity-100 cursor-pointer transition-all duration-200">Prev</span>
         </button>
         <span className="text-xs text-[var(--admin-text)]">
           {page} / {totalPages}
@@ -34,7 +34,7 @@ export default function TablePagination({
           disabled={page >= totalPages}
           className="rounded-lg border border-[var(--admin-border)]  text-black dark:text-white px-2.5 py-1.5 text-xs "
         >
-          Next
+          <span className="opacity-30 hover:opacity-100 cursor-pointer transition-all duration-200">Next</span>
         </button>
         {showPageSize && (
           <select

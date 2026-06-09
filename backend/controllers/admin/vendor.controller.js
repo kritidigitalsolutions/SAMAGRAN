@@ -261,6 +261,8 @@ export const updateVendor = async (req, res) => {
   }
 };
 
+
+
 export const approveVendor = async (req, res) => {
   try {
     const vendor = await Vendor.findById(req.params.id);
@@ -296,5 +298,26 @@ export const updateVendorPageAccess = async (req, res) => {
     return res.json({ success: true, data: { vendor } });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message || "Unable to update vendor access" });
+  }
+};
+
+export const deleteVendor = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const vendor = await Vendor.findByIdAndDelete(id);
+    if (!vendor) {
+      return res.status(404).json({ success: false, message: "Vendor not found" });
+    }
+
+    // Delete corresponding Admin credentials
+    await Admin.deleteOne({ vendorId: id });
+
+    // Delete associated products/items
+    await Item.deleteMany({ vendorId: id });
+
+    return res.json({ success: true, message: "Vendor deleted successfully" });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message || "Unable to delete vendor" });
   }
 };

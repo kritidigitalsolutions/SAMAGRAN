@@ -3,6 +3,9 @@ import API from "../api/axios";
 import { Navigate, useNavigate } from "react-router-dom";
 import { isAdminTokenValid, setAdminSession } from "../utils/auth";
 import { BsArrowBarRight } from "react-icons/bs";
+import { getHostRole } from "../utils/hostRouting";
+import ThemeToggle from "../components/ThemeToggle";
+
 
 export default function AdminLogin() {
   const navigate = useNavigate();
@@ -14,13 +17,19 @@ export default function AdminLogin() {
   const [error, setError] = useState("");
   const [showForgot, setShowForgot] = useState(false);
   const [otpStep, setOtpStep] = useState(false);
-  const [changeAdmin, setChangeAdmin] = useState("Admin Login");
+
+  const isVendor = window.location.pathname.includes("/vendor/login") || getHostRole() === "vendor";
+  const changeAdmin = isVendor ? "Vendor Login" : "Admin Login";
 
   const handleOnChange = () => {
-    if (changeAdmin === "Admin Login") {
-      setChangeAdmin("Vendor Login");
+    if (isVendor) {
+      if (window.location.hostname.endsWith(".localhost") || getHostRole() === "vendor") {
+        window.location.href = "http://localhost:3000/admin/login";
+      } else {
+        navigate("/admin/login");
+      }
     } else {
-      setChangeAdmin("Admin Login");
+      navigate("/vendor/login");
     }
   };
 
@@ -48,7 +57,8 @@ export default function AdminLogin() {
     setError("");
 
     try {
-      const res = await API.post("/admin/auth/login", form);
+      const endpoint = isVendor ? "/vendor/auth/login" : "/admin/auth/login";
+      const res = await API.post(endpoint, form);
 
       setAdminSession(res.data.token, res.data.admin);
 
@@ -107,7 +117,10 @@ export default function AdminLogin() {
   };
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden px-4">
+    <div className="relative flex min-h-screen flex-col items-center gap-20 overflow-hidden px-4">
+      <div className="w-full flex items-center justify-end top mt-10">
+        <ThemeToggle />
+      </div>
       <div className="absolute -left-20 top-10 h-64 w-64 rounded-full bg-[#D4AF37]/20 blur-3xl" />
       <div className="absolute -right-10 bottom-0 h-72 w-72 rounded-full bg-[#8B1E3F]/20 blur-3xl" />
 
@@ -127,16 +140,16 @@ export default function AdminLogin() {
             <div className="relative flex items-center overflow-hidden w-[90px] h-[30px]">
               <span
                 className="
-        absolute
-        right-6
-        whitespace-nowrap
-        translate-x-full
-        opacity-0
-        transition-all
-        duration-500
-        ease-in-out
-        group-hover:translate-x-0
-        group-hover:opacity-100
+                absolute
+                right-6
+                whitespace-nowrap
+                translate-x-full
+                opacity-0
+                transition-all
+                duration-500
+                ease-in-out
+                group-hover:translate-x-0
+                group-hover:opacity-100
       "
               >
                 SWITCH
@@ -144,12 +157,13 @@ export default function AdminLogin() {
 
               <BsArrowBarRight
                 className="
-        absolute
-        right-0
-        text-[25px]
-        bg-white
-        z-10
-      "
+                absolute
+                right-0
+                text-[25px]
+                bg-white
+                // dark:bg-[#0f1218]
+                backdrop-blur-xl dark:border-white/10 dark:bg-[var(--admin-surface)]
+                z-10"
               />
             </div>
           </div>
@@ -160,14 +174,14 @@ export default function AdminLogin() {
         </h2>
 
         <form onSubmit={handleLogin} className="mt-6 space-y-4">
-          <input
+          {/* <input
             type="email"
             name="email"
-            placeholder="Admin Email"
+            placeholder={isVendor ? "Vendor Email" : "Admin Email"}
             value={form.email}
             onChange={handleChange}
             autoComplete="username"
-            className="h-12 w-full rounded-xl border border-[#d8c4a5] bg-white/80 px-4 text-[#2f1618] outline-none ring-[#D4AF37] placeholder:text-[#8c7461] focus:ring-2 dark:border-white/10 dark:bg-white/5 dark:text-[#f8edd7]"
+            className="h-12 w-full rounded-xl border border-[#d8c4a5] bg-white/80 px-4 text-[#2f1618] outline-none ring-[#D4AF37] placeholder:text-[#8c7461] focus:ring-2 dark:border-white/10 dark:bg-[#0f1218] dark:text-[#f8edd7]"
             required
           />
 
@@ -180,7 +194,56 @@ export default function AdminLogin() {
             autoComplete="current-password"
             className="h-12 w-full rounded-xl border border-[#d8c4a5] bg-white/80 px-4 text-[#2f1618] outline-none ring-[#D4AF37] placeholder:text-[#8c7461] focus:ring-2 dark:border-white/10 dark:bg-white/5 dark:text-[#f8edd7]"
             required
-          />
+          /> */}
+          <input
+  type="email"
+  name="email"
+  placeholder={isVendor ? "Vendor Email" : "Admin Email"}
+  value={form.email}
+  onChange={handleChange}
+  autoComplete="username"
+  className="
+    h-12 w-full rounded-xl border
+    border-[#d8c4a5]
+    bg-white
+    px-4
+    text-[#2f1618]
+    placeholder:text-[#8c7461]
+    outline-none
+    focus:ring-2 focus:ring-[#D4AF37]
+
+    dark:border-gray-700
+    dark:bg-[#1a1f2b]
+    dark:text-white
+    dark:placeholder:text-gray-400
+  "
+  required
+/>
+
+<input
+  type="password"
+  name="password"
+  placeholder="Password"
+  value={form.password}
+  onChange={handleChange}
+  autoComplete="current-password"
+  className="
+    h-12 w-full rounded-xl border
+    border-[#d8c4a5]
+    bg-white
+    px-4
+    text-[#2f1618]
+    placeholder:text-[#8c7461]
+    outline-none
+    focus:ring-2 focus:ring-[#D4AF37]
+
+    dark:border-gray-700
+    dark:bg-[#1a1f2b]
+    dark:text-white
+    dark:placeholder:text-gray-400
+  "
+  required
+/>
 
           {error && <p className="text-sm font-medium text-red-500">{error}</p>}
 
@@ -243,11 +306,10 @@ export default function AdminLogin() {
 
               {forgotStatus.message && (
                 <p
-                  className={`text-xs font-semibold ${
-                    forgotStatus.type === "success"
+                  className={`text-xs font-semibold ${forgotStatus.type === "success"
                       ? "text-emerald-600"
                       : "text-red-500"
-                  }`}
+                    }`}
                 >
                   {forgotStatus.message}
                 </p>
