@@ -30,7 +30,7 @@ export default function Transactions() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const pageSize = 10;
   const [selectedIds, setSelectedIds] = useState([]);
 
   const fetchTransactions = async () => {

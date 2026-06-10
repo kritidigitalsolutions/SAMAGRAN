@@ -285,7 +285,7 @@ export default function Invoices() {
   const [statusFilter, setStatusFilter] = useState("all");
 
   const [selectedOrder, setSelectedOrder] = useState(null);
-  const [loadingDetail, setLoadingDetail] = useState(false);
+  // const [loadingDetail, setLoadingDetail] = useState(false);
   const [generatingId, setGeneratingId] = useState("");
 
   // multiselection toggle
@@ -804,11 +804,11 @@ export default function Invoices() {
       </section>
 
       {/* ── Invoice Preview Modal ─────────────────────────── */}
-      {loadingDetail && (
+      {/* {loadingDetail && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
           <div className="h-12 w-12 rounded-full border-4 border-white/20 border-t-white animate-spin" />
         </div>
-      )}
+      )} */}
 
       {selectedOrder && (
         <InvoicePreview
