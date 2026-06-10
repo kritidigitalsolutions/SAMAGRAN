@@ -2,6 +2,7 @@ import crypto from "crypto";
 import Razorpay from "razorpay";
 import mongoose from "mongoose";
 import Order from "../models/order.model.js";
+import { generateInvoicePdf } from "../utils/invoiceGenerator.js";
 import Cart from "../models/cart.model.js";
 import Item from "../models/product.model.js";
 import FestivalKit from "../models/festivalKit.model.js";
@@ -1376,6 +1377,44 @@ export const rescheduleOrderByUser = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: err.message || "Unable to reschedule order",
+    });
+  }
+};
+
+export const getOrderInvoicePdf = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(orderId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid order id",
+      });
+    }
+
+    const order = await Order.findOne({ _id: orderId, user: req.user._id })
+      .populate("user", "name email phone")
+      .populate("items.product");
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found",
+      });
+    }
+
+    // Set headers for PDF download
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename=invoice-${orderId}.pdf`);
+
+    // Generate PDF and pipe to response
+    generateInvoicePdf(order, res);
+
+  } catch (err) {
+    console.error("Invoice Generation Error:", err);
+    return res.status(500).json({
+      success: false,
+      message: err.message || "Unable to generate invoice PDF",
     });
   }
 };

@@ -11,6 +11,7 @@ import {
 	placeOrder,
 	rescheduleOrderByUser,
 	updateSavedAddress,
+	getOrderInvoicePdf,
 } from "../../controllers/order.controller.js";
 
 const router = express.Router();
@@ -19,6 +20,7 @@ router.post("/payment/razorpay/order", protect, createRazorpayOrder);
 router.post("/place", protect, placeOrder);
 router.get("/my", protect, getMyOrders);
 router.get("/:orderId/tracking", protect, getOrderTracking);
+router.get("/:orderId/invoice", protect, getOrderInvoicePdf);
 router.patch("/:orderId/cancel", protect, cancelOrderByUser);
 router.patch("/:orderId/reschedule", protect, rescheduleOrderByUser);
 router.get("/addresses", protect, getSavedAddresses);

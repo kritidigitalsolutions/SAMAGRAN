@@ -89,7 +89,9 @@ export const getAllCategories = async (req, res) => {
       filter.status = status;
     }
 
-    const vendorFilter = req.admin.role === "vendor" ? { vendorId: null } : {};
+    const vendorFilter = req.admin.role === "vendor"
+      ? { $or: [{ vendorId: req.vendor._id }, { vendorId: null }] }
+      : {};
 
     const searchFilter = search.trim() 
       ? { $or: [{ name: { $regex: search.trim(), $options: "i" } }, { code: { $regex: search.trim(), $options: "i" } }] } 
