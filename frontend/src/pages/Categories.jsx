@@ -8,7 +8,6 @@ const apiOrigin = (API.defaults.baseURL || "http://localhost:8000/api").replace(
 
 const initialForm = {
   name: "",
-  code: "",
   description: "",
   subCategory: "",
   status: "active",
@@ -103,7 +102,6 @@ export default function Categories() {
   const openEdit = (category) => {
     setForm({
       name: category?.name || "",
-      code: category?.code || "",
       description: category?.description || "",
       subCategory: category?.subCategory?._id || category?.subCategory || "",
       status: category?.status || "active",
@@ -141,7 +139,6 @@ export default function Categories() {
 
       const payload = new FormData();
       payload.append("name", form.name.trim());
-      payload.append("code", form.code.trim());
       payload.append("description", form.description.trim());
       payload.append("status", form.status);
       payload.append("subCategory", form.subCategory || "");
@@ -193,7 +190,6 @@ export default function Categories() {
   const buildCategoryPayload = (category, overrides = {}) => {
     const payload = new FormData();
     payload.append("name", String(overrides.name ?? category.name ?? "").trim());
-    payload.append("code", String(overrides.code ?? category.code ?? "").trim());
     payload.append("description", String(overrides.description ?? category.description ?? "").trim());
     payload.append("status", overrides.status ?? category.status ?? "inactive");
     payload.append("subCategory", overrides.subCategory ?? category.subCategory?._id ?? "");
@@ -289,10 +285,6 @@ export default function Categories() {
             <div className="space-y-2">
               <label className="text-sm font-medium">Category Name</label>
               <input name="name" value={form.name} onChange={handleChange} className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20" required />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Code</label>
-              <input name="code" value={form.code} onChange={handleChange} className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20" />
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Sub Category</label>

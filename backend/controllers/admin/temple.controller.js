@@ -1,5 +1,6 @@
 import temple from "../../models/temple.model.js";
 import { uploadFileToFirebase } from "../../utils/firebaseUpload.js";
+import { toTitleCase, normalizeCityList } from "../../utils/cityNormalizer.js";
 
 const normalizeFacilities = (value) => {
   if (Array.isArray(value)) {
@@ -57,7 +58,7 @@ const sanitizetemplePayload = (body = {}) => {
     address: {
       line1: String(address?.line1 || "").trim(),
       line2: String(address?.line2 || "").trim(),
-      city: String(address?.city || "").trim(),
+      city: toTitleCase(address?.city || ""),
       state: String(address?.state || "").trim(),
       pinCode: String(address?.pinCode || "").trim(),
       landmark: String(address?.landmark || "").trim(),
@@ -124,7 +125,7 @@ export const createtemple = async (req, res) => {
 
 export const getAlltemplesForAdmin = async (req, res) => {
   try {
-    const { search = "", status = "all", city = "" } = req.query;
+    const { search = "", status = "all", city = "", pinCode = "" } = req.query;
 
     const filter = {};
 
@@ -147,10 +148,14 @@ export const getAlltemplesForAdmin = async (req, res) => {
       : {};
 
     const cityFilter = String(city || "").trim()
-      ? { "address.city": { $regex: String(city).trim(), $options: "i" } }
+      ? { "address.city": { $regex: `^${String(city).trim()}$`, $options: "i" } }
       : {};
 
-    const allFilters = [vendorFilter, searchFilter, cityFilter].filter(
+    const pinCodeFilter = String(pinCode || "").trim()
+      ? { "address.pinCode": { $regex: `^${String(pinCode).trim()}$`, $options: "i" } }
+      : {};
+
+    const allFilters = [vendorFilter, searchFilter, cityFilter, pinCodeFilter].filter(
       (f) => Object.keys(f).length > 0
     );
 
@@ -158,12 +163,21 @@ export const getAlltemplesForAdmin = async (req, res) => {
       filter.$and = allFilters;
     }
 
-    const temples = await temple.find(filter).sort({ createdAt: -1 });
+    const [temples, rawCities, rawPinCodes] = await Promise.all([
+      temple.find(filter).sort({ createdAt: -1 }),
+      temple.distinct("address.city", vendorFilter),
+      temple.distinct("address.pinCode", vendorFilter)
+    ]);
+
+    const cities = normalizeCityList(rawCities);
+    const pinCodes = rawPinCodes.filter(Boolean).sort();
 
     return res.json({
       success: true,
       count: temples.length,
       data: temples,
+      cities: cities.filter(Boolean),
+      pinCodes: pinCodes.filter(Boolean),
     });
   } catch (err) {
     return res.status(500).json({

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { normalizeCities } from "../utils/normalizeCity";
 import API from "../api/axios";
 import TablePagination from "../components/TablePagination";
 import TableMenuPopover from "../components/TableMenuPopover";
@@ -50,6 +51,7 @@ const buildItemForm = () => ({
   expiryInfo: "",
   hsnCode: "",
   city: "",
+  pincode: "",
   status: "active",
   quantity: "",
   tags: "",
@@ -218,6 +220,7 @@ const normalizeItem = (item = {}, fallback = {}) => {
     compliance: {
       hsnCode: compliance.hsnCode ?? "",
       city: compliance.city ?? "",
+      pincode: compliance.pincode ?? "",
     },
     status: item.status || fallback.status || "active",
     tags: item.tags || fallback.tags || [],
@@ -297,6 +300,7 @@ const buildEditForm = (item = {}) => ({
   expiryInfo: item.details?.expiryInfo || "",
   hsnCode: item.compliance?.hsnCode || "",
   city: item.compliance?.city || "",
+  pincode: item.compliance?.pincode || "",
   status: item.status || "active",
   quantity: item.stock?.quantity ?? "",
   tags: Array.isArray(item.tags) ? item.tags.join(", ") : "",
@@ -373,6 +377,7 @@ export default function Items() {
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [subCategoryFilter, setSubCategoryFilter] = useState("all");
   const [cityFilter, setCityFilter] = useState("all");
+  const [pincodeFilter, setPincodeFilter] = useState("all");
   const [actionLoading, setActionLoading] = useState("");
   const [selectedItemIds, setSelectedItemIds] = useState([]);
   const [openMenuId, setOpenMenuId] = useState("");
@@ -432,6 +437,7 @@ export default function Items() {
             : {}),
           // City filter — super-admin only
           ...(isSuperAdmin && cityFilter !== "all" ? { city: cityFilter } : {}),
+          ...(isSuperAdmin && pincodeFilter !== "all" ? { pincode: pincodeFilter } : {}),
         },
       });
 
@@ -454,6 +460,7 @@ export default function Items() {
     categoryFilter,
     subCategoryFilter,
     cityFilter,
+    pincodeFilter,
     isSuperAdmin,
   ]);
   useEffect(() => {
@@ -493,10 +500,15 @@ export default function Items() {
 
   // City options derived from all loaded products (compliance.city)
   const cityOptions = useMemo(() => {
+    const raw = items.map((item) => String(item.compliance?.city || ""));
+    return normalizeCities(raw);
+  }, [items]);
+
+  const pincodeOptions = useMemo(() => {
     return Array.from(
       new Set(
         items
-          .map((item) => String(item.compliance?.city || "").trim())
+          .map((item) => String(item.compliance?.pincode || "").trim())
           .filter(Boolean),
       ),
     ).sort();
@@ -708,6 +720,7 @@ export default function Items() {
       });
       formData.append("hsnCode", editForm.hsnCode || "");
       formData.append("city", editForm.city || "");
+      formData.append("pincode", editForm.pincode || "");
       formData.append("status", editForm.status || "active");
       if (editForm.quantity !== "") {
         formData.append("quantity", String(Number(editForm.quantity)));
@@ -1077,6 +1090,15 @@ export default function Items() {
             </div>
 
             <div className="form-group">
+              <label>Pincode</label>
+              <input
+                name="pincode"
+                value={createForm.pincode}
+                onChange={handleCreateChange}
+              />
+            </div>
+
+            <div className="form-group">
               <label>Status</label>
               <select
                 name="status"
@@ -1401,6 +1423,31 @@ export default function Items() {
               </label>
             )}
 
+            {/* Pincode filter — super-admin only */}
+            {isSuperAdmin && (
+              <label className="items-filter">
+                <span>Pincode</span>
+                <select
+                  value={pincodeFilter}
+                  onChange={handleSelectChange(setPincodeFilter)}
+                  className="items-filter-input"
+                >
+                  <option value="all">All Pincodes</option>
+                  {pincodeOptions.length ? (
+                    pincodeOptions.map((p) => (
+                      <option key={p} value={p}>
+                        {p}
+                      </option>
+                    ))
+                  ) : (
+                    <option value="" disabled>
+                      No pincodes
+                    </option>
+                  )}
+                </select>
+              </label>
+            )}
+
           </div>
         </div>
       )}
@@ -1468,6 +1515,7 @@ export default function Items() {
                   <th className="px-4 py-3 font-semibold">HSN</th>
                   <th className="px-4 py-3 font-semibold">Stock</th>
                   <th className="px-4 py-3 font-semibold">City</th>
+                  <th className="px-4 py-3 font-semibold">Pincode</th>
                   <th className="px-4 py-3 font-semibold">Status</th>
                   <th className="px-4 py-3 font-semibold text-right">
                     Actions
@@ -1586,6 +1634,9 @@ export default function Items() {
                     <td className="px-4 py-3">{item.stock?.quantity ?? "-"}</td>
                     <td className="px-4 py-3">
                       {item.compliance?.city || "-"}
+                    </td>
+                    <td className="px-4 py-3">
+                      {item.compliance?.pincode || "-"}
                     </td>
                     <td className="px-4 py-3">
                       <span
@@ -1772,6 +1823,10 @@ export default function Items() {
                 <div>
                   <span>City</span>
                   <strong>{viewItem.compliance?.city || "-"}</strong>
+                </div>
+                <div>
+                  <span>Pincode</span>
+                  <strong>{viewItem.compliance?.pincode || "-"}</strong>
                 </div>
                 <div>
                   <span>GST %</span>
@@ -2029,6 +2084,14 @@ export default function Items() {
                 <input
                   name="city"
                   value={editForm.city}
+                  onChange={handleEditChange}
+                />
+              </label>
+              <label>
+                Pincode
+                <input
+                  name="pincode"
+                  value={editForm.pincode}
                   onChange={handleEditChange}
                 />
               </label>

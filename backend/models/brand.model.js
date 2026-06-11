@@ -18,4 +18,23 @@ const brandSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// Auto-generate unique code if not provided
+brandSchema.pre("save", async function generateBrandCode() {
+  if (this.code && this.code.trim()) {
+    return;
+  }
+
+  let candidate = "";
+  let exists = true;
+
+  while (exists) {
+    const suffix = Math.floor(100000 + Math.random() * 900000);
+    candidate = `BRND${suffix}`;
+    // eslint-disable-next-line no-await-in-loop
+    exists = await this.constructor.exists({ code: candidate });
+  }
+
+  this.code = candidate;
+});
+
 export default mongoose.model("Brand", brandSchema);

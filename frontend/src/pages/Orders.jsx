@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { FiEdit2, FiEye, FiMoreVertical, FiSearch, FiTrash2, FiX } from "react-icons/fi";
 import API from "../api/axios";
+import { normalizeCities } from "../utils/normalizeCity";
 import TablePagination from "../components/TablePagination";
 import TableMenuPopover from "../components/TableMenuPopover";
 
@@ -167,6 +168,7 @@ export default function Orders() {
   const [paymentStatusFilter, setPaymentStatusFilter] = useState("all");
   const [paymentMethodFilter, setPaymentMethodFilter] = useState("all");
   const [cityFilter, setCityFilter] = useState("");
+  const [availableCities, setAvailableCities] = useState([]);
 
   const [showForm, setShowForm] = useState(false);
   const [editingOrderId, setEditingOrderId] = useState("");
@@ -206,6 +208,7 @@ export default function Orders() {
 
         const incomingOrders = res.data?.data?.orders || [];
         const incomingPagination = res.data?.data?.pagination || {};
+        const incomingCities = res.data?.data?.cities || [];
 
         setOrders(incomingOrders);
         setPagination({
@@ -214,6 +217,10 @@ export default function Orders() {
           totalPages: Number(incomingPagination.totalPages || 1),
           limit: Number(incomingPagination.limit || pageSize),
         });
+
+        if (Array.isArray(incomingCities) && incomingCities.length > 0) {
+          setAvailableCities(normalizeCities(incomingCities));
+        }
 
         setTrackingUpdates((current) => {
           const next = { ...current };
@@ -1108,16 +1115,16 @@ useEffect(() => {
               ))}
             </select>
 
-            <div className="flex items-center gap-2 rounded-xl border border-[#d7c3a3] bg-white/70 px-3 dark:border-white/10 dark:bg-white/5">
-              <FiSearch className="shrink-0 text-[var(--admin-primary)]" />
-              <input
-                type="search"
-                value={cityFilter}
-                onChange={(e) => setCityFilter(e.target.value)}
-                placeholder="Filter by city"
-                className="h-11 w-36 bg-transparent text-sm text-[#2f1618] outline-none placeholder:text-[#8c7461] dark:text-[#fff3dc]"
-              />
-            </div>
+            <select
+              value={cityFilter}
+              onChange={(e) => setCityFilter(e.target.value)}
+              className="h-11 rounded-xl border border-[#d7c3a3] bg-white text-black px-3 text-sm outline-none dark:bg-[#181c24] dark:text-white dark:border-white/20"
+            >
+              <option value="">All Cities</option>
+              {availableCities.map((city) => (
+                <option key={city} value={city}>{city}</option>
+              ))}
+            </select>
           </div>
         </div>
 

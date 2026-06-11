@@ -74,6 +74,8 @@ const itemSchema = new mongoose.Schema(
     compliance: {
       hsnCode: { type: String, trim: true, default: "" },
       city: { type: String, trim: true, default: "" },
+      pincode: { type: String, trim: true, default: "" },
+      
     },
 
     media: {

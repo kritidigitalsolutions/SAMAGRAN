@@ -4,6 +4,7 @@ import User from "../../models/user.model.js";
 import Item from "../../models/product.model.js";
 import DeliveryBoy from "../../models/deliveryBoy.model.js";
 import { notifyUsersByIds, notifyVendorsByIds } from "../../utils/notification.service.js";
+import { toTitleCase, normalizeCityList } from "../../utils/cityNormalizer.js";
 
 const TRACKING_STEPS = ["Placed", "Confirmed", "Preparing", "Accepted", "Out for Delivery", "Delivered"];
 const SUPPORTED_PRODUCT_TYPES = ["Item", "FestivalKit", "DefaultKit"];
@@ -78,7 +79,7 @@ const sanitizeAddress = (input = {}) => ({
   phone: String(input.phone || "").trim(),
   fullAddress: String(input.fullAddress || input.line1 || "").trim(),
   addressType: normalizeAddressType(input.addressType || input.label || "others"),
-  city: String(input.city || "").trim(),
+  city: toTitleCase(input.city),
   state: String(input.state || "").trim(),
   pincode: String(input.pincode || "").trim(),
 });
@@ -280,7 +281,7 @@ export const getAllOrdersForAdmin = async (req, res) => {
     }
 
     if (String(city || "").trim()) {
-      filter["address.city"] = { $regex: String(city).trim(), $options: "i" };
+      filter["address.city"] = { $regex: `^${String(city).trim()}$`, $options: "i" };
     }
 
     if (String(search || "").trim()) {
@@ -304,14 +305,19 @@ export const getAllOrdersForAdmin = async (req, res) => {
     const normalizedLimit = Math.max(1, Number(limit) || 20);
     const skip = (normalizedPage - 1) * normalizedLimit;
 
-    const [orders, total] = await Promise.all([
+    const distinctFilter = { ...resolveVendorFilter(req) };
+
+    const [orders, total, rawCities] = await Promise.all([
       Order.find(filter)
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(normalizedLimit)
         .lean(),
       Order.countDocuments(filter),
+      Order.distinct("address.city", distinctFilter)
     ]);
+
+    const cities = normalizeCityList(rawCities);
 
     const populatedOrders = await populateOrders(orders);
 
@@ -320,6 +326,7 @@ export const getAllOrdersForAdmin = async (req, res) => {
       count: populatedOrders.length,
       data: {
         orders: populatedOrders.map(formatOrderForAdmin),
+        cities: cities.filter(Boolean),
         pagination: {
           total,
           currentPage: normalizedPage,
@@ -349,6 +356,7 @@ export const getOrderByIdForAdmin = async (req, res) => {
 
     const order = await Order.findOne({ _id: id, ...resolveVendorFilter(req) })
       .populate("user", "name email phone")
+      .populate("vendorId")
       .populate("deliveryBoy", "fullName phone status")
       .populate(ORDER_ITEMS_POPULATE)
       .lean();

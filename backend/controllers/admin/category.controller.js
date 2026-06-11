@@ -25,7 +25,6 @@ export const createCategory = async (req, res) => {
     if (!ensureSuperAdmin(req, res)) return;
 
     const name = normalizeName(req.body?.name);
-    const code = normalizeCode(req.body?.code);
     const description = normalizeName(req.body?.description);
     const status = req.body?.status === "inactive" ? "inactive" : "active";
     const subCategory = normalizeName(req.body?.subCategory);
@@ -41,14 +40,21 @@ export const createCategory = async (req, res) => {
       });
     }
 
-    const existingFilter = { name: { $regex: `^${name}$`, $options: "i" }, vendorId: null };
+    // Duplicate check: same name + same subCategory (case-insensitive) is not allowed
+    const existingFilter = {
+      name: { $regex: `^${name}$`, $options: "i" },
+      subCategory: { $regex: `^${subCategory}$`, $options: "i" },
+      vendorId: null,
+    };
 
     const existing = await Category.findOne(existingFilter);
 
     if (existing) {
       return res.status(400).json({
         success: false,
-        message: "Category already exists",
+        message: subCategory
+          ? `Category "${name}" with sub-category "${subCategory}" already exists`
+          : `Category "${name}" (without sub-category) already exists`,
       });
     }
 
@@ -56,10 +62,10 @@ export const createCategory = async (req, res) => {
       ? await uploadFileToFirebase(req.file, { folder: "categories" })
       : "";
 
+    // code is intentionally omitted — pre-save hook auto-generates it
     const category = await Category.create({
       vendorId: null,
       name,
-      code,
       description,
       image: uploadedImage || normalizeName(req.body?.image),
       subCategory,
@@ -164,33 +170,36 @@ export const updateCategory = async (req, res) => {
     }
 
     const name = normalizeName(req.body?.name);
-    const code = normalizeCode(req.body?.code);
     const description = normalizeName(req.body?.description);
     const status = req.body?.status;
     const subCategory = normalizeName(req.body?.subCategory);
     const hasCommission = req.body?.superAdminCommissionPercent !== undefined;
 
-    if (name) {
-      const existingFilter = {
-        _id: { $ne: category._id },
-        name: { $regex: `^${name}$`, $options: "i" },
-      };
-      existingFilter.vendorId = null;
+    // Resolve the final subCategory to use for the duplicate check
+    const finalName = name || category.name;
+    const finalSubCategory = subCategory !== undefined ? subCategory : (category.subCategory || "");
 
-      const duplicate = await Category.findOne(existingFilter);
+    // Duplicate check: same name + same subCategory combo (case-insensitive), excluding self
+    const existingFilter = {
+      _id: { $ne: category._id },
+      name: { $regex: `^${finalName}$`, $options: "i" },
+      subCategory: { $regex: `^${finalSubCategory}$`, $options: "i" },
+      vendorId: null,
+    };
 
-      if (duplicate) {
-        return res.status(400).json({
-          success: false,
-          message: "Category name already in use",
-        });
-      }
+    const duplicate = await Category.findOne(existingFilter);
 
-      category.name = name;
+    if (duplicate) {
+      return res.status(400).json({
+        success: false,
+        message: finalSubCategory
+          ? `Category "${finalName}" with sub-category "${finalSubCategory}" already exists`
+          : `Category "${finalName}" (without sub-category) already exists`,
+      });
     }
 
-    if (code !== undefined) {
-      category.code = code;
+    if (name) {
+      category.name = name;
     }
 
     if (description !== undefined) {

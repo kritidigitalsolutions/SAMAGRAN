@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import API from "../api/axios";
 import TablePagination from "../components/TablePagination";
 import { toast } from "react-toastify";
@@ -48,51 +48,150 @@ const buildInvoiceNumber = (order) => {
 };
 
 /* ═══════════════════════════════════════════════════════════ */
+/*  Invoice helper functions & Rupees in Words converter       */
+/* ═══════════════════════════════════════════════════════════ */
+function formatRupeesInWords(amount) {
+  const parts = Number(amount || 0).toFixed(2).split(".");
+  const rupees = parseInt(parts[0], 10);
+  const paise = parseInt(parts[1], 10);
+
+  const a = ['', 'One ', 'Two ', 'Three ', 'Four ', 'Five ', 'Six ', 'Seven ', 'Eight ', 'Nine ', 'Ten ', 'Eleven ', 'Twelve ', 'Thirteen ', 'Fourteen ', 'Fifteen ', 'Sixteen ', 'Seventeen ', 'Eighteen ', 'Nineteen '];
+  const b = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+
+  const numToWords = (n, suffix) => {
+    let str = "";
+    if (n > 19) {
+      str += b[Math.floor(n / 10)] + " " + a[n % 10];
+    } else if (n > 0) {
+      str += a[n];
+    }
+    if (n) {
+      str += suffix;
+    }
+    return str;
+  };
+
+  const convertGroup = (num) => {
+    let out = "";
+    out += numToWords(Math.floor(num / 10000000), "Crore ");
+    out += numToWords(Math.floor((num / 100000) % 100), "Lakh ");
+    out += numToWords(Math.floor((num / 1000) % 100), "Thousand ");
+    out += numToWords(Math.floor((num / 100) % 10), "Hundred ");
+    
+    const rem = num % 100;
+    if (rem > 0) {
+      if (num > 100) out += "and ";
+      if (rem > 19) {
+        out += b[Math.floor(rem / 10)] + " " + a[rem % 10];
+      } else {
+        out += a[rem];
+      }
+    }
+    return out.trim();
+  };
+
+  let rupeesStr = rupees > 0 ? convertGroup(rupees) + " Rupees" : "";
+  let paiseStr = paise > 0 ? convertGroup(paise) + " Paisa" : "";
+
+  if (rupeesStr && paiseStr) {
+    return `${rupeesStr} and ${paiseStr} Only`;
+  } else if (rupeesStr) {
+    return `${rupeesStr} Only`;
+  } else if (paiseStr) {
+    return `${paiseStr} Only`;
+  }
+  return "Zero Rupees Only";
+}
+
+/* ═══════════════════════════════════════════════════════════ */
 /*  InvoicePreview component – rendered in DOM, printed as PDF */
 /* ═══════════════════════════════════════════════════════════ */
 function InvoicePreview({ order, onClose, onDownload }) {
-  const invoiceRef = useRef(null);
   const invoiceNumber = buildInvoiceNumber(order);
-  const dueDate = new Date(order.createdAt || Date.now());
-  dueDate.setDate(dueDate.getDate() + 30);
-
   const items = Array.isArray(order.items) ? order.items : [];
-  const subtotal = items.reduce(
-    (sum, item) => sum + Number(item.price || 0) * Number(item.quantity || 1),
-    0
-  );
-  const deliveryFee = Number(order.amountBreakup?.deliveryFee || 0);
-  const discount =
-    Number(order.amountBreakup?.couponDiscount || 0) +
-    Number(order.amountBreakup?.offerDiscount || 0);
-  const total = Number(order.totalAmount || subtotal + deliveryFee);
+  
+  // Calculate Totals
+  let totalTaxableValue = 0;
+  let totalGstAmount = 0;
+  let totalMRP = 0;
+  let totalDiscountVal = 0;
 
-  const customer = order.user?.name || order.address?.name || "N/A";
-  const email = order.user?.email || "—";
-  const phone = order.user?.phone || order.address?.phone || "—";
-  const address = [
+  const itemDetails = items.map((item) => {
+    const p = item.product;
+    const nameStr = p ? (p.title || p.name || p.kitName || item.productType || "Product") : (item.productType || "Product");
+    const skuStr = p?.itemCode || (p?.slug ? `KIT-${p.slug.toUpperCase()}` : `PROD-${String(item._id).slice(-6).toUpperCase()}`);
+    const hsnStr = p?.compliance?.hsnCode || "—";
+    const unitMRP = p?.pricing?.mrp || item.price || 0;
+    const unitPrice = item.price || 0;
+    const unitDiscount = Math.max(0, unitMRP - unitPrice);
+    const qty = item.quantity || 1;
+    const totalAmount = unitPrice * qty;
+    const gstPercent = p?.pricing?.gstPercent || 18;
+    const taxableValue = totalAmount / (1 + gstPercent / 100);
+    const gstAmount = totalAmount - taxableValue;
+
+    totalTaxableValue += taxableValue;
+    totalGstAmount += gstAmount;
+    totalMRP += unitMRP * qty;
+    totalDiscountVal += unitDiscount * qty;
+
+    return {
+      sku: skuStr,
+      name: nameStr,
+      hsn: hsnStr,
+      mrp: unitMRP,
+      discount: unitDiscount,
+      qty,
+      taxableValue,
+      gstPercent,
+      gstAmount,
+      totalAmount,
+    };
+  });
+
+  const deliveryFee = Number(order.amountBreakup?.deliveryFee || 0);
+  const couponDiscount = Number(order.amountBreakup?.couponDiscount || 0);
+  const offerDiscount = Number(order.amountBreakup?.offerDiscount || 0);
+  const orderLevelDiscount = couponDiscount + offerDiscount;
+  const grandTotal = Number(order.totalAmount || (totalTaxableValue + totalGstAmount + deliveryFee - orderLevelDiscount));
+
+  // Seller Details Fallback
+  const vendor = order.vendorId || {};
+  const sellerName = vendor.businessName || vendor.name || "Samagran Ventures LLP";
+  const sellerAddress = [
+    vendor.address?.line1,
+    vendor.address?.line2,
+    vendor.address?.city,
+    vendor.address?.state,
+    vendor.address?.pincode
+  ].filter(Boolean).join(", ") || "Godown, Patlipada, Near Ramnath Tabela, Thane (M.Corp)-400607, Maharashtra";
+  const sellerGstin = vendor.gstin || "27AACFY8913A1Z8";
+  const sellerFssai = vendor.fssai || "13323999000008";
+  const sellerCin = vendor.cin || "AAZ-3294";
+  const sellerPan = vendor.pan || "AACFY8913A";
+  const sellerEmail = vendor.email || "support@samagran.com";
+  const sellerPhone = vendor.phone || "+91 9876543210";
+
+  // Customer Details
+  const customerName = order.user?.name || order.address?.name || "Customer";
+  const customerAddress = [
     order.address?.fullAddress,
     order.address?.city,
     order.address?.state,
-    order.address?.pincode,
-  ]
-    .filter(Boolean)
-    .join(", ");
+    order.address?.pincode
+  ].filter(Boolean).join(", ") || "Address not provided";
+  const customerPhone = order.user?.phone || order.address?.phone || "—";
+  const customerEmail = order.user?.email || "—";
 
-  const getProductName = (item) => {
-    const p = item.product;
-    if (!p) return "Product";
-    return p.title || p.name || p.kitName || `${item.productType || "Item"}`;
-  };
+  const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${order._id}`;
 
   return (
     <>
-      {/* ── Overlay ── */}
       <div
         className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
         onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
       >
-        <div className="relative flex flex-col w-full max-w-3xl max-h-[95vh] rounded-3xl border border-[#d8c4a5] bg-[#fffdf8] shadow-2xl dark:border-white/10 dark:bg-[#141820] overflow-hidden">
+        <div className="relative flex flex-col w-full max-w-4xl max-h-[95vh] rounded-3xl border border-[#d8c4a5] bg-[#fffdf8] shadow-2xl dark:border-white/10 dark:bg-[#141820] overflow-hidden">
           {/* Header */}
           <div className="flex items-center justify-between px-6 py-4 border-b border-[#e8d9c4] dark:border-white/10">
             <h2 className="text-lg font-bold text-[#2f1618] dark:text-[#fff3dc]">Invoice Preview</h2>
@@ -103,7 +202,7 @@ function InvoicePreview({ order, onClose, onDownload }) {
                 className="inline-flex items-center gap-2 rounded-xl border border-[#d7bf9b] px-4 py-2 text-sm font-semibold text-[#6f3945] hover:bg-[#8B1E3F]/10 dark:border-white/20 dark:text-[#f7e3c0] transition-colors"
               >
                 <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4"><path d="M12 15V4M12 15L8 11M12 15L16 11" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /><path d="M4 20H20" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>
-                Download PDF
+                Print / Save PDF
               </button>
               <button
                 type="button"
@@ -118,153 +217,189 @@ function InvoicePreview({ order, onClose, onDownload }) {
           {/* Scrollable invoice body */}
           <div className="flex-1 overflow-y-auto p-6">
             <div
-              ref={invoiceRef}
               id="invoice-print-area"
-              className="bg-white text-[#1a1a1a] rounded-2xl p-8 shadow-sm"
-              style={{ fontFamily: "'Segoe UI', sans-serif" }}
+              className="bg-white text-[#1a1a1a] rounded-2xl p-8 shadow-sm border border-gray-200"
+              style={{ fontFamily: "'Segoe UI', Arial, sans-serif", width: "100%", maxWidth: "800px", margin: "0 auto" }}
             >
-              {/* Top: Brand + INVOICE label */}
-              <div className="flex justify-between items-start mb-8">
-                <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    {/* Logo placeholder */}
-                    <div className="h-10 w-10 rounded-full flex items-center justify-center text-white text-lg font-bold" style={{ background: "linear-gradient(135deg,#8B1E3F,#D4AF37)" }}>S</div>
-                    <span className="text-2xl font-extrabold tracking-tight" style={{ color: "#8B1E3F" }}>Samagran</span>
+              {/* Header: Logo and Title */}
+              <div className="flex justify-between items-center mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-full flex items-center justify-center text-white text-lg font-bold shadow-sm" style={{ backgroundColor: "#8B1E3F" }}>
+                    S
                   </div>
-                  <p className="text-xs text-gray-500 leading-relaxed">
-                    support@samagran.com<br />
-                    www.samagran.com
-                  </p>
+                  <div>
+                    <span className="text-xl font-extrabold tracking-tight" style={{ color: "#8B1E3F" }}>Samagran</span>
+                    <p className="text-[10px] text-gray-500 font-medium">Marketplace Portal</p>
+                  </div>
                 </div>
                 <div className="text-right">
-                  <p className="text-3xl font-extrabold tracking-widest" style={{ color: "#2f1618" }}>INVOICE</p>
-                  <p className="text-xs text-gray-500 mt-1">Invoice #: <span className="font-semibold text-gray-700">{invoiceNumber}</span></p>
-                  <p className="text-xs text-gray-500">Date: <span className="font-semibold text-gray-700">{fmtDate(order.createdAt)}</span></p>
-                  <p className="text-xs text-gray-500">Due Date: <span className="font-semibold text-gray-700">{fmtDate(dueDate)}</span></p>
+                  <h1 className="text-2xl font-black uppercase tracking-wider" style={{ color: "#2f1618" }}>Tax Invoice</h1>
                 </div>
               </div>
 
-              {/* Divider */}
-              <div className="h-px bg-gradient-to-r from-[#8B1E3F] via-[#D4AF37] to-transparent mb-6 opacity-40" />
-
-              {/* Bill To + Order Details */}
-              <div className="grid grid-cols-2 gap-6 mb-6">
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-widest text-[#8B1E3F] mb-2">Bill To:</p>
-                  <p className="font-bold text-[#2f1618]">{customer}</p>
-                  {email !== "—" && <p className="text-xs text-gray-500">{email}</p>}
-                  {phone !== "—" && <p className="text-xs text-gray-500">{phone}</p>}
-                  {address && <p className="text-xs text-gray-500 mt-1">{address}</p>}
+              {/* Top Box: Seller Details & QR Code */}
+              <div className="grid grid-cols-3 border border-gray-300 rounded-xl mb-5 overflow-hidden">
+                <div className="col-span-2 p-4 border-r border-gray-300">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-[#8B1E3F] mb-1">Sold By / Seller:</p>
+                  <p className="font-extrabold text-[#1a1a1a] text-sm mb-1">{sellerName}</p>
+                  <p className="text-xs text-gray-600 mb-2 leading-relaxed">{sellerAddress}</p>
+                  
+                  <div className="grid grid-cols-2 gap-y-1 gap-x-2 text-[10px] text-gray-500 font-semibold border-t border-gray-100 pt-2">
+                    <p>GSTIN: <span className="text-gray-800 font-bold">{sellerGstin}</span></p>
+                    <p>PAN: <span className="text-gray-800 font-bold">{sellerPan}</span></p>
+                    <p>CIN: <span className="text-gray-800 font-bold">{sellerCin}</span></p>
+                    <p>FSSAI No: <span className="text-gray-800 font-bold">{sellerFssai}</span></p>
+                    <p className="col-span-2 mt-1">Email: <span className="text-gray-800 font-bold">{sellerEmail}</span>  |  Contact: <span className="text-gray-800 font-bold">{sellerPhone}</span></p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-widest text-[#8B1E3F] mb-2">Order Details:</p>
-                  <div className="space-y-1">
-                    <div className="flex gap-2 text-xs">
-                      <span className="text-gray-500 w-28">Order ID</span>
-                      <span className="font-semibold text-[#2f1618] break-all">{order._id}</span>
-                    </div>
-                    <div className="flex gap-2 text-xs">
-                      <span className="text-gray-500 w-28">Order Date</span>
-                      <span className="font-semibold text-[#2f1618]">{fmtDate(order.createdAt)}</span>
-                    </div>
-                    <div className="flex gap-2 text-xs">
-                      <span className="text-gray-500 w-28">Payment Method</span>
-                      <span className="font-semibold text-[#2f1618]">{order.paymentMethod || "COD"}</span>
-                    </div>
-                    <div className="flex gap-2 text-xs items-center">
-                      <span className="text-gray-500 w-28">Payment Status</span>
-                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${paymentColor(order.paymentStatus)}`}>
-                        {order.paymentStatus || "Pending"}
-                      </span>
-                    </div>
-                    <div className="flex gap-2 text-xs items-center">
-                      <span className="text-gray-500 w-28">Order Status</span>
-                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${statusColor(order.orderStatus)}`}>
-                        {order.orderStatus || "Placed"}
-                      </span>
-                    </div>
+                <div className="col-span-1 p-4 bg-gray-50/50 flex flex-col justify-between items-center text-center">
+                  <div className="border border-gray-200 p-1 bg-white rounded-lg shadow-sm">
+                    <img src={qrCodeUrl} alt="QR Code" className="h-16 w-16" />
+                  </div>
+                  <div className="mt-2">
+                    <p className="text-[9px] font-bold text-gray-400 uppercase">Invoice Number</p>
+                    <p className="text-xs font-bold text-gray-800 font-mono mt-0.5">{invoiceNumber}</p>
                   </div>
                 </div>
               </div>
 
-              {/* Items Table */}
-              <div className="mb-6 overflow-hidden rounded-xl border border-gray-200">
-                <table className="w-full text-sm">
+              {/* Middle Box: Customer Details & Order details */}
+              <div className="grid grid-cols-3 border border-gray-300 rounded-xl mb-5 overflow-hidden">
+                <div className="col-span-2 p-4 border-r border-gray-300">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-[#8B1E3F] mb-1">Invoice To:</p>
+                  <p className="font-extrabold text-[#1a1a1a] text-sm mb-1">{customerName}</p>
+                  <p className="text-xs text-gray-600 mb-2 leading-relaxed">{customerAddress}</p>
+                  
+                  <div className="text-[10px] text-gray-500 font-semibold border-t border-gray-100 pt-2">
+                    <p>Phone Number: <span className="text-gray-800 font-bold">{customerPhone}</span></p>
+                    <p>Email ID: <span className="text-gray-800 font-bold">{customerEmail}</span></p>
+                  </div>
+                </div>
+                <div className="col-span-1 p-4 bg-gray-50/50 flex flex-col gap-2 justify-center text-xs">
+                  <div className="flex justify-between">
+                    <span className="text-gray-500 font-semibold">Order ID:</span>
+                    <span className="font-bold text-gray-800 font-mono">#{shortId(order._id)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500 font-semibold">Invoice Date:</span>
+                    <span className="font-bold text-gray-800">{fmtDate(order.createdAt)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500 font-semibold">Place of Supply:</span>
+                    <span className="font-bold text-gray-800">{order.address?.state || "Maharashtra"}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500 font-semibold">Payment Mode:</span>
+                    <span className="font-bold text-gray-800">{order.paymentMethod || "COD"}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Product Table */}
+              <div className="mb-5 overflow-hidden rounded-xl border border-gray-300">
+                <table className="w-full text-[10px]">
                   <thead>
-                    <tr style={{ background: "linear-gradient(135deg,#8B1E3F,#a0233f)" }}>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-white">Item Description</th>
-                      <th className="px-4 py-3 text-center text-xs font-semibold text-white">Qty</th>
-                      <th className="px-4 py-3 text-right text-xs font-semibold text-white">Unit Price</th>
-                      <th className="px-4 py-3 text-right text-xs font-semibold text-white">Total</th>
+                    <tr style={{ background: "#8B1E3F" }} className="text-white">
+                      <th className="px-2 py-2.5 text-center font-bold">Sr. No.</th>
+                      <th className="px-2 py-2.5 text-left font-bold">SKU/UPC</th>
+                      <th className="px-2 py-2.5 text-left font-bold">Item Description</th>
+                      <th className="px-2 py-2.5 text-left font-bold">HSN/SAC</th>
+                      <th className="px-2 py-2.5 text-right font-bold">MRP (₹)</th>
+                      <th className="px-2 py-2.5 text-right font-bold">Discount (₹)</th>
+                      <th className="px-2 py-2.5 text-center font-bold">Qty</th>
+                      <th className="px-2 py-2.5 text-right font-bold">Taxable Value (₹)</th>
+                      <th className="px-2 py-2.5 text-center font-bold">GST (%)</th>
+                      <th className="px-2 py-2.5 text-right font-bold">GST Amt (₹)</th>
+                      <th className="px-2 py-2.5 text-right font-bold">Total (₹)</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {items.length === 0 ? (
-                      <tr>
-                        <td colSpan={4} className="px-4 py-4 text-center text-xs text-gray-400">No items found</td>
+                    {itemDetails.map((item, idx) => (
+                      <tr key={idx} className={idx % 2 === 0 ? "bg-white" : "bg-[#fdf8f2]"} style={{ borderTop: "1px solid #e5e7eb" }}>
+                        <td className="px-2 py-3 text-center text-gray-500 font-semibold">{idx + 1}</td>
+                        <td className="px-2 py-3 text-left font-mono text-[10px] text-gray-700">{item.sku}</td>
+                        <td className="px-2 py-3 text-left font-bold text-[#8B1E3F] max-w-[120px] truncate" title={item.name}>{item.name}</td>
+                        <td className="px-2 py-3 text-left text-gray-600 font-semibold">{item.hsn}</td>
+                        <td className="px-2 py-3 text-right text-gray-700 font-semibold">{item.mrp.toFixed(2)}</td>
+                        <td className="px-2 py-3 text-right text-gray-700 font-semibold">{item.discount.toFixed(2)}</td>
+                        <td className="px-2 py-3 text-center font-bold text-gray-800">{item.qty}</td>
+                        <td className="px-2 py-3 text-right text-gray-700 font-semibold">{item.taxableValue.toFixed(2)}</td>
+                        <td className="px-2 py-3 text-center text-gray-600 font-semibold">{item.gstPercent}%</td>
+                        <td className="px-2 py-3 text-right text-gray-700 font-semibold">{item.gstAmount.toFixed(2)}</td>
+                        <td className="px-2 py-3 text-right font-bold text-[#8B1E3F]">{item.totalAmount.toFixed(2)}</td>
                       </tr>
-                    ) : (
-                      items.map((item, idx) => (
-                        <tr key={idx} className={idx % 2 === 0 ? "bg-white" : "bg-[#fdf8f2]"}>
-                          <td className="px-4 py-3 text-sm" style={{ color: "#8B1E3F" }}>
-                            {getProductName(item)}
-                          </td>
-                          <td className="px-4 py-3 text-center text-sm text-gray-700">{item.quantity ?? 1}</td>
-                          <td className="px-4 py-3 text-right text-sm text-gray-700">{fmt(item.price)}</td>
-                          <td className="px-4 py-3 text-right text-sm font-semibold" style={{ color: "#8B1E3F" }}>
-                            {fmt(Number(item.price || 0) * Number(item.quantity || 1))}
-                          </td>
-                        </tr>
-                      ))
-                    )}
+                    ))}
                   </tbody>
                 </table>
               </div>
 
-              {/* Totals */}
-              <div className="flex justify-end mb-8">
-                <div className="w-64 space-y-1">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-500">Subtotal</span>
-                    <span className="font-semibold text-[#8B1E3F]">{fmt(subtotal)}</span>
+              {/* Totals Section */}
+              <div className="grid grid-cols-2 gap-4 mb-6">
+                <div>
+                  <div className="p-4 rounded-xl bg-gray-50 border border-gray-200">
+                    <p className="text-[10px] font-bold text-[#8B1E3F] uppercase tracking-wider mb-1">Amount in Words:</p>
+                    <p className="text-xs font-bold text-gray-800 italic leading-relaxed">{formatRupeesInWords(grandTotal)}</p>
                   </div>
-                  {deliveryFee > 0 && (
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-500">Delivery Fee</span>
-                      <span className="font-semibold text-[#8B1E3F]">{fmt(deliveryFee)}</span>
+                </div>
+                <div className="space-y-1.5 text-xs">
+                  <div className="flex justify-between text-gray-500 font-semibold">
+                    <span>Subtotal (MRP Total)</span>
+                    <span className="text-gray-800 font-bold">₹{totalMRP.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-gray-500 font-semibold">
+                    <span>Total Product Discount</span>
+                    <span className="text-gray-800 font-bold">-₹{totalDiscountVal.toFixed(2)}</span>
+                  </div>
+                  {orderLevelDiscount > 0 && (
+                    <div className="flex justify-between text-gray-500 font-semibold">
+                      <span>Coupon/Offer Discount</span>
+                      <span className="text-emerald-600 font-bold">-₹{orderLevelDiscount.toFixed(2)}</span>
                     </div>
                   )}
-                  {discount > 0 && (
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-500">Discount</span>
-                      <span className="font-semibold text-emerald-600">-{fmt(discount)}</span>
-                    </div>
-                  )}
-                  <div className="h-px bg-gray-200 my-2" />
-                  <div className="flex justify-between text-base font-bold">
-                    <span className="text-[#2f1618]">Total</span>
-                    <span style={{ color: "#8B1E3F" }}>{fmt(total)}</span>
+                  <div className="flex justify-between text-gray-500 font-semibold">
+                    <span>Total Taxable Value</span>
+                    <span className="text-gray-800 font-bold">₹{totalTaxableValue.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-gray-500 font-semibold">
+                    <span>Total GST Amount</span>
+                    <span className="text-gray-800 font-bold">₹{totalGstAmount.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-gray-500 font-semibold">
+                    <span>Shipping Charges</span>
+                    <span className="text-gray-800 font-bold">₹{deliveryFee.toFixed(2)}</span>
+                  </div>
+                  <div className="border-t border-gray-200 pt-2 flex justify-between text-sm font-extrabold">
+                    <span className="text-[#2f1618]">Grand Total</span>
+                    <span style={{ color: "#8B1E3F" }} className="text-lg">₹{grandTotal.toFixed(2)}</span>
                   </div>
                 </div>
               </div>
 
-              {/* Notes + Terms */}
-              <div className="h-px bg-gradient-to-r from-[#8B1E3F] via-[#D4AF37] to-transparent mb-6 opacity-30" />
-              <div className="grid grid-cols-2 gap-6">
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-widest text-[#8B1E3F] mb-1">Notes:</p>
-                  <p className="text-xs text-gray-500">Thank you for your business!</p>
+              {/* Bottom Box: Company office + Signatory */}
+              <div className="grid grid-cols-3 border border-gray-300 rounded-xl mb-5 overflow-hidden">
+                <div className="col-span-2 p-3 text-[10px] text-gray-500 leading-relaxed font-semibold">
+                  <p className="text-[11px] font-bold text-[#8B1E3F] mb-1">Samagran Ventures Private Limited (Corporate Office)</p>
+                  <p>Reg. Address: godown, Patlipada, Hiranandani, Thane (W)-400607, MH, India</p>
+                  <p>CIN: U74140MH2025PTC055568 | PAN: AAFCS8024E | FSSAI: 10018064001545</p>
+                  <p className="mt-1">Customer Support: support@samagran.com  |  +91-9988776655</p>
                 </div>
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-widest text-[#8B1E3F] mb-1">Terms & Conditions:</p>
-                  <p className="text-xs text-gray-500">Payment due within 30 days.</p>
+                <div className="col-span-1 border-l border-gray-300 p-3 flex flex-col justify-between items-center text-center">
+                  <span style={{ fontFamily: "'Brush Script MT', cursive, sans-serif" }} className="text-lg text-gray-400 font-bold mt-1">Anil Sharma</span>
+                  <span className="text-[9px] font-extrabold text-gray-500 uppercase tracking-wider border-t border-gray-100 w-full pt-1.5 mt-2">Authorized Signatory</span>
                 </div>
+              </div>
+
+              {/* Terms and conditions */}
+              <div className="text-[9px] text-gray-400 font-semibold leading-relaxed border-t border-gray-100 pt-3">
+                <p className="font-bold text-gray-500 text-xs mb-1">Terms & Conditions:</p>
+                <p>1. All items listed belong to their respective registered sellers on the Samagran Marketplace.</p>
+                <p>2. Tax rates are applied in accordance with GST compliance guidelines as provided by the sellers.</p>
+                <p>3. For any customer support or refund queries, contact the support email or chat within 30 days of the purchase date.</p>
               </div>
             </div>
           </div>
         </div>
       </div>
-
     </>
   );
 }
@@ -372,52 +507,105 @@ export default function Invoices() {
     if (!order) return;
 
     const invoiceNumber = buildInvoiceNumber(order);
-    const dueDate = new Date(order.createdAt || Date.now());
-    dueDate.setDate(dueDate.getDate() + 30);
-    const fmtD = (v) => v ? new Date(v).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—";
-    const fmtM = (v) => Number(v || 0).toLocaleString("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 2 });
-
     const items = Array.isArray(order.items) ? order.items : [];
-    const subtotal = items.reduce((s, i) => s + Number(i.price || 0) * Number(i.quantity || 1), 0);
-    const deliveryFee = Number(order.amountBreakup?.deliveryFee || 0);
-    const discount = Number(order.amountBreakup?.couponDiscount || 0) + Number(order.amountBreakup?.offerDiscount || 0);
-    const total = Number(order.totalAmount || subtotal + deliveryFee);
+    
+    // Calculate Totals
+    let totalTaxableValue = 0;
+    let totalGstAmount = 0;
+    let totalMRP = 0;
+    let totalDiscountVal = 0;
 
-    const customer = order.user?.name || order.address?.name || "N/A";
-    const email = order.user?.email || "";
-    const phone = order.user?.phone || order.address?.phone || "";
-    const address = [order.address?.fullAddress, order.address?.city, order.address?.state, order.address?.pincode].filter(Boolean).join(", ");
-
-    const getName = (item) => {
+    const itemDetails = items.map((item) => {
       const p = item.product;
-      if (!p) return item.productType || "Product";
-      return p.title || p.name || p.kitName || item.productType || "Product";
-    };
+      const nameStr = p ? (p.title || p.name || p.kitName || item.productType || "Product") : (item.productType || "Product");
+      const skuStr = p?.itemCode || (p?.slug ? `KIT-${p.slug.toUpperCase()}` : `PROD-${String(item._id).slice(-6).toUpperCase()}`);
+      const hsnStr = p?.compliance?.hsnCode || "—";
+      const unitMRP = p?.pricing?.mrp || item.price || 0;
+      const unitPrice = item.price || 0;
+      const unitDiscount = Math.max(0, unitMRP - unitPrice);
+      const qty = item.quantity || 1;
+      const totalAmount = unitPrice * qty;
+      const gstPercent = p?.pricing?.gstPercent || 18;
+      const taxableValue = totalAmount / (1 + gstPercent / 100);
+      const gstAmount = totalAmount - taxableValue;
 
-    const rowsHtml = items.length === 0
-      ? `<tr><td colspan="4" style="text-align:center;padding:16px;color:#999;">No items found</td></tr>`
-      : items.map((item, idx) => `
-        <tr style="background:${idx % 2 === 0 ? "#fff" : "#fdf8f2"}">
-          <td style="padding:10px 14px;color:#8B1E3F;font-size:13px;">${getName(item)}</td>
-          <td style="padding:10px 14px;text-align:center;font-size:13px;color:#444;">${item.quantity ?? 1}</td>
-          <td style="padding:10px 14px;text-align:right;font-size:13px;color:#444;">${fmtM(item.price)}</td>
-          <td style="padding:10px 14px;text-align:right;font-size:13px;font-weight:600;color:#8B1E3F;">${fmtM(Number(item.price || 0) * Number(item.quantity || 1))}</td>
-        </tr>`).join("");
+      totalTaxableValue += taxableValue;
+      totalGstAmount += gstAmount;
+      totalMRP += unitMRP * qty;
+      totalDiscountVal += unitDiscount * qty;
 
-    const deliveryRow = deliveryFee > 0 ? `
-      <tr>
-        <td colspan="3" style="text-align:right;padding:4px 14px;color:#666;font-size:13px;">Delivery Fee</td>
-        <td style="text-align:right;padding:4px 14px;font-weight:600;color:#8B1E3F;font-size:13px;">${fmtM(deliveryFee)}</td>
-      </tr>` : "";
+      return {
+        sku: skuStr,
+        name: nameStr,
+        hsn: hsnStr,
+        mrp: unitMRP,
+        discount: unitDiscount,
+        qty,
+        taxableValue,
+        gstPercent,
+        gstAmount,
+        totalAmount,
+      };
+    });
 
-    const discountRow = discount > 0 ? `
-      <tr>
-        <td colspan="3" style="text-align:right;padding:4px 14px;color:#666;font-size:13px;">Discount</td>
-        <td style="text-align:right;padding:4px 14px;font-weight:600;color:#16a34a;font-size:13px;">-${fmtM(discount)}</td>
-      </tr>` : "";
+    const deliveryFee = Number(order.amountBreakup?.deliveryFee || 0);
+    const couponDiscount = Number(order.amountBreakup?.couponDiscount || 0);
+    const offerDiscount = Number(order.amountBreakup?.offerDiscount || 0);
+    const orderLevelDiscount = couponDiscount + offerDiscount;
+    const grandTotal = Number(order.totalAmount || (totalTaxableValue + totalGstAmount + deliveryFee - orderLevelDiscount));
 
-    const payStatusColor = order.paymentStatus?.toLowerCase() === "paid" ? "#15803d" : order.paymentStatus?.toLowerCase() === "failed" ? "#dc2626" : "#d97706";
-    const ordStatusColor = order.orderStatus?.toLowerCase() === "delivered" ? "#15803d" : order.orderStatus?.toLowerCase() === "cancelled" ? "#dc2626" : "#7c3aed";
+    // Seller Details Fallback
+    const vendor = order.vendorId || {};
+    const sellerName = vendor.businessName || vendor.name || "Samagran Ventures LLP";
+    const sellerAddress = [
+      vendor.address?.line1,
+      vendor.address?.line2,
+      vendor.address?.city,
+      vendor.address?.state,
+      vendor.address?.pincode
+    ].filter(Boolean).join(", ") || "Godown, Patlipada, Near Ramnath Tabela, Thane (M.Corp)-400607, Maharashtra";
+    const sellerGstin = vendor.gstin || "27AACFY8913A1Z8";
+    const sellerFssai = vendor.fssai || "13323999000008";
+    const sellerCin = vendor.cin || "AAZ-3294";
+    const sellerPan = vendor.pan || "AACFY8913A";
+    const sellerEmail = vendor.email || "support@samagran.com";
+    const sellerPhone = vendor.phone || "+91 9876543210";
+
+    // Customer Details
+    const customerName = order.user?.name || order.address?.name || "Customer";
+    const customerAddress = [
+      order.address?.fullAddress,
+      order.address?.city,
+      order.address?.state,
+      order.address?.pincode
+    ].filter(Boolean).join(", ") || "Address not provided";
+    const customerPhone = order.user?.phone || order.address?.phone || "—";
+    const customerEmail = order.user?.email || "—";
+
+    const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${order._id}`;
+
+    const rowsHtml = itemDetails.map((item, idx) => `
+      <tr style="background:${idx % 2 === 0 ? "#ffffff" : "#fdf8f2"}; border-top: 1px solid #e5e7eb;">
+        <td style="padding:10px 8px;text-align:center;color:#555;font-weight:600;">${idx + 1}</td>
+        <td style="padding:10px 8px;font-family:monospace;font-size:11px;color:#444;">${item.sku}</td>
+        <td style="padding:10px 8px;font-weight:bold;color:#8B1E3F;max-width:130px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${item.name}</td>
+        <td style="padding:10px 8px;color:#555;font-weight:600;">${item.hsn}</td>
+        <td style="padding:10px 8px;text-align:right;color:#444;font-weight:600;">₹${item.mrp.toFixed(2)}</td>
+        <td style="padding:10px 8px;text-align:right;color:#444;font-weight:600;">₹${item.discount.toFixed(2)}</td>
+        <td style="padding:10px 8px;text-align:center;font-weight:bold;color:#333;">${item.qty}</td>
+        <td style="padding:10px 8px;text-align:right;color:#444;font-weight:600;">₹${item.taxableValue.toFixed(2)}</td>
+        <td style="padding:10px 8px;text-align:center;color:#555;font-weight:600;">${item.gstPercent}%</td>
+        <td style="padding:10px 8px;text-align:right;color:#444;font-weight:600;">₹${item.gstAmount.toFixed(2)}</td>
+        <td style="padding:10px 8px;text-align:right;font-weight:bold;color:#8B1E3F;">₹${item.totalAmount.toFixed(2)}</td>
+      </tr>
+    `).join("");
+
+    const discountRow = orderLevelDiscount > 0 ? `
+      <div style="display:flex;justify-content:space-between;color:#4b5563;font-weight:600;margin-bottom:6px;">
+        <span>Coupon/Offer Discount</span>
+        <span style="color:#16a34a;font-weight:bold;">-₹${orderLevelDiscount.toFixed(2)}</span>
+      </div>
+    ` : "";
 
     const html = `<!DOCTYPE html>
 <html lang="en">
@@ -426,97 +614,133 @@ export default function Invoices() {
   <title>Invoice ${invoiceNumber}</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Segoe UI', Arial, sans-serif; background: #fff; color: #1a1a1a; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; background: #fff; color: #1a1a1a; padding: 40px 48px; max-width: 900px; margin: 0 auto; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     @page { margin: 0; size: A4; }
-    .page { padding: 40px 48px; max-width: 900px; margin: 0 auto; }
     table { width: 100%; border-collapse: collapse; }
+    .grid { display: grid; }
+    .grid-2 { display: grid; grid-template-columns: 2fr 1fr; }
+    .grid-3 { display: grid; grid-template-columns: 2fr 1fr; }
+    .border-box { border: 1px solid #d1d5db; rounded-xl: 10px; overflow: hidden; margin-bottom: 20px; border-radius: 10px; }
   </style>
 </head>
 <body>
-<div class="page">
   <!-- Header -->
-  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:32px;">
-    <div>
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
-        <div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#8B1E3F,#D4AF37);display:flex;align-items:center;justify-content:center;color:#fff;font-size:18px;font-weight:800;">S</div>
-        <span style="font-size:22px;font-weight:800;color:#8B1E3F;letter-spacing:-0.5px;">Samagran</span>
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;">
+    <div style="display:flex;align-items:center;gap:12px;">
+      <div style="width:40px;height:40px;border-radius:50%;background-color:#8B1E3F;display:flex;align-items:center;justify-content:center;color:#fff;font-size:18px;font-weight:bold;box-shadow:0 2px 4px rgba(0,0,0,0.1);">S</div>
+      <div>
+        <span style="font-size:20px;font-weight:800;color:#8B1E3F;letter-spacing:-0.5px;">Samagran</span>
+        <p style="font-size:10px;color:#6b7280;font-weight:500;margin-top:1px;">Marketplace Portal</p>
       </div>
-      <p style="font-size:11px;color:#6b7280;line-height:1.6;">support@samagran.com<br/>www.samagran.com</p>
     </div>
     <div style="text-align:right;">
-      <p style="font-size:28px;font-weight:900;letter-spacing:4px;color:#2f1618;">INVOICE</p>
-      <p style="font-size:11px;color:#6b7280;margin-top:4px;">Invoice #: <strong style="color:#374151;">${invoiceNumber}</strong></p>
-      <p style="font-size:11px;color:#6b7280;">Date: <strong style="color:#374151;">${fmtD(order.createdAt)}</strong></p>
-      <p style="font-size:11px;color:#6b7280;">Due Date: <strong style="color:#374151;">${fmtD(dueDate)}</strong></p>
+      <h1 style="font-size:24px;font-weight:900;text-transform:uppercase;letter-spacing:1px;color:#2f1618;">Tax Invoice</h1>
     </div>
   </div>
 
   <!-- Divider -->
-  <div style="height:2px;background:linear-gradient(90deg,#8B1E3F,#D4AF37,transparent);margin-bottom:24px;opacity:0.5;"></div>
+  <div style="height:1px;background-color:#e5e7eb;margin-bottom:20px;"></div>
 
-  <!-- Bill To + Order Details -->
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:24px;">
-    <div>
-      <p style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:#8B1E3F;margin-bottom:8px;">Bill To:</p>
-      <p style="font-weight:700;font-size:14px;color:#2f1618;">${customer}</p>
-      ${email ? `<p style="font-size:11px;color:#6b7280;margin-top:2px;">${email}</p>` : ""}
-      ${phone ? `<p style="font-size:11px;color:#6b7280;margin-top:2px;">${phone}</p>` : ""}
-      ${address ? `<p style="font-size:11px;color:#6b7280;margin-top:6px;">${address}</p>` : ""}
+  <!-- Seller Details Box -->
+  <div class="border-box grid-3">
+    <div style="padding:16px;border-right:1px solid #d1d5db;">
+      <p style="font-size:10px;font-weight:bold;text-transform:uppercase;letter-spacing:1px;color:#8B1E3F;margin-bottom:6px;">Sold By / Seller:</p>
+      <p style="font-weight:800;font-size:14px;color:#1a1a1a;margin-bottom:4px;">${sellerName}</p>
+      <p style="font-size:12px;color:#4b5563;line-height:1.5;margin-bottom:10px;">${sellerAddress}</p>
+      
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:10px;color:#6b7280;font-weight:600;border-top:1px solid #f3f4f6;padding-top:8px;">
+        <p>GSTIN: <span style="color:#1a1a1a;font-weight:bold;">${sellerGstin}</span></p>
+        <p>PAN: <span style="color:#1a1a1a;font-weight:bold;">${sellerPan}</span></p>
+        <p>CIN: <span style="color:#1a1a1a;font-weight:bold;">${sellerCin}</span></p>
+        <p>FSSAI No: <span style="color:#1a1a1a;font-weight:bold;">${sellerFssai}</span></p>
+        <p style="grid-column: span 2;margin-top:4px;">Email: <span style="color:#1a1a1a;font-weight:bold;">${sellerEmail}</span>  |  Contact: <span style="color:#1a1a1a;font-weight:bold;">${sellerPhone}</span></p>
+      </div>
     </div>
-    <div>
-      <p style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:#8B1E3F;margin-bottom:8px;">Order Details:</p>
-      <table style="font-size:11px;">
-        <tr><td style="color:#6b7280;padding:2px 0;width:110px;">Order ID</td><td style="font-weight:600;color:#2f1618;word-break:break-all;">${order._id}</td></tr>
-        <tr><td style="color:#6b7280;padding:2px 0;">Order Date</td><td style="font-weight:600;color:#2f1618;">${fmtD(order.createdAt)}</td></tr>
-        <tr><td style="color:#6b7280;padding:2px 0;">Payment Method</td><td style="font-weight:600;color:#2f1618;">${order.paymentMethod || "COD"}</td></tr>
-        <tr><td style="color:#6b7280;padding:2px 0;">Payment Status</td><td><span style="background:${payStatusColor}22;color:${payStatusColor};padding:2px 8px;border-radius:99px;font-size:10px;font-weight:700;">${order.paymentStatus || "Pending"}</span></td></tr>
-        <tr><td style="color:#6b7280;padding:2px 0;">Order Status</td><td><span style="background:${ordStatusColor}22;color:${ordStatusColor};padding:2px 8px;border-radius:99px;font-size:10px;font-weight:700;">${order.orderStatus || "Placed"}</span></td></tr>
-      </table>
+    <div style="padding:16px;background-color:#fafafa;display:flex;flex-direction:column;justify-content:space-between;align-items:center;text-align:center;">
+      <div style="border:1px solid #e5e7eb;padding:4px;background-color:#fff;border-radius:8px;">
+        <img src="${qrCodeUrl}" alt="QR" style="width:70px;height:70px;display:block;" />
+      </div>
+      <div style="margin-top:10px;">
+        <p style="font-size:9px;font-weight:bold;color:#9ca3af;text-transform:uppercase;letter-spacing:0.5px;">Invoice Number</p>
+        <p style="font-size:12px;font-weight:bold;color:#1f2937;font-family:monospace;margin-top:2px;">${invoiceNumber}</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Customer Box -->
+  <div class="border-box grid-3">
+    <div style="padding:16px;border-right:1px solid #d1d5db;">
+      <p style="font-size:10px;font-weight:bold;text-transform:uppercase;letter-spacing:1px;color:#8B1E3F;margin-bottom:6px;">Invoice To:</p>
+      <p style="font-weight:800;font-size:14px;color:#1a1a1a;margin-bottom:4px;">${customerName}</p>
+      <p style="font-size:12px;color:#4b5563;line-height:1.5;margin-bottom:10px;">${customerAddress}</p>
+      
+      <div style="font-size:10px;color:#6b7280;font-weight:600;border-top:1px solid #f3f4f6;padding-top:8px;">
+        <p>Phone Number: <span style="color:#1a1a1a;font-weight:bold;">${customerPhone}</span></p>
+        <p>Email ID: <span style="color:#1a1a1a;font-weight:bold;">${customerEmail}</span></p>
+      </div>
+    </div>
+    <div style="padding:16px;background-color:#fafafa;display:flex;flex-direction:column;gap:8px;justify-content:center;font-size:12px;color:#4b5563;font-weight:600;">
+      <div style="display:flex;justify-content:space-between;">
+        <span>Order ID:</span>
+        <span style="color:#1a1a1a;font-family:monospace;font-weight:bold;">#${shortId(order._id)}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;">
+        <span>Invoice Date:</span>
+        <span style="color:#1a1a1a;font-weight:bold;">${fmtDate(order.createdAt)}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;">
+        <span>Place of Supply:</span>
+        <span style="color:#1a1a1a;font-weight:bold;">${order.address?.state || "Maharashtra"}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;">
+        <span>Payment Mode:</span>
+        <span style="color:#1a1a1a;font-weight:bold;">${order.paymentMethod || "COD"}</span>
+      </div>
     </div>
   </div>
 
   <!-- Items Table -->
-  <div style="margin-bottom:24px;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;">
-    <table>
+  <div class="border-box">
+    <table style="font-size:11px;">
       <thead>
-        <tr style="background:linear-gradient(135deg,#8B1E3F,#a0233f);">
-          <th style="padding:12px 14px;text-align:left;font-size:11px;font-weight:600;color:#fff;text-transform:uppercase;letter-spacing:0.5px;">Item Description</th>
-          <th style="padding:12px 14px;text-align:center;font-size:11px;font-weight:600;color:#fff;text-transform:uppercase;letter-spacing:0.5px;">Qty</th>
-          <th style="padding:12px 14px;text-align:right;font-size:11px;font-weight:600;color:#fff;text-transform:uppercase;letter-spacing:0.5px;">Unit Price</th>
-          <th style="padding:12px 14px;text-align:right;font-size:11px;font-weight:600;color:#fff;text-transform:uppercase;letter-spacing:0.5px;">Total</th>
+        <tr style="background-color:#8B1E3F;color:#ffffff;text-align:left;">
+          <th style="padding:10px 8px;text-align:center;font-weight:bold;">Sr. No.</th>
+          <th style="padding:10px 8px;font-weight:bold;">SKU/UPC</th>
+          <th style="padding:10px 8px;font-weight:bold;">Item Description</th>
+          <th style="padding:10px 8px;font-weight:bold;">HSN/SAC</th>
+          <th style="padding:10px 8px;text-align:right;font-weight:bold;">MRP (₹)</th>
+          <th style="padding:10px 8px;text-align:right;font-weight:bold;">Discount (₹)</th>
+          <th style="padding:10px 8px;text-align:center;font-weight:bold;">Qty</th>
+          <th style="padding:10px 8px;text-align:right;font-weight:bold;">Taxable (₹)</th>
+          <th style="padding:10px 8px;text-align:center;font-weight:bold;">GST (%)</th>
+          <th style="padding:10px 8px;text-align:right;font-weight:bold;">GST Amt (₹)</th>
+          <th style="padding:10px 8px;text-align:right;font-weight:bold;">Total (₹)</th>
         </tr>
       </thead>
-      <tbody>${rowsHtml}</tbody>
+      <tbody>
+        ${rowsHtml}
+      </tbody>
     </table>
   </div>
 
-  <!-- Totals -->
-  <div style="display:flex;justify-content:flex-end;margin-bottom:32px;">
-    <table style="width:260px;font-size:13px;">
-      <tr>
-        <td style="padding:4px 0;color:#6b7280;">Subtotal</td>
-        <td style="text-align:right;font-weight:600;color:#8B1E3F;">${fmtM(subtotal)}</td>
-      </tr>
-      ${deliveryRow}
-      ${discountRow}
-      <tr><td colspan="2"><div style="height:1px;background:#e5e7eb;margin:8px 0;"></div></td></tr>
-      <tr>
-        <td style="font-weight:700;font-size:15px;color:#2f1618;">Total</td>
-        <td style="text-align:right;font-weight:800;font-size:15px;color:#8B1E3F;">${fmtM(total)}</td>
-      </tr>
-    </table>
-  </div>
-
-  <!-- Divider -->
-  <div style="height:1px;background:linear-gradient(90deg,#8B1E3F,#D4AF37,transparent);margin-bottom:24px;opacity:0.4;"></div>
-
-  <!-- Notes + Terms -->
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;">
+  <!-- Totals Section -->
+  <div class="grid-2" style="margin-bottom:24px;gap:20px;">
     <div>
-      <p style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:#8B1E3F;margin-bottom:4px;">Notes:</p>
-      <p style="font-size:11px;color:#6b7280;">Thank you for your business!</p>
+      <div style="padding:14px;background-color:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;">
+        <p style="font-size:10px;font-weight:bold;color:#8B1E3F;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Amount in Words:</p>
+        <p style="font-size:12px;font-weight:bold;color:#1f2937;font-style:italic;line-height:1.5;">${formatRupeesInWords(grandTotal)}</p>
+      </div>
     </div>
-    <div>
+    <div style="font-size:12px;color:#4b5563;line-height:1.8;">
+      <div style="display:flex;justify-content:space-between;color:#4b5563;font-weight:600;margin-bottom:6px;">
+        <span>Subtotal (MRP Total)</span>
+        <span style="color:#111827;font-weight:bold;">₹${totalMRP.toFixed(2)}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;color:#4b5563;font-weight:600;margin-bottom:6px;">
+        <span>Total Product Discount</span>
+        <span style="color:#111827;font-weight:bold;">-₹${totalDiscountVal.toFixed(2)}</span>
+      </div>
+      ${discountRow}
       <p style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:#8B1E3F;margin-bottom:4px;">Terms &amp; Conditions:</p>
       <p style="font-size:11px;color:#6b7280;">Payment due within 30 days.</p>
     </div>

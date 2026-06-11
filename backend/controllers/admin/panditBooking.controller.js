@@ -2,10 +2,11 @@ import PanditBooking from "../../models/panditBooking.model.js";
 import mongoose from "mongoose";
 import { ensureZoomMeetingForBooking } from "../../controllers/panditBooking.controller.js";
 import { createMeeting } from "../../utils/zoom.service.js";
+import { normalizeCityList } from "../../utils/cityNormalizer.js";
 
 export const getAllPanditBookingsForAdmin = async (req, res) => {
   try {
-    const { search = "", status = "all", city = "" } = req.query;
+    const { search = "", status = "all", city = "", pincode = "" } = req.query;
 
     const filter = {};
 
@@ -14,7 +15,11 @@ export const getAllPanditBookingsForAdmin = async (req, res) => {
     }
 
     if (String(city || "").trim()) {
-      filter["address.city"] = { $regex: String(city).trim(), $options: "i" };
+      filter["address.city"] = { $regex: `^${String(city).trim()}$`, $options: "i" };
+    }
+
+    if (String(pincode || "").trim()) {
+      filter["address.pincode"] = { $regex: `^${String(pincode).trim()}$`, $options: "i" };
     }
 
     if (search.trim()) {
@@ -27,9 +32,15 @@ export const getAllPanditBookingsForAdmin = async (req, res) => {
       ];
     }
 
-    const bookings = await PanditBooking.find(filter)
-      .populate("pandit", "fullName phone")
-      .sort({ createdAt: -1 });
+    const [bookings, rawCities, pincodes] = await Promise.all([
+      PanditBooking.find(filter)
+        .populate("pandit", "fullName phone")
+        .sort({ createdAt: -1 }),
+      PanditBooking.distinct("address.city"),
+      PanditBooking.distinct("address.pincode")
+    ]);
+
+    const cities = normalizeCityList(rawCities);
 
     await Promise.all(
       bookings.map(async (booking) => {
@@ -54,6 +65,8 @@ export const getAllPanditBookingsForAdmin = async (req, res) => {
       success: true,
       count: bookings.length,
       data: bookings,
+      cities: cities.filter(Boolean),
+      pincodes: pincodes.filter(Boolean),
     });
   } catch (err) {
     res.status(500).json({

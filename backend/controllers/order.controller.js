@@ -1394,6 +1394,7 @@ export const getOrderInvoicePdf = async (req, res) => {
 
     const order = await Order.findOne({ _id: orderId, user: req.user._id })
       .populate("user", "name email phone")
+      .populate("vendorId")
       .populate("items.product");
 
     if (!order) {

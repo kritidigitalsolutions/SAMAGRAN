@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import API from "../api/axios";
+import { normalizeCities } from "../utils/normalizeCity";
 import { FiEye, FiMoreVertical, FiSearch, FiTrash2, FiX } from "react-icons/fi";
 import TablePagination from "../components/TablePagination";
 import TableMenuPopover from "../components/TableMenuPopover";
@@ -57,8 +58,11 @@ export default function PanditBookings() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [cityFilter, setCityFilter] = useState("");
+  const [availableCities, setAvailableCities] = useState([]);
+  const [pincodeFilter, setPincodeFilter] = useState("");
+  const [availablePincodes, setAvailablePincodes] = useState([]);
 
-  const fetchBookings = useCallback(async (searchValue = "", statusValue = "all", cityValue = "") => {
+  const fetchBookings = useCallback(async (searchValue = "", statusValue = "all", cityValue = "", pincodeValue = "") => {
     try {
       setLoading(true);
       setError("");
@@ -68,10 +72,21 @@ export default function PanditBookings() {
           ...(searchValue.trim() ? { search: searchValue.trim() } : {}),
           ...(statusValue ? { status: statusValue } : {}),
           ...(cityValue.trim() ? { city: cityValue.trim() } : {}),
+          ...(pincodeValue.trim() ? { pincode: pincodeValue.trim() } : {}),
         },
       });
 
       setBookings(res.data?.data || []);
+      const incomingCities = res.data?.cities || [];
+      if (Array.isArray(incomingCities) && incomingCities.length > 0) {
+        setAvailableCities(normalizeCities(incomingCities));
+      }
+      const incomingPincodes = res.data?.pincodes || [];
+      if (Array.isArray(incomingPincodes) && incomingPincodes.length > 0) {
+        const formatted = Array.from(new Set(incomingPincodes.map(p => String(p).trim())))
+          .sort();
+        setAvailablePincodes(formatted);
+      }
       setStatusUpdates((current) => {
         const next = { ...current };
         (res.data?.data || []).forEach((booking) => {
@@ -99,11 +114,11 @@ export default function PanditBookings() {
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      fetchBookings(searchTerm, statusFilter, cityFilter);
+      fetchBookings(searchTerm, statusFilter, cityFilter, pincodeFilter);
     }, 350);
 
     return () => clearTimeout(timer);
-  }, [fetchBookings, searchTerm, statusFilter, cityFilter]);
+  }, [fetchBookings, searchTerm, statusFilter, cityFilter, pincodeFilter]);
 
   useEffect(() => {
     const handleClick = (event) => {
@@ -278,16 +293,27 @@ export default function PanditBookings() {
               <option value="completed">Completed</option>
             </select>
 
-            <div className="flex items-center gap-2 rounded-xl border border-[#d7c3a3] bg-white/70 px-3 dark:border-white/10 dark:bg-white/5">
-              <FiSearch className="shrink-0 text-[var(--admin-primary)]" />
-              <input
-                type="search"
-                value={cityFilter}
-                onChange={(e) => setCityFilter(e.target.value)}
-                placeholder="Filter by city"
-                className="h-11 w-32 bg-transparent text-sm text-[#2f1618] outline-none placeholder:text-[#8c7461] dark:text-[#fff3dc]"
-              />
-            </div>
+            <select
+              value={cityFilter}
+              onChange={(e) => setCityFilter(e.target.value)}
+              className="h-11 rounded-xl border border-[#d7c3a3] bg-white text-black px-3 text-sm outline-none dark:bg-[#181c24] dark:text-white dark:border-white/20"
+            >
+              <option value="">All Cities</option>
+              {availableCities.map((city) => (
+                <option key={city} value={city}>{city}</option>
+              ))}
+            </select>
+
+            <select
+              value={pincodeFilter}
+              onChange={(e) => setPincodeFilter(e.target.value)}
+              className="h-11 rounded-xl border border-[#d7c3a3] bg-white text-black px-3 text-sm outline-none dark:bg-[#181c24] dark:text-white dark:border-white/20"
+            >
+              <option value="">All Pincodes</option>
+              {availablePincodes.map((pincode) => (
+                <option key={pincode} value={pincode}>{pincode}</option>
+              ))}
+            </select>
           </div>
         </div>
 

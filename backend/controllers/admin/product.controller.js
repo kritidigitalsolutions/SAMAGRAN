@@ -3,6 +3,7 @@ import { uploadFileToFirebase } from "../../utils/firebaseUpload.js";
 import { notifyAdmins, notifyVendorsByIds } from "../../utils/notification.service.js";
 import Category from "../../models/category.model.js";
 import Brand from "../../models/brand.model.js";
+import { toTitleCase, normalizeCityList } from "../../utils/cityNormalizer.js";
 
 const escapeRegex = (value = "") => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
@@ -195,6 +196,7 @@ export const addProduct = async (req, res) => {
       subCategoryName,
       description,
       city,
+      pincode,
       hsnCode,
       status,
       quantity,
@@ -269,8 +271,9 @@ export const addProduct = async (req, res) => {
         discountExpiresAt,
       }),
       compliance: {
-        city: String(city || "").trim(),
+        city: toTitleCase(city),
         hsnCode: String(hsnCode || "").trim(),
+        pincode: String(pincode || "").trim(),
       },
       media: {
         image: imageUrls,
@@ -344,6 +347,7 @@ export const getProducts = async (req, res) => {
       categoryId,
       brandId,
       city,
+      pincode,
     } = req.query;
     const searchTerm = search?.trim();
 
@@ -409,6 +413,9 @@ export const getProducts = async (req, res) => {
     // City filter — super-admin can filter by vendor/product city
     if (city && String(city).trim()) {
       query["compliance.city"] = { $regex: `^${String(city).trim()}$`, $options: "i" };
+    }
+    if (pincode && String(pincode).trim()) {
+      query["compliance.pincode"] = { $regex: `^${String(pincode).trim()}$`, $options: "i" };
     }
 
     const gstList = parseList(gstPercent)
@@ -479,6 +486,7 @@ export const getProducts = async (req, res) => {
         compliance: {
           hsnCode: item.compliance?.hsnCode || "",
           city: item.compliance?.city || "",
+          pincode: item.compliance?.pincode || "",
         },
         price,
         oldPrice: mrp,
@@ -600,6 +608,7 @@ export const getSingleProduct = async (req, res) => {
         compliance: {
           hsnCode: item.compliance?.hsnCode || "",
           city: item.compliance?.city || "",
+          pincode: item.compliance?.pincode || "",
         },
         media: {
           image: item.media?.image || item.media?.Images || [],
@@ -658,6 +667,7 @@ export const updateProduct = async (req, res) => {
       subCategoryName,
       description,
       city,
+      pincode,
       hsnCode,
       status,
       quantity,
@@ -756,10 +766,11 @@ export const updateProduct = async (req, res) => {
       item.pricing.priceIncludesGst = pricingPayload.priceIncludesGst;
     }
 
-    if (city !== undefined || hsnCode !== undefined) {
+    if (city !== undefined || hsnCode !== undefined || pincode !== undefined) {
       item.compliance = item.compliance || {};
-      if (city !== undefined) item.compliance.city = String(city || "").trim();
+      if (city !== undefined) item.compliance.city = toTitleCase(city);
       if (hsnCode !== undefined) item.compliance.hsnCode = String(hsnCode || "").trim();
+      if (pincode !== undefined) item.compliance.pincode = String(pincode || "").trim();
     }
 
     if (status !== undefined) {
@@ -903,6 +914,7 @@ export const updateProduct = async (req, res) => {
         compliance: {
           hsnCode: item.compliance?.hsnCode || "",
           city: item.compliance?.city || "",
+          pincode: item.compliance?.pincode || "",
         },
         media: {
           thumbnail: (item.media?.image || item.media?.Images || [])?.[0] || null,

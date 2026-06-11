@@ -2,10 +2,11 @@ import Pandit from "../../models/pandit.model.js";
 import mongoose from "mongoose";
 import PanditBooking from "../../models/panditBooking.model.js";
 import { notifyAdmins } from "../../utils/notification.service.js";
+import { toTitleCase, normalizeCityList } from "../../utils/cityNormalizer.js";
 
 export const getAllPanditsForAdmin = async (req, res) => {
   try {
-    const { search = "", status = "all", city = "" } = req.query;
+    const { search = "", status = "all", city = "", pinCode = "" } = req.query;
 
     const filter = {};
 
@@ -28,10 +29,14 @@ export const getAllPanditsForAdmin = async (req, res) => {
       : {};
 
     const cityFilter = String(city || "").trim()
-      ? { "address.city": { $regex: String(city).trim(), $options: "i" } }
+      ? { "address.city": { $regex: `^${String(city).trim()}$`, $options: "i" } }
       : {};
 
-    const allFilters = [vendorFilter, searchFilter, cityFilter].filter(
+    const pinCodeFilter = String(pinCode || "").trim()
+      ? { "address.pinCode": { $regex: `^${String(pinCode).trim()}$`, $options: "i" } }
+      : {};
+
+    const allFilters = [vendorFilter, searchFilter, cityFilter, pinCodeFilter].filter(
       (f) => Object.keys(f).length > 0
     );
 
@@ -39,12 +44,25 @@ export const getAllPanditsForAdmin = async (req, res) => {
       filter.$and = allFilters;
     }
 
-    const pandits = await Pandit.find(filter).sort({ createdAt: -1 });
+    const distinctFilter = req.admin.role === "vendor" 
+      ? { vendorId: req.vendor._id } 
+      : {};
+
+    const [pandits, rawCities, rawPinCodes] = await Promise.all([
+      Pandit.find(filter).sort({ createdAt: -1 }),
+      Pandit.distinct("address.city", distinctFilter),
+      Pandit.distinct("address.pinCode", distinctFilter)
+    ]);
+
+    const cities = normalizeCityList(rawCities);
+    const pinCodes = rawPinCodes.filter(Boolean).sort();
 
     res.json({
       success: true,
       count: pandits.length,
       data: pandits,
+      cities: cities.filter(Boolean),
+      pinCodes: pinCodes.filter(Boolean),
     });
   } catch (err) {
     res.status(500).json({
@@ -157,7 +175,7 @@ export const createPanditByAdmin = async (req, res) => {
       address: {
         line1: String(address?.line1 || "").trim(),
         line2: String(address?.line2 || "").trim(),
-        city: String(address?.city || "").trim(),
+        city: toTitleCase(address?.city),
         state: String(address?.state || "").trim(),
         pinCode: String(address?.pinCode || "").trim(),
       },
@@ -284,7 +302,7 @@ export const updatePanditByAdmin = async (req, res) => {
       pandit.address = {
         line1: address.line1 !== undefined ? String(address.line1 || "").trim() : prevAddress.line1 || "",
         line2: address.line2 !== undefined ? String(address.line2 || "").trim() : prevAddress.line2 || "",
-        city: address.city !== undefined ? String(address.city || "").trim() : prevAddress.city || "",
+        city: address.city !== undefined ? toTitleCase(address.city) : prevAddress.city || "",
         state: address.state !== undefined ? String(address.state || "").trim() : prevAddress.state || "",
         pinCode: address.pinCode !== undefined ? String(address.pinCode || "").trim() : prevAddress.pinCode || "",
       };

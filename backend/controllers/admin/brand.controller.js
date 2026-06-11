@@ -7,7 +7,6 @@ const normalizeCode = (value = "") => String(value || "").trim();
 export const createBrand = async (req, res) => {
   try {
     const name = normalizeName(req.body?.name);
-    const code = normalizeCode(req.body?.code);
     const description = normalizeName(req.body?.description);
     const status = req.body?.status === "inactive" ? "inactive" : "active";
     const subBrand = normalizeName(req.body?.subBrand);
@@ -19,7 +18,11 @@ export const createBrand = async (req, res) => {
       });
     }
 
-    const existingFilter = { name: { $regex: `^${name}$`, $options: "i" } };
+    // Duplicate check: same name + same subBrand (case-insensitive) is not allowed
+    const existingFilter = {
+      name: { $regex: `^${name}$`, $options: "i" },
+      subBrand: { $regex: `^${subBrand}$`, $options: "i" },
+    };
     if (req.admin.role === "vendor") {
       existingFilter.vendorId = req.vendor._id;
     } else {
@@ -31,7 +34,9 @@ export const createBrand = async (req, res) => {
     if (existing) {
       return res.status(400).json({
         success: false,
-        message: "Brand already exists",
+        message: subBrand
+          ? `Brand "${name}" with sub-brand "${subBrand}" already exists`
+          : `Brand "${name}" (without sub-brand) already exists`,
       });
     }
 
@@ -39,10 +44,10 @@ export const createBrand = async (req, res) => {
       ? await uploadFileToFirebase(req.file, { folder: "brands" })
       : "";
 
+    // code is intentionally omitted — pre-save hook auto-generates it
     const brand = await Brand.create({
       vendorId: req.admin.role === "vendor" ? req.vendor._id : null,
       name,
-      code,
       description,
       image: uploadedImage || normalizeName(req.body?.image),
       subBrand,
@@ -151,36 +156,39 @@ export const updateBrand = async (req, res) => {
     }
 
     const name = normalizeName(req.body?.name);
-    const code = normalizeCode(req.body?.code);
     const description = normalizeName(req.body?.description);
     const status = req.body?.status;
     const subBrand = normalizeName(req.body?.subBrand);
 
-    if (name) {
-      const existingFilter = {
-        _id: { $ne: brand._id },
-        name: { $regex: `^${name}$`, $options: "i" },
-      };
-      if (req.admin.role === "vendor") {
-        existingFilter.vendorId = req.vendor._id;
-      } else {
-        existingFilter.vendorId = null;
-      }
+    // Resolve final values for duplicate check
+    const finalName = name || brand.name;
+    const finalSubBrand = subBrand !== undefined ? subBrand : (brand.subBrand || "");
 
-      const duplicate = await Brand.findOne(existingFilter);
-
-      if (duplicate) {
-        return res.status(400).json({
-          success: false,
-          message: "Brand name already in use",
-        });
-      }
-
-      brand.name = name;
+    // Duplicate check: same name + same subBrand combo (case-insensitive), excluding self
+    const existingFilter = {
+      _id: { $ne: brand._id },
+      name: { $regex: `^${finalName}$`, $options: "i" },
+      subBrand: { $regex: `^${finalSubBrand}$`, $options: "i" },
+    };
+    if (req.admin.role === "vendor") {
+      existingFilter.vendorId = req.vendor._id;
+    } else {
+      existingFilter.vendorId = null;
     }
 
-    if (code !== undefined) {
-      brand.code = code;
+    const duplicate = await Brand.findOne(existingFilter);
+
+    if (duplicate) {
+      return res.status(400).json({
+        success: false,
+        message: finalSubBrand
+          ? `Brand "${finalName}" with sub-brand "${finalSubBrand}" already exists`
+          : `Brand "${finalName}" (without sub-brand) already exists`,
+      });
+    }
+
+    if (name) {
+      brand.name = name;
     }
 
     if (description !== undefined) {

@@ -8,7 +8,6 @@ const apiOrigin = (API.defaults.baseURL || "http://localhost:8000/api").replace(
 
 const initialForm = {
   name: "",
-  code: "",
   description: "",
   subBrand: "",
   status: "active",
@@ -103,7 +102,6 @@ export default function Brands() {
   const openEdit = (brand) => {
     setForm({
       name: brand?.name || "",
-      code: brand?.code || "",
       description: brand?.description || "",
       subBrand: brand?.subBrand || "",
       status: brand?.status || "active",
@@ -141,7 +139,6 @@ export default function Brands() {
 
       const payload = new FormData();
       payload.append("name", form.name.trim());
-      payload.append("code", form.code.trim());
       payload.append("description", form.description.trim());
       payload.append("status", form.status);
       payload.append("subBrand", form.subBrand || "");
@@ -193,7 +190,6 @@ export default function Brands() {
   const buildBrandPayload = (brand, overrides = {}) => {
     const payload = new FormData();
     payload.append("name", String(overrides.name ?? brand.name ?? "").trim());
-    payload.append("code", String(overrides.code ?? brand.code ?? "").trim());
     payload.append("description", String(overrides.description ?? brand.description ?? "").trim());
     payload.append("status", overrides.status ?? brand.status ?? "inactive");
     payload.append("subBrand", overrides.subBrand ?? brand.subBrand ?? "");
@@ -290,10 +286,6 @@ export default function Brands() {
             <div className="space-y-2">
               <label className="text-sm font-medium">Brand Name</label>
               <input name="name" value={form.name} onChange={handleChange} className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-[#16181d] dark:text-white text-black" required />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Code</label>
-              <input name="code" value={form.code} onChange={handleChange} className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-[#16181d] dark:text-white text-black" />
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Sub Brand</label>
