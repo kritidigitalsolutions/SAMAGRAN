@@ -1496,9 +1496,9 @@ export default function Items() {
                       className="h-4 w-4 rounded-[4px] border border-[#d7c3a3]"
                     />
                   </th>
-                  <th className="px-4 py-3 font-semibold">S.No</th>
+                  <th className="px-2 py-3 font-semibold">S.No</th>
                   <th className="px-4 py-3 font-semibold">Image</th>
-                  {/* <th className="px-4 py-3 font-semibold">Name</th> */}
+                  <th className="px-4 py-3 font-semibold">Name</th>
                   <th className="px-4 py-3 font-semibold">Item Code</th>
                   {/* <th className="px-4 py-3 font-semibold">Product</th> */}
                   <th className="px-4 py-3 font-semibold">Category</th>
@@ -1541,16 +1541,19 @@ export default function Items() {
                     <td className="px-4 py-3 text-sm text-[#6f3945] dark:text-[#f7e3c0]">
                       {(page - 1) * pageSize + index + 1}
                     </td>
-                    <td className="px-4 py-3 flex gap-2">
+                    <td className="px-4 py-7 flex gap-2">
                       {formatImageUrl(item.thumbnail) ? (
                         <img
                           src={formatImageUrl(item.thumbnail)}
                           alt={item.title}
-                          className="h-10 w-10 rounded-lg object-cover"
+                          className="h-8 w-8 rounded-lg object-cover"
                         />
                       ) : (
                         <div className="h-10 w-10 rounded-lg bg-[#8B1E3F]/10" />
                       )}
+                      
+                    </td>
+                    <td className="px-4 py-3">
                       <div>
                         <p
                           className="font-semibold items-title-ellipsis text-wrap line-clamp-2"

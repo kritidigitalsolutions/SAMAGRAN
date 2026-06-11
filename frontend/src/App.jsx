@@ -25,7 +25,7 @@ import Legal from "./pages/Legal";
 import CustomSamagri from "./pages/CustomSamagri";
 import Notifications from "./pages/Notifications";
 import DeliveryBoys from "./pages/DeliveryBoys";
-import Transactions from "./pages/Transactions";
+// import Transactions from "./pages/Transactions";
 import Earnings from "./pages/Earnings";
 import Withdrawals from "./pages/Withdrawals";
 import Refunds from "./pages/Refunds";
@@ -103,7 +103,7 @@ function App() {
         <Route path="booking-pricing" element={<AccessRoute pageKey="booking-pricing"><BookingPricing /></AccessRoute>} />
         <Route path="settings" element={<AccessRoute pageKey="settings"><VendorSettings /></AccessRoute>} />
         <Route path="delivery-boys" element={<AccessRoute pageKey="delivery-boys"><DeliveryBoys /></AccessRoute>} />
-        <Route path="transactions" element={<AccessRoute pageKey="transactions"><Transactions /></AccessRoute>} />
+        {/* <Route path="transactions" element={<AccessRoute pageKey="transactions"><Transactions /></AccessRoute>} /> */}
         <Route path="earnings" element={<AccessRoute pageKey="earnings"><Earnings /></AccessRoute>} />
         <Route path="withdrawals" element={<AccessRoute pageKey="withdrawals"><Withdrawals /></AccessRoute>} />
         <Route path="refunds" element={<AccessRoute pageKey="refunds"><Refunds /></AccessRoute>} />
