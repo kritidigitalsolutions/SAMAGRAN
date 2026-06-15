@@ -5,6 +5,8 @@ import {
   sendCityRequired,
 } from "../utils/locationFilter.js";
 
+const CUSTOMIZE_KIT_TYPES = ["Customize", "default"];
+
 export const getDefaultKitsForUsers = async (req, res) => {
   try {
     // ── City filtering ──────────────────────────────────────────────────
@@ -17,7 +19,7 @@ export const getDefaultKitsForUsers = async (req, res) => {
 
     const filter = {
       status: "active",
-      kitType: "default",
+      kitType: { $in: CUSTOMIZE_KIT_TYPES },
       ...vendorFilter,
     };
 
@@ -55,7 +57,7 @@ export const getDefaultKitByIdForUsers = async (req, res) => {
     const kitFilter = {
       _id: req.params.id,
       status: "active",
-      kitType: "default",
+      kitType: { $in: CUSTOMIZE_KIT_TYPES },
       ...vendorFilter,
     };
 
@@ -66,7 +68,7 @@ export const getDefaultKitByIdForUsers = async (req, res) => {
     if (!kit) {
       return res.status(404).json({
         success: false,
-        message: "Default kit not found",
+        message: "Customize kit not found",
       });
     }
 

@@ -2,6 +2,9 @@ import FestivalKit from "../../models/festivalKit.model.js";
 import Item from "../../models/product.model.js";
 import { uploadFileToFirebase } from "../../utils/firebaseUpload.js";
 
+const SAMAGRAN_KIT_TYPE = "Samagran kit";
+const SAMAGRAN_KIT_TYPES = [SAMAGRAN_KIT_TYPE, "special"];
+
 const resolveVendorFilter = (req) => {
   if (req.admin?.role === "vendor") {
     return { vendorId: req.admin.vendorId };
@@ -107,7 +110,7 @@ export const createKit = async (req, res) => {
 
     const kit = await FestivalKit.create({
       vendorId: resolveVendorIdForCreate(req),
-      kitType: "special",
+      kitType: SAMAGRAN_KIT_TYPE,
       name,
       description,
       image,
@@ -125,7 +128,7 @@ export const createKit = async (req, res) => {
 
     return res.status(201).json({
       success: true,
-      message: "Festival kit created",
+      message: "Samagran kit created",
       data: kit
     });
 
@@ -141,7 +144,7 @@ export const getAllKits = async (req, res) => {
   try {
     const { search, festivalType, status = "all" } = req.query;
     let filter = {
-      kitType: "special",
+      kitType: { $in: SAMAGRAN_KIT_TYPES },
       ...resolveVendorFilter(req),
     };
 
@@ -177,7 +180,7 @@ export const getSingleKit = async (req, res) => {
   try {
     const kit = await FestivalKit.findOne({
       _id: req.params.id,
-      kitType: "special",
+      kitType: { $in: SAMAGRAN_KIT_TYPES },
       ...resolveVendorFilter(req),
     })
       .populate("items.product", "title pricing media");
@@ -186,7 +189,7 @@ export const getSingleKit = async (req, res) => {
     if (!kit) {
       return res.status(404).json({
         success: false,
-        message: "Kit not found"
+        message: "Samagran kit not found"
       });
     }
 
@@ -232,20 +235,20 @@ export const deleteKit = async (req, res) => {
   try {
     const kit = await FestivalKit.findOneAndDelete({
       _id: req.params.id,
-      kitType: "special",
+      kitType: { $in: SAMAGRAN_KIT_TYPES },
       ...resolveVendorFilter(req),
     });
 
     if (!kit) {
       return res.status(404).json({
         success: false,
-        message: "Kit not found"
+        message: "Samagran kit not found"
       });
     }
 
     res.json({
       success: true,
-      message: "Kit deleted successfully"
+      message: "Samagran kit deleted successfully"
     });
 
   } catch (err) {
@@ -260,14 +263,14 @@ export const updateKit = async (req, res) => {
   try {
     const kit = await FestivalKit.findOne({
       _id: req.params.id,
-      kitType: "special",
+      kitType: { $in: SAMAGRAN_KIT_TYPES },
       ...resolveVendorFilter(req),
     });
 
     if (!kit) {
       return res.status(404).json({
         success: false,
-        message: "Kit not found"
+        message: "Samagran kit not found"
       });
     }
 
@@ -306,6 +309,7 @@ export const updateKit = async (req, res) => {
       : kit.kitPrice;
 
     kit.name = String(name || "").trim();
+    kit.kitType = SAMAGRAN_KIT_TYPE;
     kit.description = String(description || "");
     kit.festivalType = festivalType;
     kit.status = status;
@@ -326,7 +330,7 @@ export const updateKit = async (req, res) => {
 
     res.json({
       success: true,
-      message: "Festival kit updated",
+      message: "Samagran kit updated",
       data: kit
     });
 

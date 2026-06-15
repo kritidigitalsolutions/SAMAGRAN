@@ -340,7 +340,7 @@ const getProductDocAndPrice = async ({ userId, productType, productId }) => {
   if (resolvedProductType === "FestivalKit") {
     const kit = await FestivalKit.findById(productId);
     if (!kit) {
-      throw new Error("Festival kit not found");
+      throw new Error("Kit not found");
     }
 
     return {
@@ -354,11 +354,11 @@ const getProductDocAndPrice = async ({ userId, productType, productId }) => {
   if (resolvedProductType === "DefaultKit") {
     const kit = await FestivalKit.findOne({
       _id: productId,
-      kitType: "default",
+      kitType: { $in: ["Customize", "default"] },
       status: "active",
     });
     if (!kit) {
-      throw new Error("Default kit not found");
+      throw new Error("Customize kit not found");
     }
 
     return {

@@ -134,7 +134,7 @@ export default function SpecialKit() {
 
       setKits(res.data?.data || []);
     } catch (err) {
-      setError(err.response?.data?.message || "Unable to load special kits.");
+      setError(err.response?.data?.message || "Unable to load Samagran kits.");
     } finally {
       setLoading(false);
     }
@@ -269,9 +269,9 @@ export default function SpecialKit() {
       setKits((currentKits) => [res.data?.data, ...currentKits].filter(Boolean));
       resetForm();
       setShowCreateForm(false);
-      setSuccess("Special kit created successfully.");
+      setSuccess("Samagran kit created successfully.");
     } catch (err) {
-      setError(err.response?.data?.message || "Unable to create special kit.");
+      setError(err.response?.data?.message || "Unable to create Samagran kit.");
     } finally {
       setSaving(false);
     }
@@ -403,9 +403,9 @@ export default function SpecialKit() {
 
       await fetchKits();
       closeEditKit();
-      setSuccess("Special kit updated successfully.");
+      setSuccess("Samagran kit updated successfully.");
     } catch (err) {
-      setError(err.response?.data?.message || "Unable to update special kit.");
+      setError(err.response?.data?.message || "Unable to update Samagran kit.");
     } finally {
       setSaving(false);
     }
@@ -426,9 +426,9 @@ export default function SpecialKit() {
       setKits((currentKits) =>
         currentKits.filter((currentKit) => getKitId(currentKit) !== kitId)
       );
-      setSuccess("Special kit deleted.");
+      setSuccess("Samagran kit deleted.");
     } catch (err) {
-      setError(err.response?.data?.message || "Unable to delete special kit.");
+      setError(err.response?.data?.message || "Unable to delete Samagran kit.");
     } finally {
       setActionLoading("");
     }
@@ -438,7 +438,7 @@ export default function SpecialKit() {
     <div className="special-kit-page">
       <section className="special-kit-hero">
         <div>
-          <p className="special-kit-eyebrow">Special Kits</p>
+          <p className="special-kit-eyebrow">Samagran Kits</p>
           <h2>Create curated festival kits</h2>
           <p>Bundle active items into premium offerings and manage them from one place.</p>
         </div>
@@ -446,7 +446,7 @@ export default function SpecialKit() {
         <div className="flex items-center gap-2">
           <button type="button" onClick={() => setShowCreateForm((current) => !current)}>
             <FiPlus />
-            {showCreateForm ? "Hide Form" : "Create Special Kit"}
+            {showCreateForm ? "Hide Form" : "Create Samagran Kit"}
           </button>
           <button type="button" onClick={fetchKits}>
             <FiRefreshCw />
@@ -519,7 +519,7 @@ export default function SpecialKit() {
 
           {previewImageUrl && (
             <div className="special-kit-preview">
-              <img src={previewImageUrl} alt="Special kit preview" />
+              <img src={previewImageUrl} alt="Samagran kit preview" />
               {imageFile && (
                 <button type="button" onClick={() => setImageFile(null)}>
                   Remove local image
@@ -557,7 +557,7 @@ export default function SpecialKit() {
               value={itemSearchTerm}
               onChange={(event) => setItemSearchTerm(event.target.value)}
               placeholder="Search items to add"
-              aria-label="Search items to add to special kit"
+              aria-label="Search items to add to Samagran kit"
             />
             {itemSearchTerm && (
               <button
@@ -615,7 +615,7 @@ export default function SpecialKit() {
           <div className="special-kit-list-head">
             <div>
               <p className="special-kit-eyebrow">Catalog</p>
-              <h3>Special kits</h3>
+              <h3>Samagran kits</h3>
             </div>
 
             <span>{kits.length} kits</span>
@@ -659,7 +659,7 @@ export default function SpecialKit() {
           {loading ? (
             <div className="special-kit-state">Loading kits...</div>
           ) : !kits.length ? (
-            <div className="special-kit-state">No special kits found.</div>
+            <div className="special-kit-state">No Samagran kits found.</div>
           ) : (
             <div className="special-kit-cards">
               {kits.map((kit) => (
@@ -674,7 +674,7 @@ export default function SpecialKit() {
 
                   <div className="special-kit-card-body">
                     <div>
-                      <span>{kit.festivalType || "Special"}</span>
+                      <span>{kit.festivalType || "Samagran"}</span>
                       <h4>{kit.name}</h4>
                       <p>{kit.description || "Curated kit for festival orders."}</p>
                     </div>
@@ -726,7 +726,7 @@ export default function SpecialKit() {
           <section className="special-kit-modal special-kit-view-modal" aria-label={`${viewKit.name} details`}>
             <div className="special-kit-modal-head">
               <div>
-                <p className="special-kit-eyebrow">{viewKit.festivalType || "Special Kit"}</p>
+                <p className="special-kit-eyebrow">{viewKit.festivalType || "Samagran Kit"}</p>
                 <h3>{viewKit.name}</h3>
               </div>
               <button type="button" className="special-kit-modal-close" onClick={closeViewKit}>
@@ -843,7 +843,7 @@ export default function SpecialKit() {
 
             {editPreviewImageUrl && (
               <div className="special-kit-preview">
-                <img src={editPreviewImageUrl} alt={`${editForm.name || "Special kit"} preview`} />
+                <img src={editPreviewImageUrl} alt={`${editForm.name || "Samagran kit"} preview`} />
                 {editImageFile && (
                   <button type="button" onClick={() => setEditImageFile(null)}>
                     Keep current image
@@ -881,7 +881,7 @@ export default function SpecialKit() {
                 value={itemSearchTerm}
                 onChange={(event) => setItemSearchTerm(event.target.value)}
                 placeholder="Search items to add"
-                aria-label="Search items to add to special kit"
+                aria-label="Search items to add to Samagran kit"
               />
               {itemSearchTerm && (
                 <button type="button" onClick={() => setItemSearchTerm("")} aria-label="Clear item search">

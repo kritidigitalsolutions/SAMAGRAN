@@ -14,8 +14,14 @@ export const getAllPanditsForAdmin = async (req, res) => {
       filter.status = status;
     }
 
-    const vendorFilter = req.admin.role === "vendor" 
-      ? { vendorId: req.vendor._id } 
+    const vendorFilter = req.admin.role === "vendor"
+      ? {
+          $or: [
+            { vendorId: req.vendor._id },
+            { vendorId: null },
+            { vendorId: { $exists: false } },
+          ],
+        }
       : {};
 
     const searchFilter = search.trim() 
@@ -44,8 +50,14 @@ export const getAllPanditsForAdmin = async (req, res) => {
       filter.$and = allFilters;
     }
 
-    const distinctFilter = req.admin.role === "vendor" 
-      ? { vendorId: req.vendor._id } 
+    const distinctFilter = req.admin.role === "vendor"
+      ? {
+          $or: [
+            { vendorId: req.vendor._id },
+            { vendorId: null },
+            { vendorId: { $exists: false } },
+          ],
+        }
       : {};
 
     const [pandits, rawCities, rawPinCodes] = await Promise.all([

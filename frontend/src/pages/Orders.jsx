@@ -14,37 +14,35 @@ const formatImageUrl = (path) => {
 
 const EMPTY_FORM = {
   user: "",
-  itemsJson: JSON.stringify(
-    [
-      {
-        productType: "Item",
-        product: "",
-        quantity: 1,
-        price: 0,
-      },
-    ],
-    null,
-    2
-  ),
-  addressJson: JSON.stringify(
+  items: [
     {
-      name: "",
-      phone: "",
-      fullAddress: "",
-      addressType: "others",
-      city: "",
-      state: "",
-      pincode: "",
+      productType: "Item",
+      product: "",
+      quantity: 1,
+      price: 0,
     },
-    null,
-    2
-  ),
+  ],
+  address: {
+    name: "",
+    phone: "",
+    fullAddress: "",
+    addressType: "others",
+    city: "",
+    state: "",
+    pincode: "",
+  },
   deliveryFee: 0,
   paymentMethod: "COD",
   paymentStatus: "Pending",
   paymentGateway: "",
   orderStatus: "Placed",
 };
+
+const buildEmptyOrderForm = () => ({
+  ...EMPTY_FORM,
+  items: EMPTY_FORM.items.map((item) => ({ ...item })),
+  address: { ...EMPTY_FORM.address },
+});
 
 const ORDER_STATUSES = [
   "Placed",
@@ -89,15 +87,6 @@ const paymentStatusBadgeClass = (status = "") => {
   }
 
   return "bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-200";
-};
-
-const parseSafeJson = (value, fallback) => {
-  try {
-    const parsed = JSON.parse(value);
-    return parsed;
-  } catch {
-    return fallback;
-  }
 };
 
 const cleanPhone = (value) => String(value || "").replace(/\D/g, "");
@@ -172,7 +161,7 @@ export default function Orders() {
 
   const [showForm, setShowForm] = useState(false);
   const [editingOrderId, setEditingOrderId] = useState("");
-  const [form, setForm] = useState(EMPTY_FORM);
+  const [form, setForm] = useState(buildEmptyOrderForm);
   const [submitting, setSubmitting] = useState(false);
 
   const [selectedOrder, setSelectedOrder] = useState(null);
@@ -340,7 +329,7 @@ useEffect(() => {
   }, [orders, pagination.total]);
 
   const resetForm = () => {
-    setForm(EMPTY_FORM);
+    setForm(buildEmptyOrderForm());
     setEditingOrderId("");
   };
 
@@ -357,29 +346,23 @@ useEffect(() => {
 
     setForm({
       user: order?.user?._id || order?.user || "",
-      itemsJson: JSON.stringify(
-        safeItems.map((item) => ({
-          productType: item.productType,
-          product: item.product?._id || item.product,
-          quantity: item.quantity,
-          price: item.price,
-        })),
-        null,
-        2
-      ),
-      addressJson: JSON.stringify(
-        {
-          name: safeAddress.name || "",
-          phone: safeAddress.phone || "",
-          fullAddress: safeAddress.fullAddress || "",
-          addressType: safeAddress.addressType || order?.addressType || "others",
-          city: safeAddress.city || "",
-          state: safeAddress.state || "",
-          pincode: safeAddress.pincode || "",
-        },
-        null,
-        2
-      ),
+      items: safeItems.length
+        ? safeItems.map((item) => ({
+            productType: item.productType || "Item",
+            product: item.product?._id || item.product || "",
+            quantity: item.quantity || 1,
+            price: item.price || 0,
+          }))
+        : buildEmptyOrderForm().items,
+      address: {
+        name: safeAddress.name || "",
+        phone: safeAddress.phone || "",
+        fullAddress: safeAddress.fullAddress || "",
+        addressType: safeAddress.addressType || order?.addressType || "others",
+        city: safeAddress.city || "",
+        state: safeAddress.state || "",
+        pincode: safeAddress.pincode || "",
+      },
       deliveryFee: Number(order?.amountBreakup?.deliveryFee || 0),
       paymentMethod: order?.paymentMethod || "COD",
       paymentStatus: order?.paymentStatus || "Pending",
@@ -403,6 +386,51 @@ useEffect(() => {
     setForm((current) => ({ ...current, [name]: value }));
   };
 
+  const handleAddressChange = (event) => {
+    const { name, value } = event.target;
+    setForm((current) => ({
+      ...current,
+      address: {
+        ...current.address,
+        [name]: value,
+      },
+    }));
+  };
+
+  const handleItemChange = (index, field, value) => {
+    setForm((current) => ({
+      ...current,
+      items: current.items.map((item, itemIndex) =>
+        itemIndex === index ? { ...item, [field]: value } : item
+      ),
+    }));
+  };
+
+  const addOrderItem = () => {
+    setForm((current) => ({
+      ...current,
+      items: [
+        ...current.items,
+        {
+          productType: "Item",
+          product: "",
+          quantity: 1,
+          price: 0,
+        },
+      ],
+    }));
+  };
+
+  const removeOrderItem = (index) => {
+    setForm((current) => ({
+      ...current,
+      items:
+        current.items.length > 1
+          ? current.items.filter((_, itemIndex) => itemIndex !== index)
+          : current.items,
+    }));
+  };
+
   const handleSaveOrder = async (event) => {
     event.preventDefault();
 
@@ -412,17 +440,22 @@ useEffect(() => {
       return;
     }
 
-    const parsedItems = parseSafeJson(form.itemsJson, null);
-    const parsedAddress = parseSafeJson(form.addressJson, null);
+    const formItems = Array.isArray(form.items) ? form.items : [];
+    const normalizedItems = formItems.map((item) => ({
+      productType: item.productType,
+      product: String(item.product || "").trim(),
+      quantity: Number(item.quantity || 1),
+      price: Number(item.price || 0),
+    }));
 
-    if (!Array.isArray(parsedItems) || parsedItems.length === 0) {
-      setError("Items JSON must be a non-empty array.");
+    if (!normalizedItems.length || normalizedItems.some((item) => !item.product)) {
+      setError("At least one item with product id is required.");
       setSuccess("");
       return;
     }
 
-    if (!parsedAddress || typeof parsedAddress !== "object") {
-      setError("Address JSON must be a valid object.");
+    if (!form.address?.name?.trim() || !form.address?.phone?.trim()) {
+      setError("Customer name and phone are required.");
       setSuccess("");
       return;
     }
@@ -434,8 +467,16 @@ useEffect(() => {
 
       const payload = {
         user: form.user.trim(),
-        items: parsedItems,
-        address: parsedAddress,
+        items: normalizedItems,
+        address: {
+          name: form.address.name.trim(),
+          phone: form.address.phone.trim(),
+          fullAddress: form.address.fullAddress.trim(),
+          addressType: form.address.addressType,
+          city: form.address.city.trim(),
+          state: form.address.state.trim(),
+          pincode: form.address.pincode.trim(),
+        },
         deliveryFee: Number(form.deliveryFee || 0),
         paymentMethod: form.paymentMethod,
         paymentStatus: form.paymentStatus,
@@ -788,20 +829,6 @@ useEffect(() => {
           </div>
 
           <div className="rounded-xl border border-[#e7d7c1] bg-white p-3 dark:border-white/10 dark:bg-white/5">
-            <p className="mb-2 text-sm font-semibold">Pooja Details</p>
-            <div className="grid grid-cols-[120px_1fr] gap-y-1 text-sm">
-              <span className="text-[#7b5a4b] dark:text-[#dbcdb8]/70">Type</span>
-              <strong>{selectedOrder.items?.[0]?.productType || "Pooja"}</strong>
-              <span className="text-[#7b5a4b] dark:text-[#dbcdb8]/70">Date & Time</span>
-              <strong>{selectedOrder.createdAt ? new Date(selectedOrder.createdAt).toLocaleString() : "-"}</strong>
-              <span className="text-[#7b5a4b] dark:text-[#dbcdb8]/70">Guests</span>
-              <strong>{selectedOrder.address?.name ? "8 - 10 People" : "-"}</strong>
-              <span className="text-[#7b5a4b] dark:text-[#dbcdb8]/70">Instruction</span>
-              <strong>Bring essentials as requested.</strong>
-            </div>
-          </div>
-
-          <div className="rounded-xl border border-[#e7d7c1] bg-white p-3 dark:border-white/10 dark:bg-white/5">
             <div className="mb-2 flex items-center justify-between">
               <p className="text-sm font-semibold">Items ({(selectedOrder.items || []).length})</p>
             </div>
@@ -1021,26 +1048,130 @@ useEffect(() => {
               />
             </div>
 
-            <div className="space-y-2 md:col-span-2">
-              <label className="text-sm font-medium">Items JSON</label>
-              <textarea
-                name="itemsJson"
-                rows={7}
-                value={form.itemsJson}
-                onChange={handleFormChange}
-                className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 font-mono text-xs outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-[#16181d] dark:text-white text-black"
-              />
+            <div className="space-y-3 md:col-span-2">
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium">Items</label>
+                <button
+                  type="button"
+                  onClick={addOrderItem}
+                  className="rounded-lg border border-[#d7bf9b] px-3 py-1.5 text-xs font-semibold text-[#6f3945] hover:bg-[#8B1E3F]/10 dark:border-white/20 dark:text-[#f7e3c0]"
+                >
+                  Add Item
+                </button>
+              </div>
+
+              <div className="space-y-3">
+                {(form.items || []).map((item, index) => (
+                  <div key={`order-item-${index}`} className="rounded-2xl border border-[#e7d7c1] bg-white/70 p-3 dark:border-white/10 dark:bg-white/5">
+                    <div className="mb-3 flex items-center justify-between">
+                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#7b5a4b] dark:text-[#dbcdb8]/70">
+                        Item {index + 1}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => removeOrderItem(index)}
+                        disabled={(form.items || []).length <= 1}
+                        className="rounded-lg border border-red-200 px-2 py-1 text-xs font-semibold text-red-600 disabled:cursor-not-allowed disabled:opacity-50 dark:border-red-500/40 dark:text-red-200"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                    <div className="grid gap-3 md:grid-cols-4">
+                      <div className="space-y-2">
+                        <label className="text-xs font-medium">Product Type</label>
+                        <select
+                          value={item.productType}
+                          onChange={(event) => handleItemChange(index, "productType", event.target.value)}
+                          className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm text-black outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-[#16181d] dark:text-white"
+                        >
+                          <option value="Item">Item</option>
+                          <option value="FestivalKit">Kit</option>
+                        </select>
+                      </div>
+                      <div className="space-y-2 md:col-span-2">
+                        <label className="text-xs font-medium">Product ID</label>
+                        <input
+                          type="text"
+                          value={item.product}
+                          onChange={(event) => handleItemChange(index, "product", event.target.value)}
+                          placeholder="Product or kit id"
+                          className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm text-black outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-[#16181d] dark:text-white"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-2">
+                          <label className="text-xs font-medium">Qty</label>
+                          <input
+                            type="number"
+                            min="1"
+                            value={item.quantity}
+                            onChange={(event) => handleItemChange(index, "quantity", event.target.value)}
+                            className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm text-black outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-[#16181d] dark:text-white"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-xs font-medium">Price</label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={item.price}
+                            onChange={(event) => handleItemChange(index, "price", event.target.value)}
+                            className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm text-black outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-[#16181d] dark:text-white"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
 
-            <div className="space-y-2 md:col-span-2">
-              <label className="text-sm font-medium">Address JSON</label>
-              <textarea
-                name="addressJson"
-                rows={7}
-                value={form.addressJson}
-                onChange={handleFormChange}
-                className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 font-mono text-xs outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-[#16181d] dark:text-white text-black"
-              />
+            <div className="space-y-3 md:col-span-2">
+              <label className="text-sm font-medium">Address Details</label>
+              <div className="grid gap-3 md:grid-cols-2">
+                {[
+                  { name: "name", label: "Customer Name", required: true },
+                  { name: "phone", label: "Phone", required: true },
+                  { name: "city", label: "City" },
+                  { name: "state", label: "State" },
+                  { name: "pincode", label: "Pincode" },
+                ].map((field) => (
+                  <div key={field.name} className="space-y-2">
+                    <label className="text-xs font-medium">{field.label}</label>
+                    <input
+                      type="text"
+                      name={field.name}
+                      value={form.address?.[field.name] || ""}
+                      onChange={handleAddressChange}
+                      required={field.required}
+                      className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm text-black outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-[#16181d] dark:text-white"
+                    />
+                  </div>
+                ))}
+                <div className="space-y-2">
+                  <label className="text-xs font-medium">Address Type</label>
+                  <select
+                    name="addressType"
+                    value={form.address?.addressType || "others"}
+                    onChange={handleAddressChange}
+                    className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm text-black outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-[#16181d] dark:text-white"
+                  >
+                    <option value="home">Home</option>
+                    <option value="work">Work</option>
+                    <option value="others">Others</option>
+                  </select>
+                </div>
+                <div className="space-y-2 md:col-span-2">
+                  <label className="text-xs font-medium">Full Address</label>
+                  <textarea
+                    name="fullAddress"
+                    rows={3}
+                    value={form.address?.fullAddress || ""}
+                    onChange={handleAddressChange}
+                    className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm text-black outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-[#16181d] dark:text-white"
+                  />
+                </div>
+              </div>
             </div>
           </div>
 

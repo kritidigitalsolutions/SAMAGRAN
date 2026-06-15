@@ -23,8 +23,8 @@ const festivalKitSchema = new mongoose.Schema(
     },
     kitType: {
       type: String,
-      enum: ["default", "special"],
-      default: "special",
+      enum: ["Customize", "Samagran kit", "default", "special"],
+      default: "Samagran kit",
     },
     name: {
       type: String,

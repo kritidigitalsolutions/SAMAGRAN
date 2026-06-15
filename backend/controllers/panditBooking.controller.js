@@ -655,7 +655,7 @@ export const getPanditBookingProfile = async (req, res) => {
 
     const recommendedKit = await FestivalKit.findOne({
       status: "active",
-      kitType: "default",
+      kitType: { $in: ["Customize", "default"] },
       ...(ritual.trim()
         ? {
             $or: [

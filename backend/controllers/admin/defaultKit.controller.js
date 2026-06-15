@@ -2,6 +2,9 @@ import FestivalKit from "../../models/festivalKit.model.js";
 import Item from "../../models/product.model.js";
 import { uploadFileToFirebase } from "../../utils/firebaseUpload.js";
 
+const CUSTOMIZE_KIT_TYPE = "Customize";
+const CUSTOMIZE_KIT_TYPES = [CUSTOMIZE_KIT_TYPE, "default"];
+
 const resolveVendorFilter = (req) => {
   if (req.admin?.role === "vendor") {
     return { vendorId: req.admin.vendorId };
@@ -126,7 +129,7 @@ export const createDefaultKit = async (req, res) => {
 
     const created = await FestivalKit.create({
       vendorId: resolveVendorIdForCreate(req),
-      kitType: "default",
+      kitType: CUSTOMIZE_KIT_TYPE,
       name: name.trim(),
       description: description.trim(),
       image: imageUrl,
@@ -143,7 +146,7 @@ export const createDefaultKit = async (req, res) => {
 
     res.status(201).json({
       success: true,
-      message: "Default kit created",
+      message: "Customize kit created",
       data: created,
     });
   } catch (err) {
@@ -158,7 +161,7 @@ export const getAdminDefaultKits = async (req, res) => {
   try {
     const { search = "", status = "all" } = req.query;
     const filter = {
-      kitType: "default",
+      kitType: { $in: CUSTOMIZE_KIT_TYPES },
       ...resolveVendorFilter(req),
     };
 
@@ -192,7 +195,7 @@ export const getAdminDefaultKitById = async (req, res) => {
   try {
     const kit = await FestivalKit.findOne({
       _id: req.params.id,
-      kitType: "default",
+      kitType: { $in: CUSTOMIZE_KIT_TYPES },
       ...resolveVendorFilter(req),
     // }).populate("items.product", "title pricing media category");
     }).populate("items.product", "title pricing media");
@@ -200,7 +203,7 @@ export const getAdminDefaultKitById = async (req, res) => {
     if (!kit) {
       return res.status(404).json({
         success: false,
-        message: "Default kit not found",
+        message: "Customize kit not found",
       });
     }
 
@@ -220,14 +223,14 @@ export const updateDefaultKit = async (req, res) => {
   try {
     const kit = await FestivalKit.findOne({
       _id: req.params.id,
-      kitType: "default",
+      kitType: { $in: CUSTOMIZE_KIT_TYPES },
       ...resolveVendorFilter(req),
     });
 
     if (!kit) {
       return res.status(404).json({
         success: false,
-        message: "Default kit not found",
+        message: "Customize kit not found",
       });
     }
 
@@ -256,6 +259,7 @@ export const updateDefaultKit = async (req, res) => {
     const normalizedKitPrice = Number(kitPrice);
 
     kit.name = name.trim();
+    kit.kitType = CUSTOMIZE_KIT_TYPE;
     kit.description = description.trim();
     kit.kitPrice = normalizedKitPrice;
     kit.status = status;
@@ -275,7 +279,7 @@ export const updateDefaultKit = async (req, res) => {
 
     res.json({
       success: true,
-      message: "Default kit updated",
+      message: "Customize kit updated",
       data: kit,
     });
   } catch (err) {
@@ -290,20 +294,20 @@ export const deleteDefaultKit = async (req, res) => {
   try {
     const kit = await FestivalKit.findOneAndDelete({
       _id: req.params.id,
-      kitType: "default",
+      kitType: { $in: CUSTOMIZE_KIT_TYPES },
       ...resolveVendorFilter(req),
     });
 
     if (!kit) {
       return res.status(404).json({
         success: false,
-        message: "Default kit not found",
+        message: "Customize kit not found",
       });
     }
 
     res.json({
       success: true,
-      message: "Default kit deleted",
+      message: "Customize kit deleted",
     });
   } catch (err) {
     res.status(500).json({

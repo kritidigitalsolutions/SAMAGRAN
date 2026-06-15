@@ -6,9 +6,13 @@ import TablePagination from "../components/TablePagination";
 import TableMenuPopover from "../components/TableMenuPopover";
 
 const apiOrigin = (API.defaults.baseURL || "http://localhost:8000/api").replace(/\/api\/?$/, "");
+const CUSTOMIZE_KIT_TYPE = "Customize";
+const SAMAGRAN_KIT_TYPE = "Samagran kit";
+const CUSTOMIZE_KIT_TYPES = [CUSTOMIZE_KIT_TYPE, "default"];
+const SAMAGRAN_KIT_TYPES = [SAMAGRAN_KIT_TYPE, "special"];
 
 const buildForm = () => ({
-  kitType: "default",
+  kitType: CUSTOMIZE_KIT_TYPE,
   name: "",
   description: "",
   category: "",
@@ -30,7 +34,16 @@ const formatCurrency = (value) =>
     maximumFractionDigits: 0,
   }).format(Number(value || 0));
 
-const getAdminKitEndpointBase = (kitType) => `/admin/kits/${kitType}`;
+const normalizeKitType = (kitType) => {
+  if (CUSTOMIZE_KIT_TYPES.includes(kitType)) return CUSTOMIZE_KIT_TYPE;
+  if (SAMAGRAN_KIT_TYPES.includes(kitType)) return SAMAGRAN_KIT_TYPE;
+  return kitType || CUSTOMIZE_KIT_TYPE;
+};
+
+const isCustomizeKit = (kitType) => normalizeKitType(kitType) === CUSTOMIZE_KIT_TYPE;
+const getAdminKitEndpointBase = (kitType) =>
+  isCustomizeKit(kitType) ? "/admin/kits/default" : "/admin/kits/special";
+const getKitTypeLabel = (kitType) => normalizeKitType(kitType);
 
 export default function Kits() {
   const [kits, setKits] = useState([]);
@@ -79,7 +92,7 @@ export default function Kits() {
 
   const filteredKits = useMemo(() => {
     return kits.filter((kit) => {
-      const byTab = activeTab === "all" ? true : kit.kitType === activeTab;
+      const byTab = activeTab === "all" ? true : normalizeKitType(kit.kitType) === activeTab;
       const byStatus = statusFilter === "all" ? true : (kit.status || "active") === statusFilter;
       const term = nameFilter.trim().toLowerCase();
       const byName = !term || String(kit.name || "").toLowerCase().includes(term);
@@ -132,11 +145,11 @@ export default function Kits() {
 
       const defaultKits = (defaultRes.data?.data || []).map((kit) => ({
         ...kit,
-        kitType: "default",
+        kitType: normalizeKitType(kit.kitType),
       }));
       const specialKits = (specialRes.data?.data || []).map((kit) => ({
         ...kit,
-        kitType: "special",
+        kitType: normalizeKitType(kit.kitType),
       }));
 
       setKits([...defaultKits, ...specialKits].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)));
@@ -233,14 +246,14 @@ export default function Kits() {
   const handleEdit = async (kit) => {
     try {
       setError("");
-      const isDefault = kit.kitType === "default";
+      const isDefault = isCustomizeKit(kit.kitType);
       const detailRes = await API.get(
         isDefault ? `/admin/kits/default/${kit._id}` : `/admin/kits/special/${kit._id}`
       );
       const detail = detailRes.data?.data || kit;
 
       setForm({
-        kitType: isDefault ? "default" : "special",
+        kitType: isDefault ? CUSTOMIZE_KIT_TYPE : SAMAGRAN_KIT_TYPE,
         name: detail.name || "",
         description: detail.description || "",
         category: detail.category || "",
@@ -267,7 +280,7 @@ export default function Kits() {
     if (!window.confirm(`Delete ${kit.name}?`)) return;
 
     try {
-      const endpoint = kit.kitType === "default"
+      const endpoint = isCustomizeKit(kit.kitType)
         ? `/admin/kits/default/${kit._id}`
         : `/admin/kits/special/${kit._id}`;
       await API.delete(endpoint);
@@ -281,14 +294,14 @@ export default function Kits() {
 
   const handleView = async (kit) => {
     try {
-      const isDefault = kit.kitType === "default";
+      const isDefault = isCustomizeKit(kit.kitType);
       const detailRes = await API.get(
         isDefault ? `/admin/kits/default/${kit._id}` : `/admin/kits/special/${kit._id}`
       );
       const detail = detailRes.data?.data || kit;
       setViewKit({
         ...detail,
-        kitType: isDefault ? "default" : "special",
+        kitType: isDefault ? CUSTOMIZE_KIT_TYPE : SAMAGRAN_KIT_TYPE,
       });
     } catch (err) {
       setError(err.response?.data?.message || "Unable to load kit details.");
@@ -298,7 +311,7 @@ export default function Kits() {
   const handleToggleStatus = async (kit) => {
     try {
       const nextStatus = (kit.status || "active") === "active" ? "inactive" : "active";
-      const endpoint = kit.kitType === "default"
+      const endpoint = isCustomizeKit(kit.kitType)
         ? `/admin/kits/default/${kit._id}`
         : `/admin/kits/special/${kit._id}`;
 
@@ -328,7 +341,7 @@ export default function Kits() {
 
       await Promise.all(
         selectedKits.map((kit) => {
-          const endpoint = kit.kitType === "default"
+          const endpoint = isCustomizeKit(kit.kitType)
             ? `/admin/kits/default/${kit._id}`
             : `/admin/kits/special/${kit._id}`;
           return API.delete(endpoint);
@@ -381,7 +394,7 @@ export default function Kits() {
       formData.append("kitPrice", Number(form.kitPrice));
       formData.append("status", form.status);
       formData.append("items", JSON.stringify(selectedList));
-      if (form.kitType === "special") {
+      if (normalizeKitType(form.kitType) === SAMAGRAN_KIT_TYPE) {
         formData.append("festivalType", form.festivalType.trim());
       }
       if (imageFile) {
@@ -392,8 +405,9 @@ export default function Kits() {
       const endpointBase = getAdminKitEndpointBase(form.kitType);
 
       if (isEdit) {
-        const currentType = editingKit.kitType || "default";
-        if (currentType === form.kitType) {
+        const currentType = normalizeKitType(editingKit.kitType);
+        const nextType = normalizeKitType(form.kitType);
+        if (currentType === nextType) {
           await API.put(`${endpointBase}/${editingKit._id}`, formData, {
             headers: { "Content-Type": "multipart/form-data" },
           });
@@ -448,7 +462,7 @@ export default function Kits() {
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.26em] text-[var(--admin-primary)]">Kits</p>
             <h2 className="mt-2 text-2xl font-bold text-[#2f1618] dark:text-[#fff3dc]">Products & Kits</h2>
-            <p className="mt-2 text-sm text-[#6e4b40] dark:text-[#f7e3c0]/75">Default aur Special kits ko ek hi panel se manage karein.</p>
+            <p className="mt-2 text-sm text-[#6e4b40] dark:text-[#f7e3c0]/75">Customize aur Samagran kits ko ek hi panel se manage karein.</p>
           </div>
           <button type="button" onClick={handleCreate} className="admin-btn-primary inline-flex items-center gap-2 rounded-2xl px-4 py-2 text-sm font-semibold shadow">
             <FiPlus className="h-4 w-4" /> Add Kit
@@ -481,8 +495,8 @@ export default function Kits() {
             <div className="space-y-2">
               <label className="text-sm font-medium">Kit Type</label>
               <select name="kitType" value={form.kitType} onChange={handleFormChange} className="w-full rounded-xl border border-[#d9c3a2] bg-white text-black px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-[#171b23] dark:text-white">
-                <option value="default">Default Kit</option>
-                <option value="special">Special Kit</option>
+                <option value={CUSTOMIZE_KIT_TYPE}>Customize Kit</option>
+                <option value={SAMAGRAN_KIT_TYPE}>Samagran Kit</option>
               </select>
             </div>
 
@@ -508,9 +522,9 @@ export default function Kits() {
               </datalist>
             </div>
 
-            {form.kitType === "special" && (
+            {normalizeKitType(form.kitType) === SAMAGRAN_KIT_TYPE && (
               <div className="space-y-2">
-                <label className="text-sm font-medium">Special/Festival Type</label>
+                <label className="text-sm font-medium">Samagran/Festival Type</label>
                 <input name="festivalType" value={form.festivalType} onChange={handleFormChange} className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-[#16181d] dark:text-white text-black" placeholder="e.g. Diwali" />
               </div>
             )}
@@ -632,7 +646,7 @@ export default function Kits() {
               </div>
               <div className="rounded-xl border border-[#e8d7bf] bg-[#fff7ea] px-3 py-2 dark:border-white/10 dark:bg-white/5">
                 <p className="text-xs uppercase tracking-[0.18em] text-[#8b6b5b]">Type</p>
-                <p className="capitalize font-semibold">{viewKit.kitType || "-"}</p>
+                <p className="font-semibold">{viewKit.kitType ? getKitTypeLabel(viewKit.kitType) : "-"}</p>
               </div>
               <div className="rounded-xl border border-[#e8d7bf] bg-[#fff7ea] px-3 py-2 dark:border-white/10 dark:bg-white/5">
                 <p className="text-xs uppercase tracking-[0.18em] text-[#8b6b5b]">Status</p>
@@ -716,8 +730,8 @@ export default function Kits() {
           <div className="inline-flex rounded-xl border border-[#d8c4a5] bg-white/70 p-1 text-sm dark:border-white/10 dark:bg-white/5">
             {[
               { key: "all", label: "All Kits" },
-              { key: "default", label: "Default Kits" },
-              { key: "special", label: "Special Kits" },
+              { key: CUSTOMIZE_KIT_TYPE, label: "Customize Kits" },
+              { key: SAMAGRAN_KIT_TYPE, label: "Samagran Kits" },
             ].map((tab) => (
               <button
                 key={tab.key}
@@ -762,8 +776,8 @@ export default function Kits() {
            dark:bg-[#181c24] dark:text-white dark:border-white/20"
           >
             <option value="all">All Types</option>
-            <option value="default">Default</option>
-            <option value="special">Special</option>
+            <option value={CUSTOMIZE_KIT_TYPE}>Customize</option>
+            <option value={SAMAGRAN_KIT_TYPE}>Samagran Kit</option>
           </select>
 
           <select
@@ -867,8 +881,8 @@ export default function Kits() {
                     </td>
                     <td className="px-4 py-3 text-sm text-[#6f3945] dark:text-[#f7e3c0]">{kit.category || "-"}</td>
                     <td className="px-4 py-3">
-                      <span className={`rounded-full px-2.5 py-1 text-xs font-semibold uppercase ${kit.kitType === "default" ? "bg-blue-100 text-blue-700" : "bg-violet-100 text-violet-700"}`}>
-                        {kit.kitType === "default" ? "Default" : "Special"}
+                      <span className={`rounded-full px-2.5 py-1 text-xs font-semibold uppercase ${isCustomizeKit(kit.kitType) ? "bg-blue-100 text-blue-700" : "bg-violet-100 text-violet-700"}`}>
+                        {getKitTypeLabel(kit.kitType)}
                       </span>
                     </td>
                     <td className="px-4 py-3">{kit.festivalType || "-"}</td>

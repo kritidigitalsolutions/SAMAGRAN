@@ -5,6 +5,8 @@ import {
   sendCityRequired,
 } from "../utils/locationFilter.js";
 
+const SAMAGRAN_KIT_TYPES = ["Samagran kit", "special"];
+
 // @desc   Get all kits (User)
 // @route  GET /api/user/kits/special
 // @access Public
@@ -20,7 +22,7 @@ export const getAllKitsUser = async (req, res) => {
 
     const filter = {
       status: "active",
-      kitType: "special",
+      kitType: { $in: SAMAGRAN_KIT_TYPES },
       ...vendorFilter,
     };
 
@@ -60,7 +62,7 @@ export const getSingleKitUser = async (req, res) => {
     const kit = await FestivalKit.findOne({
       _id: req.params.id,
       status: "active",
-      kitType: "special",
+      kitType: { $in: SAMAGRAN_KIT_TYPES },
     })
       // .populate("items.product", "title slug pricing media category");
       .populate("items.product", "title slug pricing media");
@@ -68,7 +70,7 @@ export const getSingleKitUser = async (req, res) => {
     if (!kit) {
       return res.status(404).json({
         success: false,
-        message: "Kit not found"
+        message: "Samagran kit not found"
       });
     }
 
