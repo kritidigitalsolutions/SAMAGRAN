@@ -63,7 +63,7 @@ const navSections = [
   {
     heading: "Finance",
     items: [
-      // { label: "Transactions", path: "/dashboard/transactions", icon: "transactions", accessKey: "transactions" },
+      { label: "Transactions", path: "/dashboard/transactions", icon: "transactions", accessKey: "transactions" },
       { label: "Earnings", path: "/dashboard/earnings", icon: "earnings", accessKey: "earnings" },
       { label: "Vendor Commission", path: "/dashboard/vendor-commission", icon: "pricing", accessKey: "vendor-commission", role: "super-admin" },
       { label: "Refunds & Returns", path: "/dashboard/refunds", icon: "refunds", accessKey: "refunds" },
