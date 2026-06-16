@@ -119,6 +119,7 @@ import deliveryAuthRoutes from "./routes/delivery/delivery.auth.routes.js";
 import deliveryRoutes from "./routes/delivery/delivery.routes.js";
 import vendorAuthRoutes from "./routes/vendor/vendor.auth.routes.js";
 import vendorProductRoutes from "./routes/vendor/product.routes.js";
+import deliveryPricingRoute from "./routes/vendor/vendorDeliveryPricing.routes.js";
 
 
 // User Routs
@@ -144,6 +145,7 @@ import offerRoutes from "./routes/user/offer.routes.js";
 // video routes (Agora) removed in favor of Zoom meeting integration
 import userNotificationRoutes from "./routes/user/notification.routes.js";
 import userPanditAvailabilityRoutes from "./routes/user/panditAvailability.routes.js";
+import deliveryPriceGet from "./routes/user/vendorDeliveryPricing.routes.js";
 
 
 app.use("/api/user/items", userProductRoutes);
@@ -239,6 +241,7 @@ app.use("/api/delivery/auth", deliveryAuthRoutes);
 app.use("/api/delivery", deliveryRoutes);
 app.use("/api/vendor/auth", vendorAuthRoutes);
 app.use("/api/vendor/items", vendorProductRoutes);
+app.use("/api/vendor/delivery-charge", deliveryPricingRoute);
 
 // user routs for user side
 app.use("/api/user", userRoutes);
@@ -268,7 +271,8 @@ app.use("/api/temples", userTemples);
 app.use("/api/banners", userBanners);
 
 app.use("/api/category", categories)
-app.use("/api/brands", brand)
+app.use("/api/brands", brand);
+app.use("/api/delivery-charge", deliveryPriceGet)
 
 
 app.use((err, req, res, next) => {
