@@ -39,7 +39,7 @@ const buildKitItems = async (items, vendorFilter = {}) => {
   const productIds = items.map((item) => item.product);
   const products = await Item.find({
     _id: { $in: productIds },
-    status: "active",
+    // status: "active",
     ...vendorFilter,
   });
 

@@ -15,6 +15,7 @@ const navSections = [
       { label: "Invoices", path: "/dashboard/invoices", icon: "invoice", accessKey: "orders" },
       { label: "Users", path: "/dashboard/users", icon: "users", accessKey: "users" },
       { label: "Delivery Boys", path: "/dashboard/delivery-boys", icon: "delivery", accessKey: "delivery-boys" },
+      { label: "Delivery Charges", path: "/dashboard/delivery-charges", icon: "delivery", accessKey: "delivery-charges", vendorOnly: true },
       {
         label: "Vendors",
         path: "/dashboard/vendors",

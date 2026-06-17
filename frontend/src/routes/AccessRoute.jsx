@@ -1,12 +1,16 @@
 import { Navigate } from "react-router-dom";
 import { getAdminPageAccess, getAdminRole, isAdminTokenValid } from "../utils/auth";
 
-export default function AccessRoute({ children, pageKey }) {
+export default function AccessRoute({ children, pageKey, vendorOnly }) {
   if (!isAdminTokenValid()) {
     return <Navigate to="/" replace />;
   }
 
   const role = getAdminRole();
+
+  if (vendorOnly && role !== "vendor-admin") {
+    return <Navigate to="/dashboard" replace />;
+  }
 
   if (role !== "vendor-admin") {
     return children;

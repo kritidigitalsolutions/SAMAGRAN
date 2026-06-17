@@ -38,6 +38,8 @@ import VendorCommissionReport from "./pages/admin/VendorCommissionReport";
 import BookingPricing from "./pages/BookingPricing";
 import Kits from "./pages/Kits";
 import Invoices from "./pages/Invoices";
+import DeliveryCharge from "./pages/DeliveryCharge";
+
 import { getHostRole } from "./utils/hostRouting";
 
 function HostEntry() {
@@ -101,13 +103,14 @@ function App() {
         <Route path="custom-samagri" element={<AccessRoute pageKey="custom-samagri"><CustomSamagri /></AccessRoute>} />
         <Route path="notifications" element={<AccessRoute pageKey="notifications"><Notifications /></AccessRoute>} />
         <Route path="booking-pricing" element={<AccessRoute pageKey="booking-pricing"><BookingPricing /></AccessRoute>} />
-        <Route path="settings" element={<AccessRoute pageKey="settings"><VendorSettings /></AccessRoute>} />
+        <Route path="settings" element={<AccessRoute pageKey="settings" vendorOnly={true}><VendorSettings /></AccessRoute>} />
         <Route path="delivery-boys" element={<AccessRoute pageKey="delivery-boys"><DeliveryBoys /></AccessRoute>} />
         <Route path="transactions" element={<AccessRoute pageKey="transactions"><Transactions /></AccessRoute>} />
         <Route path="earnings" element={<AccessRoute pageKey="earnings"><Earnings /></AccessRoute>} />
         <Route path="withdrawals" element={<AccessRoute pageKey="withdrawals"><Withdrawals /></AccessRoute>} />
         <Route path="refunds" element={<AccessRoute pageKey="refunds"><Refunds /></AccessRoute>} />
         <Route path="vendor-commission" element={<AccessRoute pageKey="vendor-commission"><VendorCommissionReport /></AccessRoute>} />
+        <Route path="delivery-charges" element={<AccessRoute pageKey="delivery-charges" vendorOnly={true}><DeliveryCharge /></AccessRoute>} />
         <Route
           path="vendors"
           element={

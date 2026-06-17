@@ -22,6 +22,7 @@ const ALL_PAGES = [
   "notifications",
   "settings",
   "delivery-boys",
+  "delivery-charges",
   "transactions",
   "earnings",
   "withdrawals",
