@@ -1453,6 +1453,7 @@ export const confirmPanditBookingPayment = async (req, res) => {
 
 export const getMyPanditBookings = async (req, res) => {
   try {
+    await autoCancelExpiredBookings();
     const bookings = await PanditBooking.find({ user: req.user._id, "payment.status": "paid" })
       .populate("pandit", "fullName phone profileImage ratingAverage yearsOfExperience languagesSpoken poojaOfferings")
       .populate("temple", "name image description address contactPhone contactPerson")
@@ -1476,6 +1477,7 @@ export const getMyPanditBookings = async (req, res) => {
 
 export const getPanditBookingById = async (req, res) => {
   try {
+    await autoCancelExpiredBookings();
     const booking = await PanditBooking.findOne({
       _id: req.params.bookingId,
       user: req.user._id,
@@ -1621,6 +1623,7 @@ const buildBookingStats = (bookings = []) => {
 
 export const getPanditAssignedBookings = async (req, res) => {
   try {
+    await autoCancelExpiredBookings();
     const { status = "all", search = "" } = req.query;
 
     const filter = {
@@ -2520,5 +2523,136 @@ export const createPanditBookingWithWallet = async (req, res) => {
       success: false,
       message: err.message || "Unable to create booking with wallet",
     });
+  }
+};
+
+const getIndianDateString = () => {
+  const d = new Date(new Date().getTime() + 5.5 * 60 * 60 * 1000); // Shift to India time (UTC+5.5)
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(d.getUTCDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+};
+
+export const autoCancelExpiredBookings = async () => {
+  try {
+    const today = getIndianDateString();
+    
+    // Find all requested bookings whose bookingDate is strictly in the past
+    const expiredBookings = await PanditBooking.find({
+      bookingStatus: "requested",
+      bookingDate: { $lt: today, $ne: "" },
+    });
+
+    if (expiredBookings.length === 0) return;
+
+    console.log(`[Auto-Cancel] Found ${expiredBookings.length} expired bookings.`);
+
+    const Notification = (await import("../models/notification.model.js")).default;
+    const admin = (await import("firebase-admin")).default;
+    const User = (await import("../models/user.model.js")).default;
+
+    for (const booking of expiredBookings) {
+      try {
+        // 1. Update booking status
+        booking.bookingStatus = "cancelled";
+        booking.notes = booking.notes
+          ? `${booking.notes}\n[System Auto-Cancelled] Booking expired: Pandit did not accept request on time.`
+          : `[System Auto-Cancelled] Booking expired: Pandit did not accept request on time.`;
+        
+        booking.cancellationRequests = booking.cancellationRequests || [];
+        booking.cancellationRequests.push({
+          reason: "Booking expired: Pandit did not accept request within the time frame.",
+          notes: "System automatic cancellation due to expiration of booking date.",
+          requestedBy: "system",
+          requestedAt: new Date(),
+        });
+
+        await booking.save();
+
+        // 2. Refund money to user's wallet if paid
+        if (booking.payment?.status === "paid" && booking.dakshinaAmount > 0) {
+          const userId = booking.user;
+          
+          let wallet = await Wallet.findOne({ user: userId });
+          if (!wallet) {
+            wallet = await Wallet.create({ user: userId, balance: 0 });
+          }
+
+          const refundAmount = Number(booking.dakshinaAmount || 0);
+          wallet.balance = Number((wallet.balance + refundAmount).toFixed(2));
+          await wallet.save();
+
+          await WalletTransaction.create({
+            wallet: wallet._id,
+            user: userId,
+            type: "credit",
+            source: "refund",
+            amount: refundAmount,
+            balanceAfter: wallet.balance,
+            reference: `REFUND_${booking._id}`,
+            notes: `Refund for expired Pandit booking: ${booking.ritual?.name || "Ritual"}`,
+            meta: {
+              bookingId: booking._id,
+              reason: "auto_cancellation_expired",
+            },
+          });
+
+          // 3. Send notification to user
+          const title = "Booking Cancelled & Refunded";
+          const body = `Your booking for ${booking.ritual?.name || "Ritual"} has been cancelled as it was not accepted on time. Rs ${refundAmount} has been refunded to your wallet.`;
+
+          const notifUser = new Notification({
+            title,
+            body,
+            data: { bookingId: String(booking._id), status: "cancelled", refunded: true, refundAmount },
+            audience: { type: "user", ids: [userId] },
+          });
+          await notifUser.save();
+
+          const userDoc = await User.findById(userId).lean();
+          if (userDoc?.fcmToken) {
+            const message = {
+              notification: { title, body },
+              data: { 
+                bookingId: String(booking._id), 
+                status: "cancelled", 
+                refunded: "true", 
+                refundAmount: String(refundAmount) 
+              },
+              token: userDoc.fcmToken,
+            };
+            await admin.messaging().send(message);
+          }
+        } else {
+          // If not paid, just send standard cancellation notification
+          const title = "Booking Cancelled";
+          const body = `Your booking request for ${booking.ritual?.name || "Ritual"} has expired and has been cancelled.`;
+
+          const notifUser = new Notification({
+            title,
+            body,
+            data: { bookingId: String(booking._id), status: "cancelled" },
+            audience: { type: "user", ids: [booking.user] },
+          });
+          await notifUser.save();
+
+          const userDoc = await User.findById(booking.user).lean();
+          if (userDoc?.fcmToken) {
+            const message = {
+              notification: { title, body },
+              data: { bookingId: String(booking._id), status: "cancelled" },
+              token: userDoc.fcmToken,
+            };
+            await admin.messaging().send(message);
+          }
+        }
+        console.log(`[Auto-Cancel] Booking ${booking._id} cancelled and refunded/notified successfully.`);
+      } catch (innerErr) {
+        console.error(`[Auto-Cancel] Error cancelling booking ${booking._id}:`, innerErr.message || innerErr);
+      }
+    }
+  } catch (err) {
+    console.error("[Auto-Cancel] Global error in autoCancelExpiredBookings:", err.message || err);
   }
 };

@@ -33,12 +33,14 @@ import DeliveryLogin from "./pages/DeliveryLogin";
 import DeliveryDashboard from "./pages/DeliveryDashboard";
 import Vendors from "./pages/admin/Vendors";
 import VendorSettings from "./pages/VendorSettings";
+import SuperAdminSettings from "./pages/SuperAdminSettings";
 import VendorDetails from "./pages/admin/VendorDetails";
 import VendorCommissionReport from "./pages/admin/VendorCommissionReport";
 import BookingPricing from "./pages/BookingPricing";
 import Kits from "./pages/Kits";
 import Invoices from "./pages/Invoices";
 import DeliveryCharge from "./pages/DeliveryCharge";
+import PanditEarnings from "./pages/PanditEarnings";
 
 import { getHostRole } from "./utils/hostRouting";
 
@@ -104,6 +106,7 @@ function App() {
         <Route path="notifications" element={<AccessRoute pageKey="notifications"><Notifications /></AccessRoute>} />
         <Route path="booking-pricing" element={<AccessRoute pageKey="booking-pricing"><BookingPricing /></AccessRoute>} />
         <Route path="settings" element={<AccessRoute pageKey="settings" vendorOnly={true}><VendorSettings /></AccessRoute>} />
+        <Route path="super-settings" element={<AccessRoute pageKey="settings"><SuperAdminSettings /></AccessRoute>} />
         <Route path="delivery-boys" element={<AccessRoute pageKey="delivery-boys"><DeliveryBoys /></AccessRoute>} />
         <Route path="transactions" element={<AccessRoute pageKey="transactions"><Transactions /></AccessRoute>} />
         <Route path="earnings" element={<AccessRoute pageKey="earnings"><Earnings /></AccessRoute>} />
@@ -111,6 +114,7 @@ function App() {
         <Route path="refunds" element={<AccessRoute pageKey="refunds"><Refunds /></AccessRoute>} />
         <Route path="vendor-commission" element={<AccessRoute pageKey="vendor-commission"><VendorCommissionReport /></AccessRoute>} />
         <Route path="delivery-charges" element={<AccessRoute pageKey="delivery-charges" vendorOnly={true}><DeliveryCharge /></AccessRoute>} />
+        <Route path="pandit-earnings" element={<AccessRoute pageKey="pandit-bookings"><PanditEarnings /></AccessRoute>} />
         <Route
           path="vendors"
           element={

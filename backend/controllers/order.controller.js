@@ -489,7 +489,7 @@ const buildTrackingPayload = (order) => {
 
     return {
       label: step,
-      completed: index < currentIndex,
+      completed: index < currentIndex || (currentStatus === "Delivered" && index === currentIndex),
       active: index === currentIndex,
     };
   });

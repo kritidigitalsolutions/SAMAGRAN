@@ -149,6 +149,15 @@ export const buildVendorFinance = async ({ vendorId = null } = {}) => {
   });
 
   const totalRevenue = toMoney(commissionOrders.reduce((sum, order) => sum + order.revenue, 0));
+  
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const todayRevenue = toMoney(
+    commissionOrders
+      .filter((order) => new Date(order.createdAt) >= todayStart)
+      .reduce((sum, order) => sum + order.revenue, 0)
+  );
+
   const vendorNetEarning = toMoney(delivered.reduce((sum, order) => sum + order.vendorNetEarning, 0));
   const superAdminCommission = toMoney(delivered.reduce((sum, order) => sum + order.superAdminCommission, 0));
   const pendingNetEarning = toMoney(pending.reduce((sum, order) => sum + order.vendorNetEarning, 0));
@@ -171,6 +180,7 @@ export const buildVendorFinance = async ({ vendorId = null } = {}) => {
   return {
     totalSales: totalRevenue,
     totalRevenue,
+    todayRevenue,
     totalEarnings: vendorNetEarning,
     vendorNetEarning,
     superAdminCommission,
@@ -206,9 +216,11 @@ export const buildVendorMetricsMap = async (vendors = []) => {
           products: productCountMap.get(id) || 0,
           totalOrders: finance.totalOrders,
           revenue: finance.totalRevenue,
+          todayRevenue: finance.todayRevenue,
           vendorEarning: finance.vendorNetEarning,
           superAdminEarning: finance.superAdminCommission,
           pendingPayout: finance.withdrawals.totalPending,
+          totalSettlementsPaid: finance.withdrawals.totalPaid,
           pendingEarning: finance.pendingNetEarning,
           availableBalance: finance.availableBalance,
         },

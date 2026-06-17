@@ -1,11 +1,12 @@
 import PanditBooking from "../../models/panditBooking.model.js";
 import mongoose from "mongoose";
-import { ensureZoomMeetingForBooking } from "../../controllers/panditBooking.controller.js";
+import { ensureZoomMeetingForBooking, autoCancelExpiredBookings } from "../../controllers/panditBooking.controller.js";
 import { createMeeting } from "../../utils/zoom.service.js";
 import { normalizeCityList } from "../../utils/cityNormalizer.js";
 
 export const getAllPanditBookingsForAdmin = async (req, res) => {
   try {
+    await autoCancelExpiredBookings();
     const { search = "", status = "all", city = "", pincode = "" } = req.query;
 
     const filter = {};
@@ -34,7 +35,10 @@ export const getAllPanditBookingsForAdmin = async (req, res) => {
 
     const [bookings, rawCities, pincodes] = await Promise.all([
       PanditBooking.find(filter)
-        .populate("pandit", "fullName phone")
+        .populate("pandit", "fullName phone status profileImage address yearsOfExperience templeAssociated")
+        .populate("user", "name phone email")
+        .populate("temple")
+        .populate("recommendedKit")
         .sort({ createdAt: -1 }),
       PanditBooking.distinct("address.city"),
       PanditBooking.distinct("address.pincode")
@@ -151,8 +155,10 @@ export const updatePanditBookingByAdmin = async (req, res) => {
     await booking.save();
 
     const populated = await PanditBooking.findById(booking._id)
-      .populate("pandit", "fullName phone")
-      .populate("user", "name phone email");
+      .populate("pandit", "fullName phone status profileImage address yearsOfExperience templeAssociated")
+      .populate("user", "name phone email")
+      .populate("temple")
+      .populate("recommendedKit");
 
     return res.json({
       success: true,

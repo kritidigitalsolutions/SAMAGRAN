@@ -123,9 +123,11 @@ export const getVendorById = async (req, res) => {
             products: productCount,
             totalOrders: finance.totalOrders,
             revenue: finance.totalRevenue,
+            todayRevenue: finance.todayRevenue,
             vendorEarning: finance.vendorNetEarning,
             superAdminEarning: finance.superAdminCommission,
             pendingPayout: finance.withdrawals.totalPending,
+            totalSettlementsPaid: finance.withdrawals.totalPaid,
             pendingEarning: finance.pendingNetEarning,
             availableBalance: finance.availableBalance,
           },
@@ -153,7 +155,9 @@ export const createVendor = async (req, res) => {
       address = {},
       pageAccess = [],
       notes = "",
-      role, // Extract role from request body
+      role,
+      kyc = {},
+      bank = {},
     } = req.body || {};
 
     if (!name || !email || !phone || !password) {
@@ -189,6 +193,22 @@ export const createVendor = async (req, res) => {
         state: String(address?.state || "").trim(),
         pincode: String(address?.pincode || "").trim(),
       },
+      kyc: {
+        pan: String(kyc?.pan || "").trim(),
+        panVerified: Boolean(kyc?.panVerified),
+        aadhaar: String(kyc?.aadhaar || "").trim(),
+        aadhaarVerified: Boolean(kyc?.aadhaarVerified),
+        gst: String(kyc?.gst || "").trim(),
+        fssai: String(kyc?.fssai || "").trim(),
+        cin: String(kyc?.cin || "").trim(),
+      },
+      bank: {
+        accountHolder: String(bank?.accountHolder || "").trim(),
+        bankName: String(bank?.bankName || "").trim(),
+        accountNumber: String(bank?.accountNumber || "").trim(),
+        ifsc: String(bank?.ifsc || "").trim(),
+        bankVerified: Boolean(bank?.bankVerified),
+      },
       pageAccess: normalizePageAccess(pageAccess).length
         ? normalizePageAccess(pageAccess)
         : DEFAULT_VENDOR_ACCESS,
@@ -204,7 +224,7 @@ export const createVendor = async (req, res) => {
       name: String(name).trim(),
       email: String(email).trim(),
       password: hashedPassword,
-      role: role || "vendor", // Use provided role or default to "vendor"
+      role: role || "vendor",
       vendorId: vendor._id,
     });
 
@@ -246,6 +266,28 @@ export const updateVendor = async (req, res) => {
         city: String(payload.address?.city || "").trim(),
         state: String(payload.address?.state || "").trim(),
         pincode: String(payload.address?.pincode || "").trim(),
+      };
+    }
+
+    if (payload.kyc !== undefined) {
+      vendor.kyc = {
+        pan: String(payload.kyc?.pan || vendor.kyc?.pan || "").trim(),
+        panVerified: payload.kyc?.panVerified !== undefined ? Boolean(payload.kyc.panVerified) : vendor.kyc?.panVerified,
+        aadhaar: String(payload.kyc?.aadhaar || vendor.kyc?.aadhaar || "").trim(),
+        aadhaarVerified: payload.kyc?.aadhaarVerified !== undefined ? Boolean(payload.kyc.aadhaarVerified) : vendor.kyc?.aadhaarVerified,
+        gst: String(payload.kyc?.gst || vendor.kyc?.gst || "").trim(),
+        fssai: String(payload.kyc?.fssai || vendor.kyc?.fssai || "").trim(),
+        cin: String(payload.kyc?.cin || vendor.kyc?.cin || "").trim(),
+      };
+    }
+
+    if (payload.bank !== undefined) {
+      vendor.bank = {
+        accountHolder: String(payload.bank?.accountHolder || vendor.bank?.accountHolder || "").trim(),
+        bankName: String(payload.bank?.bankName || vendor.bank?.bankName || "").trim(),
+        accountNumber: String(payload.bank?.accountNumber || vendor.bank?.accountNumber || "").trim(),
+        ifsc: String(payload.bank?.ifsc || vendor.bank?.ifsc || "").trim(),
+        bankVerified: payload.bank?.bankVerified !== undefined ? Boolean(payload.bank.bankVerified) : vendor.bank?.bankVerified,
       };
     }
 

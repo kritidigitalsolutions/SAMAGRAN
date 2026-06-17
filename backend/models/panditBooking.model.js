@@ -224,6 +224,14 @@ const panditBookingSchema = new mongoose.Schema(
       start_url: { type: String, trim: true, default: "" },
       password: { type: String, trim: true, default: "" },
     },
+    // Payout tracking (admin to pandit)
+    payoutPaid: { type: Boolean, default: false },
+    payoutPaidAt: { type: Date, default: null },
+    payoutPaidBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Admin",
+      default: null,
+    },
   },
   { timestamps: true },
 );

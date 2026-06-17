@@ -42,6 +42,7 @@ const navSections = [
     items: [
       { label: "Pandits", path: "/dashboard/pandits", icon: "pandits", accessKey: "pandits" },
       { label: "Pandit Bookings", path: "/dashboard/pandit-bookings", icon: "pandit-bookings", accessKey: "pandit-bookings" },
+      { label: "Pandit Earnings", path: "/dashboard/pandit-earnings", icon: "earnings", accessKey: "pandit-bookings" },
       {
         label: "Booking Pricing",
         path: "/dashboard/booking-pricing",
@@ -66,6 +67,7 @@ const navSections = [
     items: [
       { label: "Transactions", path: "/dashboard/transactions", icon: "transactions", accessKey: "transactions" },
       { label: "Earnings", path: "/dashboard/earnings", icon: "earnings", accessKey: "earnings" },
+      { label: "Withdrawals", path: "/dashboard/withdrawals", icon: "withdrawals", accessKey: "withdrawals" },
       { label: "Vendor Commission", path: "/dashboard/vendor-commission", icon: "pricing", accessKey: "vendor-commission", role: "super-admin" },
       { label: "Refunds & Returns", path: "/dashboard/refunds", icon: "refunds", accessKey: "refunds" },
     ],
@@ -86,6 +88,7 @@ const navSections = [
     heading: "Settings",
     items: [
       { label: "Settings", path: "/dashboard/settings", icon: "settings", accessKey: "settings", vendorOnly: true },
+      { label: "Company Settings", path: "/dashboard/super-settings", icon: "settings", accessKey: "settings", role: "super-admin" },
     ],
   },
 ];

@@ -1205,7 +1205,7 @@ function formatRupeesInWords(amount) {
 /* ═══════════════════════════════════════════════════════════ */
 /* InvoicePreview component – rendered in DOM, printed as PDF */
 /* ═══════════════════════════════════════════════════════════ */
-function InvoicePreview({ order, onClose }) {
+function InvoicePreview({ order, onClose, onUpdated }) {
   const items = Array.isArray(order.items) ? order.items : [];
 
   // Calculate Totals
@@ -1268,8 +1268,8 @@ function InvoicePreview({ order, onClose }) {
   const [isEditing, setIsEditing] = useState(false);
   const [invoiceData, setInvoiceData] = useState({
     // Seller Details
-    sellerName: vendor.businessName || vendor.name || "Samagran Ventures LLP",
-    sellerAddress:
+    sellerName: order.invoiceDetails?.sellerName || vendor.businessName || vendor.name || "Samagran Ventures LLP",
+    sellerAddress: order.invoiceDetails?.sellerAddress ||
       [
         vendor.address?.line1,
         vendor.address?.line2,
@@ -1280,16 +1280,17 @@ function InvoicePreview({ order, onClose }) {
         .filter(Boolean)
         .join(", ") ||
       "Godown, Patlipada, Near Ramnath Tabela, Thane (M.Corp)-400607, Maharashtra",
-    sellerGstin: vendor.gstin || "27AACFY8913A1Z8",
-    sellerFssai: vendor.fssai || "13323999000008",
-    sellerCin: vendor.cin || "AAZ-3294",
-    sellerPan: vendor.pan || "AACFY8913A",
-    sellerEmail: vendor.email || "support@samagran.com",
-    sellerPhone: vendor.phone || "+91 9876543210",
+    // KYC fields from vendor.kyc (dynamic from DB)
+    sellerGstin: order.invoiceDetails?.sellerGstin || vendor.kyc?.gst || vendor.gstin || "—",
+    sellerFssai: order.invoiceDetails?.sellerFssai || vendor.kyc?.fssai || vendor.fssai || "—",
+    sellerCin: order.invoiceDetails?.sellerCin || vendor.kyc?.cin || vendor.cin || "—",
+    sellerPan: order.invoiceDetails?.sellerPan || vendor.kyc?.pan || vendor.pan || "—",
+    sellerEmail: order.invoiceDetails?.sellerEmail || vendor.email || "support@samagran.com",
+    sellerPhone: order.invoiceDetails?.sellerPhone || vendor.phone || "+91 9876543210",
 
     // Customer Details
-    customerName: order.user?.name || order.address?.name || "Customer",
-    customerAddress:
+    customerName: order.invoiceDetails?.customerName || order.user?.name || order.address?.name || "Customer",
+    customerAddress: order.invoiceDetails?.customerAddress ||
       [
         order.address?.fullAddress,
         order.address?.city,
@@ -1298,21 +1299,67 @@ function InvoicePreview({ order, onClose }) {
       ]
         .filter(Boolean)
         .join(", ") || "Address not provided",
-    customerPhone: order.user?.phone || order.address?.phone || "—",
-    customerEmail: order.user?.email || "—",
+    customerPhone: order.invoiceDetails?.customerPhone || order.user?.phone || order.address?.phone || "—",
+    customerEmail: order.invoiceDetails?.customerEmail || order.user?.email || "—",
 
     // Invoice Metadata
-    invoiceNumber: buildInvoiceNumber(order),
-    invoiceDate: fmtDate(order.createdAt),
-    placeOfSupply: order.address?.state || "Maharashtra",
-    paymentMode: order.paymentMethod || "COD",
+    invoiceNumber: order.invoiceDetails?.invoiceNumber || buildInvoiceNumber(order),
+    invoiceDate: order.invoiceDetails?.invoiceDate || fmtDate(order.createdAt),
+    placeOfSupply: order.invoiceDetails?.placeOfSupply || order.address?.state || "Maharashtra",
+    paymentMode: order.invoiceDetails?.paymentMode || order.paymentMethod || "COD",
+
+    // Corporate & Signatory Details
+    companyName: order.invoiceDetails?.companyName || "",
+    companyAddress: order.invoiceDetails?.companyAddress || "",
+    companyCin: order.invoiceDetails?.companyCin || "",
+    companyPan: order.invoiceDetails?.companyPan || "",
+    companyFssai: order.invoiceDetails?.companyFssai || "",
+    companyEmail: order.invoiceDetails?.companyEmail || "",
+    companyPhone: order.invoiceDetails?.companyPhone || "",
+    authorizedSignatory: order.invoiceDetails?.authorizedSignatory || "",
   });
 
   const handleChange = (e) => {
     setInvoiceData({ ...invoiceData, [e.target.name]: e.target.value });
   };
 
-  const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${order._id}`;
+  useEffect(() => {
+    const fetchCorpDetails = async () => {
+      try {
+        const res = await API.get("/admin/corporate-details");
+        const corp = res.data?.data || {};
+        setInvoiceData((prev) => ({
+          ...prev,
+          companyName: prev.companyName || corp.companyName || "Samagran Ventures Private Limited",
+          companyAddress: prev.companyAddress || corp.address || "godown, Patlipada, Hiranandani, Thane (W)-400607, MH, India",
+          companyCin: prev.companyCin || corp.cin || "U74140MH2025PTC055568",
+          companyPan: prev.companyPan || corp.pan || "AAFCS8024E",
+          companyFssai: prev.companyFssai || corp.fssai || "10018064001545",
+          companyEmail: prev.companyEmail || corp.email || "support@samagran.com",
+          companyPhone: prev.companyPhone || corp.phone || "+91-9988776655",
+          authorizedSignatory: prev.authorizedSignatory || corp.authorizedSignatory || "Anil Sharma",
+        }));
+      } catch (err) {
+        console.error("Failed to load corporate details:", err);
+      }
+    };
+    fetchCorpDetails();
+  }, []);
+
+  const handleSaveClick = async () => {
+    if (isEditing) {
+      try {
+        await API.patch(`/admin/orders/${order._id}/invoice-details`, {
+          invoiceDetails: invoiceData,
+        });
+        toast.success("Invoice details updated successfully!");
+        if (onUpdated) onUpdated();
+      } catch (err) {
+        toast.error(err.response?.data?.message || "Failed to update invoice details");
+      }
+    }
+    setIsEditing(!isEditing);
+  };
 
   // --- PDF DOWNLOADER (Moved inside so it uses updated invoiceData) ---
   const handleDownloadPdf = useCallback(() => {
@@ -1392,11 +1439,8 @@ function InvoicePreview({ order, onClose }) {
         <p style="grid-column: span 2;margin-top:4px;">Email: <span style="color:#1a1a1a;font-weight:bold;">${invoiceData.sellerEmail}</span>  |  Contact: <span style="color:#1a1a1a;font-weight:bold;">${invoiceData.sellerPhone}</span></p>
       </div>
     </div>
-    <div style="padding:16px;background-color:#fafafa;display:flex;flex-direction:column;justify-content:space-between;align-items:center;text-align:center;">
-      <div style="border:1px solid #e5e7eb;padding:4px;background-color:#fff;border-radius:8px;">
-        <img src="${qrCodeUrl}" alt="QR" style="width:70px;height:70px;display:block;" />
-      </div>
-      <div style="margin-top:10px;">
+    <div style="padding:16px;background-color:#fafafa;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;">
+      <div>
         <p style="font-size:9px;font-weight:bold;color:#9ca3af;text-transform:uppercase;letter-spacing:0.5px;">Invoice Number</p>
         <p style="font-size:12px;font-weight:bold;color:#1f2937;font-family:monospace;margin-top:2px;">${invoiceData.invoiceNumber}</p>
       </div>
@@ -1495,13 +1539,13 @@ function InvoicePreview({ order, onClose }) {
   
   <div class="border-box grid-3">
     <div style="padding:12px;font-size:10px;color:#6b7280;line-height:1.5;font-weight:600;">
-      <p style="font-size:11px;font-weight:bold;color:#8B1E3F;margin-bottom:4px;">Samagran Ventures Private Limited (Corporate Office)</p>
-      <p>Reg. Address: godown, Patlipada, Hiranandani, Thane (W)-400607, MH, India</p>
-      <p>CIN: U74140MH2025PTC055568 | PAN: AAFCS8024E | FSSAI: 10018064001545</p>
-      <p style="margin-top:4px;">Customer Support: support@samagran.com  |  +91-9988776655</p>
+      <p style="font-size:11px;font-weight:bold;color:#8B1E3F;margin-bottom:4px;">${invoiceData.companyName} (Corporate Office)</p>
+      <p>Reg. Address: ${invoiceData.companyAddress}</p>
+      <p>CIN: ${invoiceData.companyCin} | PAN: ${invoiceData.companyPan} | FSSAI: ${invoiceData.companyFssai}</p>
+      <p style="margin-top:4px;">Customer Support: ${invoiceData.companyEmail}  |  ${invoiceData.companyPhone}</p>
     </div>
     <div style="padding:12px;border-left:1px solid #d1d5db;display:flex;flex-direction:column;justify-content:space-between;align-items:center;text-align:center;">
-      <span style="font-family:'Brush Script MT', cursive, sans-serif;font-size:18px;color:#9ca3af;font-weight:bold;margin-top:4px;">Anil Sharma</span>
+      <span style="font-family:'Brush Script MT', cursive, sans-serif;font-size:18px;color:#9ca3af;font-weight:bold;margin-top:4px;">${invoiceData.authorizedSignatory}</span>
       <span style="font-size:9px;font-weight:800;color:#6b7280;text-transform:uppercase;letter-spacing:1px;border-top:1px solid #f3f4f6;width:100%;padding-top:6px;margin-top:8px;">Authorized Signatory</span>
     </div>
   </div>
@@ -1539,7 +1583,6 @@ function InvoicePreview({ order, onClose }) {
     totalGstAmount,
     deliveryFee,
     order._id,
-    qrCodeUrl,
   ]);
 
   // Helper component to render either plain text or input field
@@ -1589,7 +1632,7 @@ function InvoicePreview({ order, onClose }) {
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={() => setIsEditing(!isEditing)}
+                onClick={handleSaveClick}
                 className={`inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold transition-colors ${
                   isEditing
                     ? "bg-[#8B1E3F] text-white border-[#8B1E3F] hover:bg-[#a0233f]"
@@ -1755,11 +1798,8 @@ function InvoicePreview({ order, onClose }) {
                     </p>
                   </div>
                 </div>
-                <div className="col-span-1 p-4 bg-gray-50/50 flex flex-col justify-between items-center text-center">
-                  <div className="border border-gray-200 p-1 bg-white rounded-lg shadow-sm">
-                    <img src={qrCodeUrl} alt="QR Code" className="h-16 w-16" />
-                  </div>
-                  <div className="mt-2 w-full">
+                <div className="col-span-1 p-4 bg-gray-50/50 flex flex-col justify-center items-center text-center">
+                  <div className="w-full">
                     <p className="text-[9px] font-bold text-gray-400 uppercase">
                       Invoice Number
                     </p>
@@ -2017,18 +2057,57 @@ function InvoicePreview({ order, onClose }) {
               <div className="grid grid-cols-3 border border-gray-300 rounded-xl mb-5 overflow-hidden">
                 <div className="col-span-2 p-3 text-[10px] text-gray-500 leading-relaxed font-semibold">
                   <p className="text-[11px] font-bold text-[#8B1E3F] mb-1">
-                    Samagran Ventures Private Limited (Corporate Office)
+                    <EditableField
+                      name="companyName"
+                      value={invoiceData.companyName}
+                    /> (Corporate Office)
                   </p>
-                  <p>
-                    Reg. Address: godown, Patlipada, Hiranandani, Thane
-                    (W)-400607, MH, India
+                  <p className="mb-1">
+                    Reg. Address:{" "}
+                    <EditableField
+                      name="companyAddress"
+                      value={invoiceData.companyAddress}
+                      isTextArea={true}
+                    />
                   </p>
-                  <p>
-                    CIN: U74140MH2025PTC055568 | PAN: AAFCS8024E | FSSAI:
-                    10018064001545
+                  <p className="flex items-center flex-wrap gap-x-2 gap-y-1 mb-1">
+                    <span>CIN:</span>
+                    <strong className="text-gray-800">
+                      <EditableField
+                        name="companyCin"
+                        value={invoiceData.companyCin}
+                      />
+                    </strong>
+                    <span>| PAN:</span>
+                    <strong className="text-gray-800">
+                      <EditableField
+                        name="companyPan"
+                        value={invoiceData.companyPan}
+                      />
+                    </strong>
+                    <span>| FSSAI:</span>
+                    <strong className="text-gray-800">
+                      <EditableField
+                        name="companyFssai"
+                        value={invoiceData.companyFssai}
+                      />
+                    </strong>
                   </p>
-                  <p className="mt-1">
-                    Customer Support: support@samagran.com | +91-9988776655
+                  <p className="mt-1 flex items-center flex-wrap gap-x-2">
+                    <span>Customer Support:</span>
+                    <strong className="text-gray-800 mr-2">
+                      <EditableField
+                        name="companyEmail"
+                        value={invoiceData.companyEmail}
+                      />
+                    </strong>
+                    <span>| Contact:</span>
+                    <strong className="text-gray-800">
+                      <EditableField
+                        name="companyPhone"
+                        value={invoiceData.companyPhone}
+                      />
+                    </strong>
                   </p>
                 </div>
                 <div className="col-span-1 border-l border-gray-300 p-3 flex flex-col justify-between items-center text-center">
@@ -2036,9 +2115,13 @@ function InvoicePreview({ order, onClose }) {
                     style={{
                       fontFamily: "'Brush Script MT', cursive, sans-serif",
                     }}
-                    className="text-lg text-gray-400 font-bold mt-1"
+                    className="text-lg text-gray-400 font-bold mt-1 block w-full"
                   >
-                    Anil Sharma
+                    <EditableField
+                      name="authorizedSignatory"
+                      value={invoiceData.authorizedSignatory}
+                      className="block text-center"
+                    />
                   </span>
                   <span className="text-[9px] font-extrabold text-gray-500 uppercase tracking-wider border-t border-gray-100 w-full pt-1.5 mt-2">
                     Authorized Signatory
@@ -2643,6 +2726,14 @@ export default function Invoices() {
         <InvoicePreview
           order={selectedOrder}
           onClose={() => setSelectedOrder(null)}
+          onUpdated={() => {
+            fetchOrders({
+              search: searchTerm,
+              status: statusFilter,
+              page: pagination.currentPage,
+            });
+            handleGenerate(selectedOrder);
+          }}
         />
       )}
     </div>

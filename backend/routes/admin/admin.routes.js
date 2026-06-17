@@ -1,5 +1,6 @@
 import express from "express";
-import { protectAdmin } from "../../middleware/admin.middleware.js";
+import { protectAdmin, requireSuperAdmin } from "../../middleware/admin.middleware.js";
+import { getCorporateDetails, updateCorporateDetails } from "../../controllers/admin/corporateDetails.controller.js";
 
 const router = express.Router();
 
@@ -9,5 +10,8 @@ router.get("/dashboard", protectAdmin, (req, res) => {
     admin: req.admin,
   });
 });
+
+router.get("/corporate-details", protectAdmin, getCorporateDetails);
+router.patch("/corporate-details", protectAdmin, requireSuperAdmin, updateCorporateDetails);
 
 export default router;

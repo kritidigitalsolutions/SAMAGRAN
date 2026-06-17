@@ -45,8 +45,38 @@ const vendorSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    // Human-readable vendor code e.g. VND-001
+    vendorCode: { type: String, trim: true, default: "" },
+    // KYC details
+    kyc: {
+      pan: { type: String, trim: true, default: "" },
+      panVerified: { type: Boolean, default: false },
+      aadhaar: { type: String, trim: true, default: "" },
+      aadhaarVerified: { type: Boolean, default: false },
+      gst: { type: String, trim: true, default: "" },
+      fssai: { type: String, trim: true, default: "" },
+      cin: { type: String, trim: true, default: "" },
+    },
+    // Bank account details
+    bank: {
+      accountHolder: { type: String, trim: true, default: "" },
+      bankName: { type: String, trim: true, default: "" },
+      accountNumber: { type: String, trim: true, default: "" },
+      ifsc: { type: String, trim: true, default: "" },
+      upiId: { type: String, trim: true, default: "" },
+      bankVerified: { type: Boolean, default: false },
+    },
   },
   { timestamps: true }
 );
+
+// Auto-generate vendorCode before save if not set
+vendorSchema.pre("save", async function (next) {
+  if (!this.vendorCode) {
+    const count = await mongoose.model("Vendor").countDocuments();
+    this.vendorCode = `VND-${String(count + 1).padStart(3, "0")}`;
+  }
+  next();
+});
 
 export default mongoose.model("Vendor", vendorSchema);

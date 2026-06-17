@@ -51,6 +51,11 @@ const vendorWithdrawalSchema = new mongoose.Schema(
       trim: true,
       default: "",
     },
+    expectedArrival: {
+      type: String,
+      trim: true,
+      default: "",
+    },
     requestedAt: {
       type: Date,
       default: Date.now,

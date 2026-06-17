@@ -224,7 +224,7 @@ export default function Navbar({ onMenuClick, onToggleSidebar, sidebarCollapsed 
                 ) : notifError ? (
                   <p className="rounded-xl bg-red-50 p-3 text-xs text-red-600 dark:bg-red-500/10 dark:text-red-200">{notifError}</p>
                 ) : bellSummary.length ? (
-                  <div className="space-y-2">
+                  <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
                     {bellSummary.map((item) => (
                       <div
                         key={item.id}
@@ -240,37 +240,26 @@ export default function Navbar({ onMenuClick, onToggleSidebar, sidebarCollapsed 
                         className="w-full cursor-pointer rounded-xl border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] p-3 text-left transition hover:border-[var(--admin-primary)]/50 hover:bg-[var(--admin-surface)]"
                       >
                         <div className="flex items-start justify-between gap-2">
-                          <div>
-                            <p className="text-sm font-semibold text-[var(--admin-text)]">{item.title}</p>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold text-[var(--admin-text)] truncate">{item.title}</p>
                             {item.body && (
-                              <p className="mt-1 text-xs text-[var(--admin-muted)]">{item.body}</p>
+                              <p className="mt-1 text-xs text-[var(--admin-muted)] line-clamp-2">{item.body}</p>
                             )}
                             <p className="mt-2 text-[10px] text-[var(--admin-muted)]">
                               {item.createdAt ? new Date(item.createdAt).toLocaleString() : ""}
                             </p>
                           </div>
-                          <div className="flex flex-col gap-2">
+                          <div className="flex items-center self-center flex-shrink-0">
                             <button
                               type="button"
                               onClick={(event) => {
                                 event.stopPropagation();
                                 markBellRead(item.id);
                               }}
-                              className="grid h-7 w-7 place-items-center rounded-full border border-emerald-200 text-emerald-600"
+                              className="grid h-8 w-8 place-items-center rounded-full border border-emerald-100 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-200 transition-colors"
                               aria-label="Mark as read"
                             >
-                              <FiCheck className="text-xs" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                deleteBellItem(item.id);
-                              }}
-                              className="grid h-7 w-7 place-items-center rounded-full border border-red-200 text-red-600"
-                              aria-label="Delete"
-                            >
-                              <FiTrash2 className="text-xs" />
+                              <FiCheck className="text-sm" />
                             </button>
                           </div>
                         </div>

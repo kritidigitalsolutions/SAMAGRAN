@@ -1,9 +1,25 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { adminApi } from "../../../api/admin/api";
 import { toast } from "react-toastify";
 
+const TABS = ["Basic Info", "Address", "KYC & Bank"];
+
+const inputCls = "w-full rounded-xl border border-[#d7c3a3] bg-white/80 px-3 py-2 text-sm text-[#2f1618] outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-[#1a1e27] dark:text-white placeholder:text-[#9a7a6a]";
+const labelCls = "block text-xs font-semibold uppercase tracking-wider text-[#7f5a4f] dark:text-[#e7c98b] mb-1.5";
+
+const CheckBadge = ({ verified }) =>
+  verified ? (
+    <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300">
+      <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
+      Verified
+    </span>
+  ) : null;
+
 const EditVendorProfileModal = ({ vendor, onClose, onUpdated }) => {
-  const [form, setForm] = useState({
+  const [activeTab, setActiveTab] = useState(0);
+  const [loading, setLoading] = useState(false);
+
+  const [basic, setBasic] = useState({
     name: vendor.name || "",
     businessName: vendor.businessName || "",
     contactPerson: vendor.contactPerson || "",
@@ -11,122 +27,270 @@ const EditVendorProfileModal = ({ vendor, onClose, onUpdated }) => {
     email: vendor.email || "",
     phone: vendor.phone || "",
     status: vendor.status || "active",
-    address: {
-      line1: vendor.address?.line1 || "",
-      line2: vendor.address?.line2 || "",
-      city: vendor.address?.city || "",
-      state: vendor.address?.state || "",
-      pincode: vendor.address?.pincode || "",
-    },
     notes: vendor.notes || "",
   });
-  const [loading, setLoading] = useState(false);
 
-  const handleChange = (event) => {
-    const { name, value } = event.target;
-    setForm((current) => ({ ...current, [name]: value }));
+  const [address, setAddress] = useState({
+    line1: vendor.address?.line1 || "",
+    line2: vendor.address?.line2 || "",
+    city: vendor.address?.city || "",
+    state: vendor.address?.state || "",
+    pincode: vendor.address?.pincode || "",
+  });
+
+  const [kyc, setKyc] = useState({
+    pan: vendor.kyc?.pan || "",
+    panVerified: vendor.kyc?.panVerified || false,
+    aadhaar: vendor.kyc?.aadhaar || "",
+    aadhaarVerified: vendor.kyc?.aadhaarVerified || false,
+    gst: vendor.kyc?.gst || "",
+    fssai: vendor.kyc?.fssai || "",
+    cin: vendor.kyc?.cin || "",
+  });
+
+  const [bank, setBank] = useState({
+    accountHolder: vendor.bank?.accountHolder || "",
+    bankName: vendor.bank?.bankName || "",
+    accountNumber: vendor.bank?.accountNumber || "",
+    ifsc: vendor.bank?.ifsc || "",
+    bankVerified: vendor.bank?.bankVerified || false,
+  });
+
+  const setField = (setter) => (e) => {
+    const { name, value, type, checked } = e.target;
+    setter((prev) => ({ ...prev, [name]: type === "checkbox" ? checked : value }));
   };
 
-  const handleAddressChange = (event) => {
-    const { name, value } = event.target;
-    setForm((current) => ({
-      ...current,
-      address: { ...current.address, [name]: value },
-    }));
-  };
-
-  const handleSubmit = async (event) => {
-    event.preventDefault();
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!basic.name || !basic.email || !basic.phone) {
+      toast.error("Name, email, and phone are required");
+      setActiveTab(0);
+      return;
+    }
+    setLoading(true);
     try {
-      setLoading(true);
-      await adminApi.patch(`/vendors/${vendor._id}`, form);
-      toast.success("Vendor profile updated");
+      await adminApi.patch(`/vendors/${vendor._id}`, {
+        ...basic,
+        address,
+        kyc,
+        bank,
+      });
+      toast.success("Vendor profile updated successfully");
       onUpdated();
       onClose();
     } catch (error) {
-      toast.error(error.response?.data?.message || "Failed to update vendor profile");
+      toast.error(error.response?.data?.message || "Failed to update vendor");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-2xl bg-white p-6 shadow-xl dark:bg-[#0f1218] dark:text-white">
-        <h2 className="text-xl font-bold">Edit Vendor Profile</h2>
-        <form onSubmit={handleSubmit} className="mt-5 space-y-5">
-          <div className="grid gap-4 md:grid-cols-2">
-            <label className="text-sm font-medium">
-              Vendor Name
-              <input name="name" value={form.name} onChange={handleChange} className="mt-2 w-full rounded-lg border px-3 py-2 text-sm text-black" required />
-            </label>
-            <label className="text-sm font-medium">
-              Business Name
-              <input name="businessName" value={form.businessName} onChange={handleChange} className="mt-2 w-full rounded-lg border px-3 py-2 text-sm text-black" />
-            </label>
-            <label className="text-sm font-medium">
-              Contact Person
-              <input name="contactPerson" value={form.contactPerson} onChange={handleChange} className="mt-2 w-full rounded-lg border px-3 py-2 text-sm text-black" />
-            </label>
-            <label className="text-sm font-medium">
-              Image URL
-              <input name="image" value={form.image} onChange={handleChange} className="mt-2 w-full rounded-lg border px-3 py-2 text-sm text-black" />
-            </label>
-            <label className="text-sm font-medium">
-              Email
-              <input type="email" name="email" value={form.email} onChange={handleChange} className="mt-2 w-full rounded-lg border px-3 py-2 text-sm text-black" required />
-            </label>
-            <label className="text-sm font-medium">
-              Phone
-              <input name="phone" value={form.phone} onChange={handleChange} className="mt-2 w-full rounded-lg border px-3 py-2 text-sm text-black" required />
-            </label>
-            <label className="text-sm font-medium">
-              Status
-              <select name="status" value={form.status} onChange={handleChange} className="mt-2 w-full rounded-lg border px-3 py-2 text-sm text-black">
-                <option value="active">Active</option>
-                <option value="pending">Pending</option>
-                <option value="inactive">Inactive</option>
-              </select>
-            </label>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+      <div className="relative w-full max-w-3xl max-h-[92vh] rounded-3xl border border-[#d8c4a5] bg-[#fffdf8] shadow-2xl dark:border-white/10 dark:bg-[#141820] flex flex-col overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between px-7 py-5 border-b border-[#e8d9c4] dark:border-white/10">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-widest text-[#8B1E3F]">Vendor Management</p>
+            <h2 className="mt-0.5 text-xl font-bold text-[#2f1618] dark:text-[#fff3dc]">Edit Vendor Profile</h2>
           </div>
+          <button onClick={onClose} className="grid h-9 w-9 place-items-center rounded-xl border border-[#d7bf9b] text-[#6f3945] hover:bg-[#8B1E3F]/10 dark:border-white/20 dark:text-[#f7e3c0]" aria-label="Close">
+            <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4"><path d="M6 6L18 18M18 6L6 18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>
+          </button>
+        </div>
 
-          <div className="grid gap-4 border-t pt-4 md:grid-cols-3 dark:border-white/10">
-            <label className="text-sm font-medium md:col-span-2">
-              Address Line 1
-              <input name="line1" value={form.address.line1} onChange={handleAddressChange} className="mt-2 w-full rounded-lg border px-3 py-2 text-sm text-black" />
-            </label>
-            <label className="text-sm font-medium">
-              Address Line 2
-              <input name="line2" value={form.address.line2} onChange={handleAddressChange} className="mt-2 w-full rounded-lg border px-3 py-2 text-sm text-black" />
-            </label>
-            <label className="text-sm font-medium">
-              City
-              <input name="city" value={form.address.city} onChange={handleAddressChange} className="mt-2 w-full rounded-lg border px-3 py-2 text-sm text-black" />
-            </label>
-            <label className="text-sm font-medium">
-              State
-              <input name="state" value={form.address.state} onChange={handleAddressChange} className="mt-2 w-full rounded-lg border px-3 py-2 text-sm text-black" />
-            </label>
-            <label className="text-sm font-medium">
-              Pincode
-              <input name="pincode" value={form.address.pincode} onChange={handleAddressChange} className="mt-2 w-full rounded-lg border px-3 py-2 text-sm text-black" />
-            </label>
+        {/* Tabs */}
+        <div className="flex gap-1 px-7 pt-4 pb-0 border-b border-[#e8d9c4] dark:border-white/10">
+          {TABS.map((tab, i) => (
+            <button
+              key={tab}
+              type="button"
+              onClick={() => setActiveTab(i)}
+              className={`px-4 py-2 text-sm font-semibold rounded-t-lg border-b-2 transition-colors ${activeTab === i
+                ? "border-[#8B1E3F] text-[#8B1E3F] bg-[#8B1E3F]/5"
+                : "border-transparent text-[#7f5a4f] hover:text-[#8B1E3F] dark:text-[#dbcdb8]/70"
+              }`}
+            >
+              {tab}
+            </button>
+          ))}
+        </div>
+
+        {/* Body */}
+        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-7 py-6 space-y-4">
+          {/* Tab 0: Basic Info */}
+          {activeTab === 0 && (
+            <div className="grid gap-4 md:grid-cols-2">
+              <div>
+                <label className={labelCls}>Vendor Name *</label>
+                <input name="name" value={basic.name} onChange={setField(setBasic)} required className={inputCls} placeholder="Amit Kumar" />
+              </div>
+              <div>
+                <label className={labelCls}>Business Name</label>
+                <input name="businessName" value={basic.businessName} onChange={setField(setBasic)} className={inputCls} placeholder="Samagran Ranchi" />
+              </div>
+              <div>
+                <label className={labelCls}>Contact Person</label>
+                <input name="contactPerson" value={basic.contactPerson} onChange={setField(setBasic)} className={inputCls} placeholder="Partner Name" />
+              </div>
+              <div>
+                <label className={labelCls}>Profile Image URL</label>
+                <input name="image" value={basic.image} onChange={setField(setBasic)} className={inputCls} placeholder="https://..." />
+              </div>
+              <div>
+                <label className={labelCls}>Email *</label>
+                <input type="email" name="email" value={basic.email} onChange={setField(setBasic)} required className={inputCls} placeholder="partner@email.com" />
+              </div>
+              <div>
+                <label className={labelCls}>Mobile Number *</label>
+                <input type="tel" name="phone" value={basic.phone} onChange={setField(setBasic)} required className={inputCls} placeholder="10 digit mobile" />
+              </div>
+              <div>
+                <label className={labelCls}>Status</label>
+                <select name="status" value={basic.status} onChange={setField(setBasic)} className={inputCls}>
+                  <option value="active">Active</option>
+                  <option value="pending">Pending</option>
+                  <option value="inactive">Inactive</option>
+                </select>
+              </div>
+              <div>
+                <label className={labelCls}>Notes</label>
+                <input name="notes" value={basic.notes} onChange={setField(setBasic)} className={inputCls} placeholder="Internal notes..." />
+              </div>
+            </div>
+          )}
+
+          {/* Tab 1: Address */}
+          {activeTab === 1 && (
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="md:col-span-2">
+                <label className={labelCls}>Address Line 1</label>
+                <input name="line1" value={address.line1} onChange={setField(setAddress)} className={inputCls} placeholder="Street, Area" />
+              </div>
+              <div className="md:col-span-2">
+                <label className={labelCls}>Address Line 2</label>
+                <input name="line2" value={address.line2} onChange={setField(setAddress)} className={inputCls} placeholder="Landmark" />
+              </div>
+              <div>
+                <label className={labelCls}>City</label>
+                <input name="city" value={address.city} onChange={setField(setAddress)} className={inputCls} placeholder="Ranchi" />
+              </div>
+              <div>
+                <label className={labelCls}>State</label>
+                <input name="state" value={address.state} onChange={setField(setAddress)} className={inputCls} placeholder="Jharkhand" />
+              </div>
+              <div>
+                <label className={labelCls}>Pincode</label>
+                <input name="pincode" value={address.pincode} onChange={setField(setAddress)} className={inputCls} placeholder="834001" />
+              </div>
+            </div>
+          )}
+
+          {/* Tab 2: KYC & Bank */}
+          {activeTab === 2 && (
+            <div className="space-y-5">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-widest text-[#8B1E3F] mb-3">KYC Details</p>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div>
+                    <label className={labelCls}>PAN Number</label>
+                    <input name="pan" value={kyc.pan} onChange={setField(setKyc)} className={inputCls} placeholder="ABCDE1234F" />
+                    <label className="mt-2 flex items-center gap-2 text-sm text-[#6f3945] dark:text-[#f7e3c0]">
+                      <input type="checkbox" name="panVerified" checked={kyc.panVerified} onChange={setField(setKyc)} className="h-4 w-4 rounded" />
+                      PAN Verified
+                      <CheckBadge verified={kyc.panVerified} />
+                    </label>
+                  </div>
+                  <div>
+                    <label className={labelCls}>Aadhaar Number</label>
+                    <input name="aadhaar" value={kyc.aadhaar} onChange={setField(setKyc)} className={inputCls} placeholder="XXXX XXXX XXXX" />
+                    <label className="mt-2 flex items-center gap-2 text-sm text-[#6f3945] dark:text-[#f7e3c0]">
+                      <input type="checkbox" name="aadhaarVerified" checked={kyc.aadhaarVerified} onChange={setField(setKyc)} className="h-4 w-4 rounded" />
+                      Aadhaar Verified
+                      <CheckBadge verified={kyc.aadhaarVerified} />
+                    </label>
+                  </div>
+                  <div>
+                    <label className={labelCls}>GST Number <span className="text-[10px] normal-case font-normal text-[#9a7a6a]">(Optional)</span></label>
+                    <input name="gst" value={kyc.gst} onChange={setField(setKyc)} className={inputCls} placeholder="27AACFY8913A1Z8" />
+                  </div>
+                  <div>
+                    <label className={labelCls}>FSSAI Number <span className="text-[10px] normal-case font-normal text-[#9a7a6a]">(If Applicable)</span></label>
+                    <input name="fssai" value={kyc.fssai} onChange={setField(setKyc)} className={inputCls} placeholder="13323999000008" />
+                  </div>
+                  <div>
+                    <label className={labelCls}>CIN Number <span className="text-[10px] normal-case font-normal text-[#9a7a6a]">(If Applicable)</span></label>
+                    <input name="cin" value={kyc.cin} onChange={setField(setKyc)} className={inputCls} placeholder="U74140MH2025PTC055568" />
+                  </div>
+                </div>
+              </div>
+
+              <div className="border-t border-[#e8d9c4] dark:border-white/10 pt-5">
+                <p className="text-xs font-bold uppercase tracking-widest text-[#8B1E3F] mb-3">Bank Account Details</p>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div>
+                    <label className={labelCls}>Account Holder Name</label>
+                    <input name="accountHolder" value={bank.accountHolder} onChange={setField(setBank)} className={inputCls} placeholder="Amit Kumar" />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Bank Name</label>
+                    <input name="bankName" value={bank.bankName} onChange={setField(setBank)} className={inputCls} placeholder="HDFC Bank" />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Account Number</label>
+                    <input name="accountNumber" value={bank.accountNumber} onChange={setField(setBank)} className={inputCls} placeholder="50100xxxxxxxxxx" />
+                  </div>
+                  <div>
+                    <label className={labelCls}>IFSC Code</label>
+                    <input name="ifsc" value={bank.ifsc} onChange={setField(setBank)} className={inputCls} placeholder="HDFC0001234" />
+                  </div>
+                  <div>
+                    <label className="flex items-center gap-2 text-sm text-[#6f3945] dark:text-[#f7e3c0]">
+                      <input type="checkbox" name="bankVerified" checked={bank.bankVerified} onChange={setField(setBank)} className="h-4 w-4 rounded" />
+                      Bank Account Verified
+                      <CheckBadge verified={bank.bankVerified} />
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </form>
+
+        {/* Footer */}
+        <div className="flex items-center justify-between px-7 py-5 border-t border-[#e8d9c4] dark:border-white/10 bg-[#fdf8f2] dark:bg-[#1a1e27]">
+          <div className="flex gap-2">
+            {TABS.map((_, i) => (
+              <button key={i} type="button" onClick={() => setActiveTab(i)} className={`h-2 rounded-full transition-all ${activeTab === i ? "w-6 bg-[#8B1E3F]" : "w-2 bg-[#d7c3a3] dark:bg-white/20"}`} />
+            ))}
           </div>
-
-          <label className="block text-sm font-medium">
-            Notes
-            <textarea name="notes" value={form.notes} onChange={handleChange} rows={3} className="mt-2 w-full rounded-lg border px-3 py-2 text-sm text-black" />
-          </label>
-
-          <div className="flex justify-end gap-3">
-            <button type="button" onClick={onClose} className="rounded-lg border px-4 py-2 text-sm font-semibold" disabled={loading}>
+          <div className="flex items-center gap-3">
+            <button type="button" onClick={onClose} className="rounded-xl border border-[#d7bf9b] px-4 py-2 text-sm font-semibold text-[#6f3945] hover:bg-[#8B1E3F]/10 dark:border-white/20 dark:text-[#f7e3c0]" disabled={loading}>
               Cancel
             </button>
-            <button type="submit" className="admin-btn-primary rounded-lg px-4 py-2 text-sm font-semibold" disabled={loading}>
-              {loading ? "Saving..." : "Save Profile"}
-            </button>
+            {activeTab > 0 && (
+              <button type="button" onClick={() => setActiveTab((t) => t - 1)} className="rounded-xl border border-[#d7bf9b] px-4 py-2 text-sm font-semibold text-[#6f3945] hover:bg-[#8B1E3F]/10 dark:border-white/20 dark:text-[#f7e3c0]">
+                Back
+              </button>
+            )}
+            {activeTab < TABS.length - 1 ? (
+              <button type="button" onClick={() => setActiveTab((t) => t + 1)} className="rounded-xl bg-[#8B1E3F] px-5 py-2 text-sm font-semibold text-white hover:bg-[#a0233f]">
+                Next →
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleSubmit}
+                disabled={loading}
+                className="rounded-xl bg-[#8B1E3F] px-5 py-2 text-sm font-semibold text-white hover:bg-[#a0233f] disabled:opacity-60 flex items-center gap-2"
+              >
+                {loading && <span className="h-3.5 w-3.5 rounded-full border-2 border-white/30 border-t-white animate-spin" />}
+                {loading ? "Saving..." : "Save Profile"}
+              </button>
+            )}
           </div>
-        </form>
+        </div>
       </div>
     </div>
   );

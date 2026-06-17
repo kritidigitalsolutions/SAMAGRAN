@@ -46,6 +46,8 @@ export const getVendorEarningsSummary = async (req, res) => {
         cancelledOrders: finance.cancelledOrders,
         pendingOrders: finance.pendingOrders,
         withdrawals: finance.withdrawals,
+        todayRevenue: finance.todayRevenue,
+        totalSettlementsPaid: finance.withdrawals.totalPaid,
       },
     });
   } catch (error) {
@@ -61,7 +63,9 @@ export const getVendorWithdrawals = async (req, res) => {
       return res.status(400).json({ success: false, message: "Vendor not resolved" });
     }
 
-    const withdrawals = await VendorWithdrawal.find(vendorId ? { vendor: vendorId } : {})
+    const query = vendorId ? { vendor: vendorId } : {};
+    const withdrawals = await VendorWithdrawal.find(query)
+      .populate("vendor", "name businessName email phone")
       .sort({ createdAt: -1 })
       .lean();
 
@@ -303,6 +307,52 @@ export const deleteVendorTransaction = async (req, res) => {
     return res.json({ success: true, message: "Transaction deleted successfully" });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message || "Unable to delete transaction" });
+  }
+};
+
+export const markWithdrawalPaid = async (req, res) => {
+  try {
+    if (req.admin?.role !== "super") {
+      return res.status(403).json({ success: false, message: "Super admin access required" });
+    }
+
+    const { id } = req.params;
+    const { reference = "", amount, notes = "", expectedArrival = "" } = req.body || {};
+
+    const withdrawal = await VendorWithdrawal.findById(id);
+    if (!withdrawal) {
+      return res.status(404).json({ success: false, message: "Withdrawal not found" });
+    }
+
+    if (withdrawal.status === "paid") {
+      return res.status(400).json({ success: false, message: "Withdrawal is already marked as paid" });
+    }
+
+    // Update amount if super admin overrides it
+    if (amount !== undefined && amount !== null && amount !== "") {
+      const parsedAmount = toMoney(amount);
+      if (parsedAmount < 0) {
+        return res.status(400).json({ success: false, message: "Valid amount is required" });
+      }
+      withdrawal.amount = parsedAmount;
+    }
+
+    withdrawal.status = "paid";
+    withdrawal.reference = String(reference || "").trim();
+    withdrawal.notes = String(notes || "").trim();
+    withdrawal.expectedArrival = String(expectedArrival || "").trim();
+    withdrawal.processedAt = new Date();
+    withdrawal.processedBy = req.admin._id;
+
+    await withdrawal.save();
+
+    return res.json({
+      success: true,
+      message: "Withdrawal marked as paid successfully",
+      data: { withdrawal },
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message || "Unable to mark withdrawal as paid" });
   }
 };
 

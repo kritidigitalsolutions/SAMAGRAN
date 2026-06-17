@@ -1,5 +1,5 @@
 import express from "express";
-import { protectAdmin } from "../../middleware/admin.middleware.js";
+import { protectAdmin, requireSuperAdmin } from "../../middleware/admin.middleware.js";
 import {
 	createPanditByAdmin,
 	deletePanditByAdmin,
@@ -9,9 +9,12 @@ import {
 	updatePanditByAdmin,
 	updatePanditStatusByAdmin,
 } from "../../controllers/admin/pandit.controller.js";
+import { getPanditEarningsSummary, markAllPanditPayoutsPaid } from "../../controllers/admin/panditEarnings.controller.js";
 
 const router = express.Router();
 
+router.get("/earnings", protectAdmin, getPanditEarningsSummary);
+router.patch("/mark-all-payout-paid/:panditId", protectAdmin, requireSuperAdmin, markAllPanditPayoutsPaid);
 router.get("/", protectAdmin, getAllPanditsForAdmin);
 router.post("/", protectAdmin, createPanditByAdmin);
 router.get("/:id/details", protectAdmin, getPanditDetailsForAdmin);

@@ -4,7 +4,10 @@ import API from "../api/axios";
 import { getAdminRole, setStoredAdmin } from "../utils/auth";
 
 const TABS = [
-  { key: "profile", label: "Profile" },
+  { key: "profile", label: "Profile Info" },
+  { key: "address", label: "Address Details" },
+  { key: "kyc", label: "KYC Details" },
+  { key: "bank", label: "Bank & UPI Details" },
   { key: "security", label: "Security & Password" },
 ];
 
@@ -20,7 +23,36 @@ const emptyProfile = {
     state: "",
     pincode: "",
   },
+  kyc: {
+    pan: "",
+    panVerified: false,
+    aadhaar: "",
+    aadhaarVerified: false,
+    gst: "",
+    fssai: "",
+    cin: "",
+  },
+  bank: {
+    accountHolder: "",
+    bankName: "",
+    accountNumber: "",
+    ifsc: "",
+    upiId: "",
+    bankVerified: false,
+  },
 };
+
+const CheckBadge = ({ verified }) =>
+  verified ? (
+    <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300">
+      <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
+      Verified
+    </span>
+  ) : (
+    <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700 dark:bg-amber-500/20 dark:text-amber-300">
+      Unverified
+    </span>
+  );
 
 export default function VendorSettings() {
   const isVendor = getAdminRole() === "vendor-admin";
@@ -62,6 +94,14 @@ export default function VendorSettings() {
           ...emptyProfile.address,
           ...(vendor.address || {}),
         },
+        kyc: {
+          ...emptyProfile.kyc,
+          ...(vendor.kyc || {}),
+        },
+        bank: {
+          ...emptyProfile.bank,
+          ...(vendor.bank || {}),
+        },
       });
     } catch (err) {
       setError(err?.response?.data?.message || "Failed to load vendor profile");
@@ -93,6 +133,28 @@ export default function VendorSettings() {
       }));
       return;
     }
+    if (name.startsWith("kyc.")) {
+      const field = name.replace("kyc.", "");
+      setProfile((prev) => ({
+        ...prev,
+        kyc: {
+          ...prev.kyc,
+          [field]: value,
+        },
+      }));
+      return;
+    }
+    if (name.startsWith("bank.")) {
+      const field = name.replace("bank.", "");
+      setProfile((prev) => ({
+        ...prev,
+        bank: {
+          ...prev.bank,
+          [field]: value,
+        },
+      }));
+      return;
+    }
 
     setProfile((prev) => ({ ...prev, [name]: value }));
   };
@@ -110,6 +172,8 @@ export default function VendorSettings() {
         email: profile.email,
         phone: profile.phone,
         address: profile.address,
+        kyc: profile.kyc,
+        bank: profile.bank,
       };
       const res = await API.patch("/admin/vendor/profile", payload);
       const updatedVendor = res.data?.data?.vendor || null;
@@ -124,6 +188,14 @@ export default function VendorSettings() {
           address: {
             ...prev.address,
             ...(updatedVendor.address || {}),
+          },
+          kyc: {
+            ...prev.kyc,
+            ...(updatedVendor.kyc || {}),
+          },
+          bank: {
+            ...prev.bank,
+            ...(updatedVendor.bank || {}),
           },
         }));
       }
@@ -242,7 +314,7 @@ export default function VendorSettings() {
                       name="name"
                       value={profile.name}
                       onChange={handleProfileChange}
-                      className="mt-2 w-full rounded-lg border border-[var(--admin-border)] bg-transparent px-3 py-2 text-sm"
+                      className="mt-2 w-full rounded-lg border border-[var(--admin-border)] bg-transparent px-3 py-2 text-sm text-[var(--admin-text)]"
                       required
                     />
                   </div>
@@ -254,7 +326,7 @@ export default function VendorSettings() {
                       name="businessName"
                       value={profile.businessName}
                       onChange={handleProfileChange}
-                      className="mt-2 w-full rounded-lg border border-[var(--admin-border)] bg-transparent px-3 py-2 text-sm"
+                      className="mt-2 w-full rounded-lg border border-[var(--admin-border)] bg-transparent px-3 py-2 text-sm text-[var(--admin-text)]"
                     />
                   </div>
                   <div>
@@ -266,7 +338,7 @@ export default function VendorSettings() {
                       type="email"
                       value={profile.email}
                       onChange={handleProfileChange}
-                      className="mt-2 w-full rounded-lg border border-[var(--admin-border)] bg-transparent px-3 py-2 text-sm"
+                      className="mt-2 w-full rounded-lg border border-[var(--admin-border)] bg-transparent px-3 py-2 text-sm text-[var(--admin-text)]"
                       required
                     />
                   </div>
@@ -278,65 +350,7 @@ export default function VendorSettings() {
                       name="phone"
                       value={profile.phone}
                       onChange={handleProfileChange}
-                      className="mt-2 w-full rounded-lg border border-[var(--admin-border)] bg-transparent px-3 py-2 text-sm"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div>
-                    <label className="text-sm font-medium text-[var(--admin-text)]">
-                      Address Line 1
-                    </label>
-                    <input
-                      name="address.line1"
-                      value={profile.address.line1}
-                      onChange={handleProfileChange}
-                      className="mt-2 w-full rounded-lg border border-[var(--admin-border)] bg-transparent px-3 py-2 text-sm"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-[var(--admin-text)]">
-                      Address Line 2
-                    </label>
-                    <input
-                      name="address.line2"
-                      value={profile.address.line2}
-                      onChange={handleProfileChange}
-                      className="mt-2 w-full rounded-lg border border-[var(--admin-border)] bg-transparent px-3 py-2 text-sm"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-[var(--admin-text)]">
-                      City
-                    </label>
-                    <input
-                      name="address.city"
-                      value={profile.address.city}
-                      onChange={handleProfileChange}
-                      className="mt-2 w-full rounded-lg border border-[var(--admin-border)] bg-transparent px-3 py-2 text-sm"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-[var(--admin-text)]">
-                      State
-                    </label>
-                    <input
-                      name="address.state"
-                      value={profile.address.state}
-                      onChange={handleProfileChange}
-                      className="mt-2 w-full rounded-lg border border-[var(--admin-border)] bg-transparent px-3 py-2 text-sm"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-[var(--admin-text)]">
-                      Pincode
-                    </label>
-                    <input
-                      name="address.pincode"
-                      value={profile.address.pincode}
-                      onChange={handleProfileChange}
-                      className="mt-2 w-full rounded-lg border border-[var(--admin-border)] bg-transparent px-3 py-2 text-sm"
+                      className="mt-2 w-full rounded-lg border border-[var(--admin-border)] bg-transparent px-3 py-2 text-sm text-[var(--admin-text)]"
                     />
                   </div>
                 </div>
@@ -347,7 +361,269 @@ export default function VendorSettings() {
                     disabled={saving}
                     className="rounded-lg bg-[var(--admin-primary)] px-5 py-2 text-sm font-semibold text-white hover:bg-[var(--admin-primary-strong)] disabled:opacity-60"
                   >
-                    {saving ? "Saving..." : "Save changes"}
+                    {saving ? "Saving..." : "Save profile"}
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {activeTab === "address" && (
+              <form className="mt-6 space-y-5" onSubmit={handleProfileSubmit}>
+                {error && (
+                  <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
+                    {error}
+                  </div>
+                )}
+                {message && (
+                  <div className="rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+                    {message}
+                  </div>
+                )}
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="md:col-span-2">
+                    <label className="text-sm font-medium text-[var(--admin-text)]">
+                      Address Line 1
+                    </label>
+                    <input
+                      name="address.line1"
+                      value={profile.address.line1}
+                      onChange={handleProfileChange}
+                      className="mt-2 w-full rounded-lg border border-[var(--admin-border)] bg-transparent px-3 py-2 text-sm text-[var(--admin-text)]"
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="text-sm font-medium text-[var(--admin-text)]">
+                      Address Line 2
+                    </label>
+                    <input
+                      name="address.line2"
+                      value={profile.address.line2}
+                      onChange={handleProfileChange}
+                      className="mt-2 w-full rounded-lg border border-[var(--admin-border)] bg-transparent px-3 py-2 text-sm text-[var(--admin-text)]"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-[var(--admin-text)]">
+                      City
+                    </label>
+                    <input
+                      name="address.city"
+                      value={profile.address.city}
+                      onChange={handleProfileChange}
+                      className="mt-2 w-full rounded-lg border border-[var(--admin-border)] bg-transparent px-3 py-2 text-sm text-[var(--admin-text)]"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-[var(--admin-text)]">
+                      State
+                    </label>
+                    <input
+                      name="address.state"
+                      value={profile.address.state}
+                      onChange={handleProfileChange}
+                      className="mt-2 w-full rounded-lg border border-[var(--admin-border)] bg-transparent px-3 py-2 text-sm text-[var(--admin-text)]"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-[var(--admin-text)]">
+                      Pincode
+                    </label>
+                    <input
+                      name="address.pincode"
+                      value={profile.address.pincode}
+                      onChange={handleProfileChange}
+                      className="mt-2 w-full rounded-lg border border-[var(--admin-border)] bg-transparent px-3 py-2 text-sm text-[var(--admin-text)]"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end">
+                  <button
+                    type="submit"
+                    disabled={saving}
+                    className="rounded-lg bg-[var(--admin-primary)] px-5 py-2 text-sm font-semibold text-white hover:bg-[var(--admin-primary-strong)] disabled:opacity-60"
+                  >
+                    {saving ? "Saving..." : "Save address"}
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {activeTab === "kyc" && (
+              <form className="mt-6 space-y-5" onSubmit={handleProfileSubmit}>
+                {error && (
+                  <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
+                    {error}
+                  </div>
+                )}
+                {message && (
+                  <div className="rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+                    {message}
+                  </div>
+                )}
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div>
+                    <label className="flex items-center text-sm font-medium text-[var(--admin-text)]">
+                      PAN Number
+                      <CheckBadge verified={profile.kyc.panVerified} />
+                    </label>
+                    <input
+                      name="kyc.pan"
+                      value={profile.kyc.pan}
+                      onChange={handleProfileChange}
+                      className="mt-2 w-full rounded-lg border border-[var(--admin-border)] bg-transparent px-3 py-2 text-sm text-[var(--admin-text)]"
+                      placeholder="ABCDE1234F"
+                    />
+                  </div>
+                  <div>
+                    <label className="flex items-center text-sm font-medium text-[var(--admin-text)]">
+                      Aadhaar Number
+                      <CheckBadge verified={profile.kyc.aadhaarVerified} />
+                    </label>
+                    <input
+                      name="kyc.aadhaar"
+                      value={profile.kyc.aadhaar}
+                      onChange={handleProfileChange}
+                      className="mt-2 w-full rounded-lg border border-[var(--admin-border)] bg-transparent px-3 py-2 text-sm text-[var(--admin-text)]"
+                      placeholder="XXXX XXXX XXXX"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-[var(--admin-text)]">
+                      GST Number (Optional)
+                    </label>
+                    <input
+                      name="kyc.gst"
+                      value={profile.kyc.gst}
+                      onChange={handleProfileChange}
+                      className="mt-2 w-full rounded-lg border border-[var(--admin-border)] bg-transparent px-3 py-2 text-sm text-[var(--admin-text)]"
+                      placeholder="27AACFY8913A1Z8"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-[var(--admin-text)]">
+                      FSSAI Number (If Applicable)
+                    </label>
+                    <input
+                      name="kyc.fssai"
+                      value={profile.kyc.fssai}
+                      onChange={handleProfileChange}
+                      className="mt-2 w-full rounded-lg border border-[var(--admin-border)] bg-transparent px-3 py-2 text-sm text-[var(--admin-text)]"
+                      placeholder="13323999000008"
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="text-sm font-medium text-[var(--admin-text)]">
+                      CIN Number (If Applicable)
+                    </label>
+                    <input
+                      name="kyc.cin"
+                      value={profile.kyc.cin}
+                      onChange={handleProfileChange}
+                      className="mt-2 w-full rounded-lg border border-[var(--admin-border)] bg-transparent px-3 py-2 text-sm text-[var(--admin-text)]"
+                      placeholder="U74140MH2025PTC055568"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end">
+                  <button
+                    type="submit"
+                    disabled={saving}
+                    className="rounded-lg bg-[var(--admin-primary)] px-5 py-2 text-sm font-semibold text-white hover:bg-[var(--admin-primary-strong)] disabled:opacity-60"
+                  >
+                    {saving ? "Saving..." : "Save KYC details"}
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {activeTab === "bank" && (
+              <form className="mt-6 space-y-5" onSubmit={handleProfileSubmit}>
+                {error && (
+                  <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
+                    {error}
+                  </div>
+                )}
+                {message && (
+                  <div className="rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+                    {message}
+                  </div>
+                )}
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div>
+                    <label className="flex items-center text-sm font-medium text-[var(--admin-text)]">
+                      Account Holder Name
+                      <CheckBadge verified={profile.bank.bankVerified} />
+                    </label>
+                    <input
+                      name="bank.accountHolder"
+                      value={profile.bank.accountHolder}
+                      onChange={handleProfileChange}
+                      className="mt-2 w-full rounded-lg border border-[var(--admin-border)] bg-transparent px-3 py-2 text-sm text-[var(--admin-text)]"
+                      placeholder="Amit Kumar"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-[var(--admin-text)]">
+                      Bank Name
+                    </label>
+                    <input
+                      name="bank.bankName"
+                      value={profile.bank.bankName}
+                      onChange={handleProfileChange}
+                      className="mt-2 w-full rounded-lg border border-[var(--admin-border)] bg-transparent px-3 py-2 text-sm text-[var(--admin-text)]"
+                      placeholder="HDFC Bank"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-[var(--admin-text)]">
+                      Account Number
+                    </label>
+                    <input
+                      name="bank.accountNumber"
+                      value={profile.bank.accountNumber}
+                      onChange={handleProfileChange}
+                      className="mt-2 w-full rounded-lg border border-[var(--admin-border)] bg-transparent px-3 py-2 text-sm text-[var(--admin-text)]"
+                      placeholder="50100xxxxxxxxxx"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-[var(--admin-text)]">
+                      IFSC Code
+                    </label>
+                    <input
+                      name="bank.ifsc"
+                      value={profile.bank.ifsc}
+                      onChange={handleProfileChange}
+                      className="mt-2 w-full rounded-lg border border-[var(--admin-border)] bg-transparent px-3 py-2 text-sm text-[var(--admin-text)]"
+                      placeholder="HDFC0001234"
+                    />
+                  </div>
+                  <div className="md:col-span-2 border-t border-[var(--admin-border)] pt-4 mt-2">
+                    <label className="text-sm font-medium text-[var(--admin-text)]">
+                      UPI ID
+                    </label>
+                    <input
+                      name="bank.upiId"
+                      value={profile.bank.upiId}
+                      onChange={handleProfileChange}
+                      className="mt-2 w-full rounded-lg border border-[var(--admin-border)] bg-transparent px-3 py-2 text-sm text-[var(--admin-text)]"
+                      placeholder="name@okaxis"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end">
+                  <button
+                    type="submit"
+                    disabled={saving}
+                    className="rounded-lg bg-[var(--admin-primary)] px-5 py-2 text-sm font-semibold text-white hover:bg-[var(--admin-primary-strong)] disabled:opacity-60"
+                  >
+                    {saving ? "Saving..." : "Save bank details"}
                   </button>
                 </div>
               </form>

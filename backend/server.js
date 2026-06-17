@@ -8,6 +8,25 @@ const startServer = async () => {
 
   app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
+    
+    // Auto-cancellation background schedule
+    import("./controllers/panditBooking.controller.js")
+      .then(({ autoCancelExpiredBookings }) => {
+        // Run once on startup
+        autoCancelExpiredBookings().catch((err) => {
+          console.error("Startup auto-cancellation check error:", err.message || err);
+        });
+
+        // Set up recurring check every hour
+        setInterval(() => {
+          autoCancelExpiredBookings().catch((err) => {
+            console.error("Hourly auto-cancellation check error:", err.message || err);
+          });
+        }, 60 * 60 * 1000);
+      })
+      .catch((err) => {
+        console.error("Failed to import auto-cancellation helper on startup:", err.message || err);
+      });
   });
 };
 

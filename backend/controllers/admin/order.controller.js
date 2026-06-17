@@ -151,7 +151,7 @@ const buildTrackingPayload = (order) => {
 
     return {
       label: step,
-      completed: index < currentIndex,
+      completed: index < currentIndex || (currentStatus === "Delivered" && index === currentIndex),
       active: index === currentIndex,
     };
   });
@@ -713,6 +713,70 @@ export const assignDeliveryBoyToOrder = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: err.message || "Unable to assign delivery boy",
+    });
+  }
+};
+
+export const updateOrderInvoiceDetails = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { invoiceDetails } = req.body;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid order id",
+      });
+    }
+
+    const order = await Order.findOne({ _id: id, ...resolveVendorFilter(req) });
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found",
+      });
+    }
+
+    order.invoiceDetails = {
+      sellerName: String(invoiceDetails?.sellerName || "").trim(),
+      sellerAddress: String(invoiceDetails?.sellerAddress || "").trim(),
+      sellerGstin: String(invoiceDetails?.sellerGstin || "").trim(),
+      sellerFssai: String(invoiceDetails?.sellerFssai || "").trim(),
+      sellerCin: String(invoiceDetails?.sellerCin || "").trim(),
+      sellerPan: String(invoiceDetails?.sellerPan || "").trim(),
+      sellerEmail: String(invoiceDetails?.sellerEmail || "").trim(),
+      sellerPhone: String(invoiceDetails?.sellerPhone || "").trim(),
+      customerName: String(invoiceDetails?.customerName || "").trim(),
+      customerAddress: String(invoiceDetails?.customerAddress || "").trim(),
+      customerPhone: String(invoiceDetails?.customerPhone || "").trim(),
+      customerEmail: String(invoiceDetails?.customerEmail || "").trim(),
+      invoiceNumber: String(invoiceDetails?.invoiceNumber || "").trim(),
+      invoiceDate: String(invoiceDetails?.invoiceDate || "").trim(),
+      placeOfSupply: String(invoiceDetails?.placeOfSupply || "").trim(),
+      paymentMode: String(invoiceDetails?.paymentMode || "").trim(),
+      companyName: String(invoiceDetails?.companyName || "").trim(),
+      companyAddress: String(invoiceDetails?.companyAddress || "").trim(),
+      companyCin: String(invoiceDetails?.companyCin || "").trim(),
+      companyPan: String(invoiceDetails?.companyPan || "").trim(),
+      companyFssai: String(invoiceDetails?.companyFssai || "").trim(),
+      companyEmail: String(invoiceDetails?.companyEmail || "").trim(),
+      companyPhone: String(invoiceDetails?.companyPhone || "").trim(),
+      authorizedSignatory: String(invoiceDetails?.authorizedSignatory || "").trim(),
+    };
+
+    await order.save();
+
+    return res.json({
+      success: true,
+      message: "Invoice details updated successfully",
+      data: {
+        invoiceDetails: order.invoiceDetails,
+      },
+    });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      message: err.message || "Unable to update invoice details",
     });
   }
 };

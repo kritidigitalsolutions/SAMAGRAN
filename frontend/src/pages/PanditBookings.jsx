@@ -50,6 +50,7 @@ export default function PanditBookings() {
   const [success, setSuccess] = useState("");
   const [updatingBookingId, setUpdatingBookingId] = useState("");
   const [deletingBookingId, setDeletingBookingId] = useState("");
+  const [generatingZoomId, setGeneratingZoomId] = useState("");
   const [statusUpdates, setStatusUpdates] = useState({});
   const [paymentUpdates, setPaymentUpdates] = useState({});
   const [openMenuId, setOpenMenuId] = useState("");
@@ -190,6 +191,27 @@ export default function PanditBookings() {
       setError(err.response?.data?.message || "Unable to delete booking.");
     } finally {
       setDeletingBookingId("");
+    }
+  };
+
+  const handleCreateZoomMeeting = async (bookingId) => {
+    try {
+      setGeneratingZoomId(bookingId);
+      setError("");
+      setSuccess("");
+      const res = await API.post(`/admin/pandit-bookings/${bookingId}/zoom/create`);
+      if (res.data?.success) {
+        setSuccess("Zoom meeting created successfully!");
+        const updatedBooking = res.data.data;
+        setBookings((current) => current.map((b) => (b._id === bookingId ? updatedBooking : b)));
+        setSelectedBooking(updatedBooking);
+      } else {
+        setError(res.data?.message || "Failed to create Zoom meeting.");
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to create Zoom meeting.");
+    } finally {
+      setGeneratingZoomId("");
     }
   };
 
@@ -483,24 +505,400 @@ export default function PanditBookings() {
       </section>
 
       {selectedBooking && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/45 p-4">
-          <div className="w-full max-w-2xl rounded-3xl border border-[#dbc7a8]/60 bg-[var(--admin-surface)] p-6 shadow-[0_24px_70px_rgba(59,13,20,0.24)] dark:border-white/10 dark:bg-[var(--admin-surface)]">
-            <div className="mb-5 flex items-center justify-between">
-              <h3 className="text-xl font-bold text-[#2f1618] dark:text-[#fff3dc]">Booking Details</h3>
-              <button onClick={() => setSelectedBooking(null)} className="text-2xl leading-none">&times;</button>
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4">
+          <div className="w-full max-w-3xl rounded-3xl border border-[#dbc7a8]/60 bg-white dark:bg-[#12161f] p-6 shadow-[0_24px_70px_rgba(59,13,20,0.24)] dark:border-white/10 flex flex-col max-h-[90vh]">
+            {/* Modal Header */}
+            <div className="mb-5 flex items-center justify-between border-b border-[#f0e3d1] pb-4 dark:border-white/10">
+              <div>
+                <h3 className="text-xl font-bold text-[#2f1618] dark:text-[#fff3dc]">
+                  Booking Information
+                </h3>
+                <span className="text-xs font-mono text-gray-500">ID: {selectedBooking._id}</span>
+              </div>
+              <button 
+                onClick={() => setSelectedBooking(null)} 
+                className="grid h-8 w-8 place-items-center rounded-full bg-gray-100 hover:bg-gray-200 text-gray-700 dark:bg-white/10 dark:hover:bg-white/20 dark:text-gray-300 transition-colors"
+                aria-label="Close modal"
+              >
+                <FiX className="text-lg" />
+              </button>
             </div>
 
-            <div className="grid gap-3 text-sm md:grid-cols-2">
-              <div className="rounded-xl bg-white/60 px-4 py-3 dark:bg-white/5"><span className="block text-xs opacity-70">Ritual</span><strong>{selectedBooking.ritual?.name || "-"}</strong></div>
-              <div className="rounded-xl bg-white/60 px-4 py-3 dark:bg-white/5"><span className="block text-xs opacity-70">Booking Mode</span><strong>{selectedBooking.bookingMode || "-"}</strong></div>
-              <div className="rounded-xl bg-white/60 px-4 py-3 dark:bg-white/5"><span className="block text-xs opacity-70">User</span><strong>{selectedBooking.user?.name || selectedBooking.user?.phone || "-"}</strong></div>
-              <div className="rounded-xl bg-white/60 px-4 py-3 dark:bg-white/5"><span className="block text-xs opacity-70">Pandit</span><strong>{selectedBooking.pandit?.fullName || "-"}</strong></div>
-              <div className="rounded-xl bg-white/60 px-4 py-3 dark:bg-white/5"><span className="block text-xs opacity-70">Date</span><strong>{selectedBooking.bookingDate || "-"}</strong></div>
-              <div className="rounded-xl bg-white/60 px-4 py-3 dark:bg-white/5"><span className="block text-xs opacity-70">Slot</span><strong>{selectedBooking.timeSlot?.label || "-"}</strong></div>
-              <div className="rounded-xl bg-white/60 px-4 py-3 dark:bg-white/5"><span className="block text-xs opacity-70">Payment</span><strong>{selectedBooking.payment?.status || "pending"}</strong></div>
-              <div className="rounded-xl bg-white/60 px-4 py-3 dark:bg-white/5"><span className="block text-xs opacity-70">Amount</span><strong>Rs {Number(selectedBooking.dakshinaAmount || 0)}</strong></div>
-              <div className="rounded-xl bg-white/60 px-4 py-3 dark:bg-white/5 md:col-span-2"><span className="block text-xs opacity-70">Address</span><strong>{formatAddress(selectedBooking) || "-"}</strong></div>
-              <div className="rounded-xl bg-white/60 px-4 py-3 dark:bg-white/5 md:col-span-2"><span className="block text-xs opacity-70">Notes</span><strong>{selectedBooking.notes || "-"}</strong></div>
+            {/* Scrollable Body */}
+            <div className="flex-1 overflow-y-auto pr-2 space-y-6 custom-scrollbar text-sm text-[#2f1618] dark:text-gray-200">
+              
+              {/* SECTION 1: Ritual & General Status */}
+              <div className="space-y-3">
+                <h4 className="border-b border-[#f0e3d1] pb-1 text-xs font-bold uppercase tracking-wider text-[#8B1E3F] dark:border-white/10 dark:text-[#D4AF37]">
+                  Ritual & Booking Status
+                </h4>
+                <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
+                  <div className="rounded-xl bg-gray-50 dark:bg-white/5 p-3 sm:col-span-2">
+                    <span className="block text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-1">Ritual</span>
+                    {selectedBooking.ritual?.image && (
+                      <img 
+                        src={selectedBooking.ritual.image} 
+                        alt={selectedBooking.ritual.name} 
+                        className="w-10 h-10 object-cover rounded-lg mr-3 float-left border border-gray-200 dark:border-white/10"
+                      />
+                    )}
+                    <strong>{selectedBooking.ritual?.name || "-"}</strong>
+                    {selectedBooking.ritual?.description && (
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 line-clamp-2">{selectedBooking.ritual.description}</p>
+                    )}
+                  </div>
+                  <div className="rounded-xl bg-gray-50 dark:bg-white/5 p-3">
+                    <span className="block text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-1">Booking Mode</span>
+                    <strong>{selectedBooking.bookingMode || "-"}</strong>
+                  </div>
+                  <div className="rounded-xl bg-gray-50 dark:bg-white/5 p-3">
+                    <span className="block text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-1">Booking Status</span>
+                    <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold uppercase ${statusBadgeClass(selectedBooking.bookingStatus)}`}>
+                      {selectedBooking.bookingStatus}
+                    </span>
+                  </div>
+                  <div className="rounded-xl bg-gray-50 dark:bg-white/5 p-3">
+                    <span className="block text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-1">Created At</span>
+                    <strong>{selectedBooking.createdAt ? new Date(selectedBooking.createdAt).toLocaleString() : "-"}</strong>
+                  </div>
+                  <div className="rounded-xl bg-gray-50 dark:bg-white/5 p-3">
+                    <span className="block text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-1">Last Updated</span>
+                    <strong>{selectedBooking.updatedAt ? new Date(selectedBooking.updatedAt).toLocaleString() : "-"}</strong>
+                  </div>
+                </div>
+              </div>
+
+              {/* SECTION 2: User / Customer Information */}
+              <div className="space-y-3">
+                <h4 className="border-b border-[#f0e3d1] pb-1 text-xs font-bold uppercase tracking-wider text-[#8B1E3F] dark:border-white/10 dark:text-[#D4AF37]">
+                  Customer Details
+                </h4>
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <div className="rounded-xl bg-gray-50 dark:bg-white/5 p-3">
+                    <span className="block text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-1">Customer Name</span>
+                    <strong>{selectedBooking.user?.name || "-"}</strong>
+                  </div>
+                  <div className="rounded-xl bg-gray-50 dark:bg-white/5 p-3">
+                    <span className="block text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-1">Mobile Number</span>
+                    <strong>{selectedBooking.user?.phone || "-"}</strong>
+                  </div>
+                  <div className="rounded-xl bg-gray-50 dark:bg-white/5 p-3">
+                    <span className="block text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-1">Email Address</span>
+                    <strong>{selectedBooking.user?.email || "-"}</strong>
+                  </div>
+                </div>
+              </div>
+
+              {/* SECTION 3: Pandit details */}
+              <div className="space-y-3">
+                <h4 className="border-b border-[#f0e3d1] pb-1 text-xs font-bold uppercase tracking-wider text-[#8B1E3F] dark:border-white/10 dark:text-[#D4AF37]">
+                  Assigned Pandit Details
+                </h4>
+                <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
+                  <div className="rounded-xl bg-gray-50 dark:bg-white/5 p-3">
+                    <span className="block text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-1">Pandit Name</span>
+                    <strong>{selectedBooking.pandit?.fullName || "-"}</strong>
+                  </div>
+                  <div className="rounded-xl bg-gray-50 dark:bg-white/5 p-3">
+                    <span className="block text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-1">Mobile Number</span>
+                    <strong>{selectedBooking.pandit?.phone || "-"}</strong>
+                  </div>
+                  <div className="rounded-xl bg-gray-50 dark:bg-white/5 p-3">
+                    <span className="block text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-1">Experience</span>
+                    <strong>{selectedBooking.pandit?.yearsOfExperience ? `${selectedBooking.pandit.yearsOfExperience} Years` : "-"}</strong>
+                  </div>
+                  {selectedBooking.pandit?.templeAssociated && (
+                    <div className="rounded-xl bg-gray-50 dark:bg-white/5 p-3 sm:col-span-2">
+                      <span className="block text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-1">Associated Temple</span>
+                      <strong>{selectedBooking.pandit.templeAssociated}</strong>
+                    </div>
+                  )}
+                  {selectedBooking.pandit?.status && (
+                    <div className="rounded-xl bg-gray-50 dark:bg-white/5 p-3">
+                      <span className="block text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-1">Pandit Status</span>
+                      <strong className="capitalize">{selectedBooking.pandit.status}</strong>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* SECTION 4: Schedule & Address */}
+              <div className="space-y-3">
+                <h4 className="border-b border-[#f0e3d1] pb-1 text-xs font-bold uppercase tracking-wider text-[#8B1E3F] dark:border-white/10 dark:text-[#D4AF37]">
+                  Date, Time & Address
+                </h4>
+                <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
+                  <div className="rounded-xl bg-gray-50 dark:bg-white/5 p-3">
+                    <span className="block text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-1">Preferred Date</span>
+                    <strong>{selectedBooking.bookingDate || "-"}</strong>
+                  </div>
+                  <div className="rounded-xl bg-gray-50 dark:bg-white/5 p-3 md:col-span-2">
+                    <span className="block text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-1">Time Slots</span>
+                    {selectedBooking.dateAndTime?.dateAndTime && selectedBooking.dateAndTime.dateAndTime.length > 0 ? (
+                      <div className="flex flex-col gap-0.5">
+                        {selectedBooking.dateAndTime.dateAndTime.map((dt, idx) => (
+                          <span key={idx} className="font-semibold text-xs bg-[#8B1E3F]/5 dark:bg-[#D4AF37]/5 px-2 py-0.5 rounded border border-[#8B1E3F]/10 dark:border-[#D4AF37]/10 w-fit">
+                            {dt.date}: {dt.time}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <strong>{selectedBooking.timeSlot?.label || selectedBooking.timeSlot?.time || "-"}</strong>
+                    )}
+                  </div>
+                  <div className="rounded-xl bg-gray-50 dark:bg-white/5 p-3">
+                    <span className="block text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-1">Address Type</span>
+                    <strong className="capitalize">{selectedBooking.address?.addressType || "Others"}</strong>
+                  </div>
+                  <div className="rounded-xl bg-gray-50 dark:bg-white/5 p-3 md:col-span-2">
+                    <span className="block text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-1">Address Details</span>
+                    <strong>{formatAddress(selectedBooking) || "-"}</strong>
+                  </div>
+                  {selectedBooking.address?.secondPhone && (
+                    <div className="rounded-xl bg-gray-50 dark:bg-white/5 p-3">
+                      <span className="block text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-1">Alternative Phone</span>
+                      <strong>{selectedBooking.address.secondPhone}</strong>
+                    </div>
+                  )}
+                  {selectedBooking.address?.email && (
+                    <div className="rounded-xl bg-gray-50 dark:bg-white/5 p-3 md:col-span-2">
+                      <span className="block text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-1">Alternative Email</span>
+                      <strong>{selectedBooking.address.email}</strong>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* SECTION 5: Temple Snapshot (if temple booking mode) */}
+              {selectedBooking.templeSnapshot && selectedBooking.templeSnapshot.name && (
+                <div className="space-y-3">
+                  <h4 className="border-b border-[#f0e3d1] pb-1 text-xs font-bold uppercase tracking-wider text-[#8B1E3F] dark:border-white/10 dark:text-[#D4AF37]">
+                    Temple Snapshot
+                  </h4>
+                  <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
+                    <div className="rounded-xl bg-gray-50 dark:bg-white/5 p-3 sm:col-span-2">
+                      <span className="block text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-1">Temple Name</span>
+                      {selectedBooking.templeSnapshot.image && (
+                        <img 
+                          src={selectedBooking.templeSnapshot.image} 
+                          alt={selectedBooking.templeSnapshot.name} 
+                          className="w-10 h-10 object-cover rounded-lg mr-3 float-left border border-gray-200 dark:border-white/10"
+                        />
+                      )}
+                      <strong>{selectedBooking.templeSnapshot.name}</strong>
+                    </div>
+                    <div className="rounded-xl bg-gray-50 dark:bg-white/5 p-3">
+                      <span className="block text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-1">City/State</span>
+                      <strong>{selectedBooking.templeSnapshot.city}, {selectedBooking.templeSnapshot.state}</strong>
+                    </div>
+                    {selectedBooking.templeSnapshot.line1 && (
+                      <div className="rounded-xl bg-gray-50 dark:bg-white/5 p-3 sm:col-span-3">
+                        <span className="block text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-1">Reg Address / Line 1</span>
+                        <strong>{selectedBooking.templeSnapshot.line1} {selectedBooking.templeSnapshot.landmark ? `(Landmark: ${selectedBooking.templeSnapshot.landmark})` : ""}</strong>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* SECTION 6: Payment & Pricing */}
+              <div className="space-y-3">
+                <h4 className="border-b border-[#f0e3d1] pb-1 text-xs font-bold uppercase tracking-wider text-[#8B1E3F] dark:border-white/10 dark:text-[#D4AF37]">
+                  Pricing & Payment Details
+                </h4>
+                <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
+                  <div className="rounded-xl bg-gray-50 dark:bg-white/5 p-3">
+                    <span className="block text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-1">Dakshina Amount</span>
+                    <strong className="text-base text-[#8B1E3F] dark:text-[#D4AF37]">Rs {Number(selectedBooking.dakshinaAmount || 0)}</strong>
+                  </div>
+                  {selectedBooking.price !== undefined && (
+                    <div className="rounded-xl bg-gray-50 dark:bg-white/5 p-3">
+                      <span className="block text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-1">Total Base Price</span>
+                      <strong>Rs {Number(selectedBooking.price || 0)}</strong>
+                    </div>
+                  )}
+                  <div className="rounded-xl bg-gray-50 dark:bg-white/5 p-3">
+                    <span className="block text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-1">Payment Status</span>
+                    <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold uppercase ${paymentBadgeClass(selectedBooking.payment?.status)}`}>
+                      {selectedBooking.payment?.status || "pending"}
+                    </span>
+                  </div>
+                  <div className="rounded-xl bg-gray-50 dark:bg-white/5 p-3">
+                    <span className="block text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-1">Payment Method</span>
+                    <strong className="uppercase">{selectedBooking.payment?.method || "-"}</strong>
+                  </div>
+                  <div className="rounded-xl bg-gray-50 dark:bg-white/5 p-3">
+                    <span className="block text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-1">Amount Paid (Wallet)</span>
+                    <strong>Rs {Number(selectedBooking.payment?.walletAmount || 0)}</strong>
+                  </div>
+                  <div className="rounded-xl bg-gray-50 dark:bg-white/5 p-3">
+                    <span className="block text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-1">Amount Due</span>
+                    <strong className={Number(selectedBooking.payment?.amountDue || 0) > 0 ? "text-red-600 dark:text-red-400" : ""}>
+                      Rs {Number(selectedBooking.payment?.amountDue || 0)}
+                    </strong>
+                  </div>
+                  {selectedBooking.payment?.gateway && (
+                    <div className="rounded-xl bg-gray-50 dark:bg-white/5 p-3">
+                      <span className="block text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-1">Gateway</span>
+                      <strong className="capitalize">{selectedBooking.payment.gateway}</strong>
+                    </div>
+                  )}
+                  {selectedBooking.payment?.transactionId && (
+                    <div className="rounded-xl bg-gray-50 dark:bg-white/5 p-3 md:col-span-2">
+                      <span className="block text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-1">Transaction ID</span>
+                      <strong className="font-mono text-xs">{selectedBooking.payment.transactionId}</strong>
+                    </div>
+                  )}
+                  {selectedBooking.payment?.razorpayOrderId && (
+                    <div className="rounded-xl bg-gray-50 dark:bg-white/5 p-3 md:col-span-3">
+                      <span className="block text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-1">Razorpay Details</span>
+                      <div className="grid gap-1 grid-cols-2 text-xs font-mono">
+                        <div><span className="opacity-70">Order:</span> {selectedBooking.payment.razorpayOrderId}</div>
+                        <div><span className="opacity-70">Payment:</span> {selectedBooking.payment.razorpayPaymentId || "-"}</div>
+                      </div>
+                    </div>
+                  )}
+                  {selectedBooking.payment?.paidAt && (
+                    <div className="rounded-xl bg-gray-50 dark:bg-white/5 p-3">
+                      <span className="block text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-1">Paid At</span>
+                      <strong>{new Date(selectedBooking.payment.paidAt).toLocaleString()}</strong>
+                    </div>
+                  )}
+                  <div className="rounded-xl bg-gray-50 dark:bg-white/5 p-3">
+                    <span className="block text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-1">Payout Status</span>
+                    <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold uppercase ${selectedBooking.payoutPaid ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-200" : "bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-200"}`}>
+                      {selectedBooking.payoutPaid ? "Settled" : "Pending"}
+                    </span>
+                  </div>
+                  {selectedBooking.payoutPaidAt && (
+                    <div className="rounded-xl bg-gray-50 dark:bg-white/5 p-3">
+                      <span className="block text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-1">Settled At</span>
+                      <strong>{new Date(selectedBooking.payoutPaidAt).toLocaleDateString()}</strong>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* SECTION 7: Zoom Meeting (Only for Online Pooja / Zoom Available) */}
+              {(selectedBooking.bookingMode === "onlinePooja" || (selectedBooking.zoomMeeting && selectedBooking.zoomMeeting.meetingId)) && (
+                <div className="space-y-3">
+                  <h4 className="border-b border-[#f0e3d1] pb-1 text-xs font-bold uppercase tracking-wider text-[#8B1E3F] dark:border-white/10 dark:text-[#D4AF37]">
+                    Zoom Video Meeting
+                  </h4>
+                  {selectedBooking.zoomMeeting && selectedBooking.zoomMeeting.meetingId ? (
+                    <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
+                      <div className="rounded-xl bg-gray-50 dark:bg-white/5 p-3">
+                        <span className="block text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-1">Meeting ID</span>
+                        <strong className="font-mono">{selectedBooking.zoomMeeting.meetingId}</strong>
+                      </div>
+                      <div className="rounded-xl bg-gray-50 dark:bg-white/5 p-3">
+                        <span className="block text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-1">Password / Passcode</span>
+                        <strong className="font-mono">{selectedBooking.zoomMeeting.password || "-"}</strong>
+                      </div>
+                      <div className="rounded-xl bg-gray-50 dark:bg-white/5 p-3 sm:col-span-2 md:col-span-3">
+                        <span className="block text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-1">Join Link</span>
+                        <a 
+                          href={selectedBooking.zoomMeeting.join_url} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-[#8B1E3F] hover:underline break-all dark:text-[#D4AF37] font-semibold flex items-center gap-1"
+                        >
+                          {selectedBooking.zoomMeeting.join_url}
+                        </a>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="rounded-xl border border-dashed border-[#dbc7a8] dark:border-white/10 p-4 text-center">
+                      <p className="text-xs text-gray-500 mb-3">No Zoom meeting has been generated for this online booking yet.</p>
+                      <button
+                        type="button"
+                        onClick={() => handleCreateZoomMeeting(selectedBooking._id)}
+                        disabled={generatingZoomId === selectedBooking._id}
+                        className="rounded-lg bg-[#8B1E3F] px-4 py-2 text-xs font-bold text-white hover:bg-[#6c1b2f] disabled:opacity-65 transition-colors"
+                      >
+                        {generatingZoomId === selectedBooking._id ? "Generating Zoom Meeting..." : "Generate Zoom Meeting"}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* SECTION 8: Notes, Requests & Decisions */}
+              <div className="space-y-3">
+                <h4 className="border-b border-[#f0e3d1] pb-1 text-xs font-bold uppercase tracking-wider text-[#8B1E3F] dark:border-white/10 dark:text-[#D4AF37]">
+                  Notes & Special Requests
+                </h4>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-xl bg-gray-50 dark:bg-white/5 p-3 sm:col-span-2">
+                    <span className="block text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-1">User Notes / Instructions</span>
+                    <strong>{selectedBooking.notes || "No notes provided by user."}</strong>
+                  </div>
+                  {selectedBooking.panditDecision && selectedBooking.panditDecision.samagriType && (
+                    <div className="rounded-xl bg-gray-50 dark:bg-white/5 p-3">
+                      <span className="block text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-1">Samagri Selection</span>
+                      <strong className="capitalize">{selectedBooking.panditDecision.samagriType}</strong>
+                    </div>
+                  )}
+                  {selectedBooking.panditDecision && selectedBooking.panditDecision.note && (
+                    <div className="rounded-xl bg-gray-50 dark:bg-white/5 p-3">
+                      <span className="block text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-1">Pandit Decision Note</span>
+                      <strong>{selectedBooking.panditDecision.note}</strong>
+                    </div>
+                  )}
+                  {selectedBooking.panditDecision && selectedBooking.panditDecision.rejectReasonType && (
+                    <div className="rounded-xl bg-red-50 dark:bg-red-900/10 p-3 sm:col-span-2 text-red-700 dark:text-red-200">
+                      <span className="block text-[10px] uppercase tracking-wider text-red-500 dark:text-red-400 font-semibold mb-1">Rejection Details</span>
+                      <strong>Reason: {selectedBooking.panditDecision.rejectReasonType.replace(/_/g, " ")}</strong>
+                      {selectedBooking.panditDecision.rejectReasonText && (
+                        <p className="text-xs mt-1 opacity-90">Note: {selectedBooking.panditDecision.rejectReasonText}</p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Reschedule Requests */}
+                  {selectedBooking.rescheduleRequests && selectedBooking.rescheduleRequests.length > 0 && (
+                    <div className="rounded-xl bg-amber-50 dark:bg-amber-900/10 p-3 sm:col-span-2 border border-amber-200 dark:border-amber-900/30">
+                      <span className="block text-[10px] uppercase tracking-wider text-amber-700 dark:text-amber-400 font-bold mb-1">Reschedule Requests</span>
+                      <div className="space-y-2">
+                        {selectedBooking.rescheduleRequests.map((req, idx) => (
+                          <div key={idx} className="text-xs border-t border-amber-200 dark:border-amber-900/30 pt-1.5 first:border-none first:pt-0">
+                            <div><strong>Requested By:</strong> {req.requestedBy} ({req.requestedAt ? new Date(req.requestedAt).toLocaleDateString() : ""})</div>
+                            {req.reason && <div><strong>Reason:</strong> {req.reason}</div>}
+                            {req.notes && <div><strong>Notes:</strong> {req.notes}</div>}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Cancellation Requests */}
+                  {selectedBooking.cancellationRequests && selectedBooking.cancellationRequests.length > 0 && (
+                    <div className="rounded-xl bg-red-50 dark:bg-red-900/10 p-3 sm:col-span-2 border border-red-200 dark:border-red-900/30">
+                      <span className="block text-[10px] uppercase tracking-wider text-red-700 dark:text-red-400 font-bold mb-1">Cancellation Requests</span>
+                      <div className="space-y-2">
+                        {selectedBooking.cancellationRequests.map((req, idx) => (
+                          <div key={idx} className="text-xs border-t border-red-200 dark:border-red-900/30 pt-1.5 first:border-none first:pt-0">
+                            <div><strong>Requested By:</strong> {req.requestedBy} ({req.requestedAt ? new Date(req.requestedAt).toLocaleDateString() : ""})</div>
+                            {req.reason && <div><strong>Reason:</strong> {req.reason}</div>}
+                            {req.notes && <div><strong>Notes:</strong> {req.notes}</div>}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+            
+            {/* Modal Footer */}
+            <div className="mt-5 pt-3 border-t border-[#f0e3d1] dark:border-white/10 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setSelectedBooking(null)}
+                className="rounded-xl border border-[#dbc7a8] hover:bg-gray-50 dark:border-white/10 dark:hover:bg-white/5 px-6 py-2.5 text-xs font-bold text-[#6f3945] dark:text-[#f7e3c0]"
+              >
+                Close Details
+              </button>
             </div>
           </div>
         </div>
