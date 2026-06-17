@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import API from "../api/axios";
 import { getAdminRole } from "../utils/auth";
 import { toast } from "react-toastify";
@@ -64,7 +64,7 @@ export default function Earnings() {
     fetchVendors();
   }, [isSuperAdmin]);
 
-  const fetchAll = async () => {
+  const fetchAll = useCallback(async () => {
     try {
       setTxLoading(true);
       setError("");
@@ -95,12 +95,12 @@ export default function Earnings() {
       setLoading(false);
       setTxLoading(false);
     }
-  };
+  }, [selectedVendorId, isSuperAdmin]);
 
   useEffect(() => {
     setLoading(true);
     fetchAll();
-  }, [selectedVendorId]);
+  }, [selectedVendorId, fetchAll]);
 
   useEffect(() => {
     if (vendorProfile) {

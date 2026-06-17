@@ -3,7 +3,7 @@ import ThemeToggle from "./ThemeToggle";
 import { useNavigate } from "react-router-dom";
 import API from "../api/axios";
 import { clearAdminSession, getStoredAdmin, setStoredAdmin } from "../utils/auth";
-import { FiBell, FiCheck, FiTrash2 } from "react-icons/fi";
+import { FiBell, FiCheck } from "react-icons/fi";
 
 function ChevronIcon() {
   return (
@@ -111,16 +111,6 @@ export default function Navbar({ onMenuClick, onToggleSidebar, sidebarCollapsed 
       setUnreadCount((prev) => Math.max(prev - 1, 0));
     } catch (error) {
       setNotifError(error.response?.data?.message || "Unable to update notification");
-    }
-  };
-
-  const deleteBellItem = async (id) => {
-    try {
-      await API.delete(`/admin/notifications/${id}`);
-      setNotifications((prev) => prev.filter((item) => item._id !== id));
-      setUnreadCount((prev) => Math.max(prev - 1, 0));
-    } catch (error) {
-      setNotifError(error.response?.data?.message || "Unable to delete notification");
     }
   };
 
