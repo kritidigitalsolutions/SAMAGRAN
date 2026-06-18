@@ -1,4 +1,21 @@
 import Coupon from "../../models/coupon.model.js";
+import crypto from "crypto";
+
+const generateUniqueCouponCode = async (isWelcomeCoupon) => {
+  const prefix = isWelcomeCoupon ? "WELCOME" : "COUPON";
+  let code = "";
+  let exists = true;
+
+  while (exists) {
+    const randomHex = crypto.randomBytes(3).toString("hex").toUpperCase();
+    code = `${prefix}${randomHex}`;
+    const duplicate = await Coupon.findOne({ code });
+    if (!duplicate) {
+      exists = false;
+    }
+  }
+  return code;
+};
 
 const toMoney = (value) => {
   const parsed = Number(value || 0);
@@ -24,22 +41,20 @@ const resolveVendorIdForCreate = (req) => {
 export const createCoupon = async (req, res) => {
   try {
     const payload = req.body || {};
-    const code = String(payload.code || "").trim().toUpperCase();
+    const isWelcomeCoupon = Boolean(payload.isWelcomeCoupon);
 
-    if (!code) {
-      return res.status(400).json({
-        success: false,
-        message: "code is required",
-      });
+    // 🎁 Welcome coupon uniqueness check — sirf ek active welcome coupon ho sakta hai
+    if (isWelcomeCoupon) {
+      const existingWelcome = await Coupon.findOne({ isWelcomeCoupon: true });
+      if (existingWelcome) {
+        return res.status(400).json({
+          success: false,
+          message: `Already a welcome coupon exists: "${existingWelcome.code}". Pehle use delete ya disable karo.`,
+        });
+      }
     }
 
-    const existing = await Coupon.findOne({ code, ...resolveVendorFilter(req) });
-    if (existing) {
-      return res.status(400).json({
-        success: false,
-        message: "Coupon code already exists",
-      });
-    }
+    const code = await generateUniqueCouponCode(isWelcomeCoupon);
 
     const coupon = await Coupon.create({
       vendorId: resolveVendorIdForCreate(req),
@@ -53,6 +68,8 @@ export const createCoupon = async (req, res) => {
       usageLimit: Number(payload.usageLimit || 0),
       perUserLimit: Number(payload.perUserLimit || 1),
       isActive: payload.isActive !== false,
+      isWelcomeCoupon,
+      welcomeValidDays: Number(payload.welcomeValidDays || 0),
       startsAt: payload.startsAt ? new Date(payload.startsAt) : null,
       expiresAt: payload.expiresAt ? new Date(payload.expiresAt) : null,
     });
@@ -137,6 +154,40 @@ export const updateCoupon = async (req, res) => {
       });
     }
 
+    if (payload.code !== undefined) {
+      const nextCode = String(payload.code || "").trim().toUpperCase();
+      if (!nextCode) {
+        return res.status(400).json({
+          success: false,
+          message: "code is required",
+        });
+      }
+      if (nextCode !== coupon.code) {
+        const existing = await Coupon.findOne({ code: nextCode, ...resolveVendorFilter(req), _id: { $ne: coupon._id } });
+        if (existing) {
+          return res.status(400).json({
+            success: false,
+            message: "Coupon code already exists",
+          });
+        }
+        coupon.code = nextCode;
+      }
+    }
+
+    if (payload.isWelcomeCoupon !== undefined) {
+      const isWelcome = Boolean(payload.isWelcomeCoupon);
+      if (isWelcome && !coupon.isWelcomeCoupon) {
+        const existingWelcome = await Coupon.findOne({ isWelcomeCoupon: true, _id: { $ne: coupon._id } });
+        if (existingWelcome) {
+          return res.status(400).json({
+            success: false,
+            message: `Already a welcome coupon exists: "${existingWelcome.code}". Pehle use normal coupon banao ya delete karo.`,
+          });
+        }
+      }
+      coupon.isWelcomeCoupon = isWelcome;
+    }
+
     if (payload.title !== undefined) coupon.title = String(payload.title || "").trim();
     if (payload.description !== undefined) coupon.description = String(payload.description || "").trim();
     if (payload.discountType !== undefined) coupon.discountType = payload.discountType === "percent" ? "percent" : "flat";
@@ -146,6 +197,7 @@ export const updateCoupon = async (req, res) => {
     if (payload.usageLimit !== undefined) coupon.usageLimit = Number(payload.usageLimit || 0);
     if (payload.perUserLimit !== undefined) coupon.perUserLimit = Number(payload.perUserLimit || 1);
     if (payload.isActive !== undefined) coupon.isActive = Boolean(payload.isActive);
+    if (payload.welcomeValidDays !== undefined) coupon.welcomeValidDays = Number(payload.welcomeValidDays || 0);
     if (payload.startsAt !== undefined) coupon.startsAt = payload.startsAt ? new Date(payload.startsAt) : null;
     if (payload.expiresAt !== undefined) coupon.expiresAt = payload.expiresAt ? new Date(payload.expiresAt) : null;
 
@@ -162,6 +214,52 @@ export const updateCoupon = async (req, res) => {
     });
   }
 };
+
+// 🎁 Welcome Coupon Settings — Super Admin ke liye
+export const getWelcomeCouponSettings = async (req, res) => {
+  try {
+    const welcomeCoupon = await Coupon.findOne({ isWelcomeCoupon: true });
+    return res.json({
+      success: true,
+      data: welcomeCoupon || null,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+// 🔄 Welcome Coupon Enable/Disable toggle
+export const toggleWelcomeCoupon = async (req, res) => {
+  try {
+    const { isActive } = req.body || {};
+
+    const welcomeCoupon = await Coupon.findOne({ isWelcomeCoupon: true });
+    if (!welcomeCoupon) {
+      return res.status(404).json({
+        success: false,
+        message: "Koi welcome coupon nahi hai. Pehle ek welcome coupon banao.",
+      });
+    }
+
+    welcomeCoupon.isActive = isActive !== false ? true : false;
+    await welcomeCoupon.save();
+
+    return res.json({
+      success: true,
+      message: `Welcome coupon ${welcomeCoupon.isActive ? "enabled" : "disabled"} successfully`,
+      data: welcomeCoupon,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
 
 export const deleteCoupon = async (req, res) => {
   try {

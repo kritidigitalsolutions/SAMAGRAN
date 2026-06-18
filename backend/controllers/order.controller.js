@@ -14,6 +14,7 @@ import WalletTransaction from "../models/walletTransaction.model.js";
 import BookingPricing from "../models/bookingPrice.js";
 import PanditWallet from "../models/panditWallet.model.js";
 import PanditWalletTransaction from "../models/panditWalletTransaction.model.js";
+import DeliveryPricing from "../models/vendorDeliveryPricing.model.js";
 import { notifyAdmins, notifyUsersByIds, notifyVendorsByIds } from "../utils/notification.service.js";
 
 const SUPPORTED_PRODUCT_TYPES = ["Item", "FestivalKit", "DefaultKit"];
@@ -55,6 +56,102 @@ const getDeliveryFee = (inputFee) => {
   }
 
   return 20;
+};
+
+const resolveAddressForCheckout = async ({ userId, addressId, addressInput, addressType, req }) => {
+  let resolvedAddress = null;
+
+  if (addressId) {
+    const user = await User.findById(userId).select("savedAddresses");
+    const selectedAddress = user?.savedAddresses?.find(
+      (saved) => String(saved._id) === String(addressId)
+    );
+    if (selectedAddress) {
+      resolvedAddress = {
+        name: selectedAddress.name,
+        phone: selectedAddress.phone,
+        fullAddress: selectedAddress.fullAddress,
+        addressType: normalizeAddressType(selectedAddress.addressType),
+        city: selectedAddress.city,
+        state: selectedAddress.state,
+        pincode: selectedAddress.pincode,
+      };
+    }
+  } else if (addressInput && (addressInput.city || addressInput.pincode || addressInput.fullAddress)) {
+    try {
+      resolvedAddress = buildAddress(req, addressInput, addressType);
+    } catch (err) {
+      resolvedAddress = {
+        name: addressInput.name || req?.user?.name || "",
+        phone: addressInput.phone || req?.user?.phone || "",
+        fullAddress: addressInput.fullAddress || "",
+        addressType: normalizeAddressType(addressType || addressInput.addressType || "others"),
+        city: String(addressInput.city || "").trim(),
+        state: String(addressInput.state || "").trim(),
+        pincode: String(addressInput.pincode || "").trim(),
+      };
+    }
+  }
+
+  if (!resolvedAddress) {
+    const user = await User.findById(userId);
+    if (user) {
+      const defaultAddress = user.savedAddresses?.find((x) => x.isDefault) || user.savedAddresses?.[0];
+      if (defaultAddress) {
+        resolvedAddress = {
+          name: defaultAddress.name,
+          phone: defaultAddress.phone,
+          fullAddress: defaultAddress.fullAddress,
+          addressType: normalizeAddressType(defaultAddress.addressType),
+          city: defaultAddress.city,
+          state: defaultAddress.state,
+          pincode: defaultAddress.pincode,
+        };
+      } else {
+        resolvedAddress = {
+          city: user.selectedCity || user.address || "",
+          pincode: "",
+        };
+      }
+    }
+  }
+
+  return resolvedAddress;
+};
+
+const calculateDynamicDeliveryFee = async (vendorId, address, inputFee) => {
+  let matchedCharge = null;
+
+  if (vendorId && address) {
+    const { pincode, city } = address;
+    const filter = { vendorId, status: { $ne: "inactive" } };
+
+    if (pincode?.trim()) {
+      const pricing = await DeliveryPricing.findOne({
+        ...filter,
+        pincode: pincode.trim(),
+      });
+      if (pricing) {
+        matchedCharge = pricing.deliveryCharge;
+      }
+    }
+
+    if (matchedCharge === null && city?.trim()) {
+      const pricing = await DeliveryPricing.findOne({
+        ...filter,
+        locationName: { $regex: new RegExp(`^${city.trim()}$`, "i") },
+      });
+      if (pricing) {
+        matchedCharge = pricing.deliveryCharge;
+      }
+    }
+  }
+
+  if (matchedCharge !== null) {
+    return matchedCharge;
+  }
+
+  return getDeliveryFee(inputFee);
 };
 
 const normalizePaymentMethod = (value = "COD") => {
@@ -605,14 +702,21 @@ const populateOrderItems = async (orders) => {
 export const createRazorpayOrder = async (req, res) => {
   try {
     const userId = req.user._id;
-    const { items = null, deliveryFee, couponCode, offerId, walletAmount } = req.body;
+    const { items = null, deliveryFee, couponCode, offerId, walletAmount, addressId, address } = req.body;
 
     const { orderItems, itemTotal, vendorId } = await resolveCheckoutItems({
       userId,
       directItems: items,
     });
 
-    const finalDeliveryFee = getDeliveryFee(deliveryFee);
+    const resolvedAddress = await resolveAddressForCheckout({
+      userId,
+      addressId,
+      addressInput: address,
+      req,
+    });
+
+    const finalDeliveryFee = await calculateDynamicDeliveryFee(vendorId, resolvedAddress, deliveryFee);
     const totalAmount = toMoney(itemTotal + finalDeliveryFee);
 
     if (totalAmount <= 0) {
@@ -747,28 +851,6 @@ export const placeOrder = async (req, res) => {
       directItems: items,
     });
 
-    const finalDeliveryFee = getDeliveryFee(deliveryFee);
-    const totalAmount = toMoney(itemTotal + finalDeliveryFee);
-
-    const {
-      coupon,
-      offer,
-      couponDiscount,
-      offerDiscount,
-      cashbackAmount,
-      discountTotal,
-      walletUsed,
-      payableAmount,
-      welcomeCouponCode,
-    } = await resolveDiscountsAndWallet({
-      userId,
-      baseAmount: totalAmount,
-      couponCode,
-      offerId,
-      walletAmount,
-      vendorId,
-    });
-
     let finalAddress;
     if (addressId) {
       const user = await User.findById(userId).select("savedAddresses");
@@ -795,6 +877,28 @@ export const placeOrder = async (req, res) => {
     } else {
       finalAddress = buildAddress(req, address, addressType);
     }
+
+    const finalDeliveryFee = await calculateDynamicDeliveryFee(vendorId, finalAddress, deliveryFee);
+    const totalAmount = toMoney(itemTotal + finalDeliveryFee);
+
+    const {
+      coupon,
+      offer,
+      couponDiscount,
+      offerDiscount,
+      cashbackAmount,
+      discountTotal,
+      walletUsed,
+      payableAmount,
+      welcomeCouponCode,
+    } = await resolveDiscountsAndWallet({
+      userId,
+      baseAmount: totalAmount,
+      couponCode,
+      offerId,
+      walletAmount,
+      vendorId,
+    });
 
     let paymentStatus = "Pending";
     let paymentGateway = null;
@@ -1287,6 +1391,38 @@ export const cancelOrderByUser = async (req, res) => {
       });
     }
 
+    // Process Refund to Wallet
+    let refundAmount = 0;
+    if (order.paymentStatus === "Paid") {
+      refundAmount = toMoney((order.payableAmount || 0) + (order.walletUsed || 0));
+    } else if (order.walletUsed > 0) {
+      refundAmount = toMoney(order.walletUsed);
+    }
+
+    if (refundAmount > 0) {
+      const wallet = await getOrCreateWallet(order.user);
+      const nextBalance = toMoney(wallet.balance + refundAmount);
+      wallet.balance = nextBalance;
+      await wallet.save();
+
+      await WalletTransaction.create({
+        wallet: wallet._id,
+        user: order.user,
+        type: "credit",
+        source: "refund",
+        amount: refundAmount,
+        balanceAfter: nextBalance,
+        reference: String(order._id),
+        notes: `Refund for cancelled order #${String(order._id).slice(-6).toUpperCase()}`,
+        meta: {
+          orderId: String(order._id),
+          type: "cancellation",
+        },
+      });
+
+      order.paymentStatus = "Refunded";
+    }
+
     order.orderStatus = "Cancelled";
     order.cancellationRequests = order.cancellationRequests || [];
     order.cancellationRequests.push({
@@ -1297,6 +1433,30 @@ export const cancelOrderByUser = async (req, res) => {
     });
 
     await order.save();
+
+    // Notify Admins
+    void notifyAdmins({
+      title: "Order Cancelled",
+      body: `${req.user.name || req.user.phone || "A user"} cancelled order #${String(order._id).slice(-6).toUpperCase()}.${refundAmount > 0 ? ` Refund of ₹${refundAmount} credited to user wallet.` : ""}`,
+      data: {
+        eventType: "order.cancelled",
+        orderId: String(order._id),
+        userId: String(req.user._id),
+        refundAmount: String(refundAmount),
+      },
+    }).catch((error) => console.error("CANCEL NOTIFICATION ERROR:", error.message));
+
+    // Notify User
+    void sendOrderNotificationToUser({
+      userId: req.user._id,
+      orderId: order._id,
+      title: "Order Cancelled",
+      body: `Your order #${String(order._id).slice(-6).toUpperCase()} has been cancelled successfully.${refundAmount > 0 ? ` Refund of ₹${refundAmount} has been credited to your wallet.` : ""}`,
+      data: {
+        eventType: "order.cancelled",
+        refundAmount: String(refundAmount),
+      },
+    });
 
     return res.json({
       success: true,

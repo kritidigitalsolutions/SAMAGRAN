@@ -146,6 +146,10 @@ import offerRoutes from "./routes/user/offer.routes.js";
 import userNotificationRoutes from "./routes/user/notification.routes.js";
 import userPanditAvailabilityRoutes from "./routes/user/panditAvailability.routes.js";
 import deliveryPriceGet from "./routes/user/vendorDeliveryPricing.routes.js";
+import adminComplaintRoutes from "./routes/admin/complaint.routes.js";
+import adminSupportSettingRoutes from "./routes/admin/supportSetting.routes.js";
+import userComplaintRoutes from "./routes/user/complaint.routes.js";
+import userSupportSettingRoutes from "./routes/user/supportSetting.routes.js";
 
 
 app.use("/api/user/items", userProductRoutes);
@@ -230,6 +234,12 @@ app.use("/api/admin", vendorFinanceRoutes);
 app.use("/api/admin", adminBrandRoutes);
 app.use("/api/admin", adminCategoryRoutes);
 app.use("/api/admin", adminCategoryCommissionRoutes);
+app.use("/api/admin/complaints", adminComplaintRoutes);
+app.use("/api/admin/support-settings", adminSupportSettingRoutes);
+
+app.use("/api/vendor/auth", vendorAuthRoutes);
+app.use("/api/vendor/items", vendorProductRoutes);
+app.use("/api/vendor/delivery-charge", deliveryPricingRoute);
 
 // ############ User Routes ##########################
 
@@ -239,9 +249,6 @@ app.use("/api/pandit/availability", panditAvailabilityRoutes);
 app.use("/api/pandit/wallet", panditWalletRoutes);
 app.use("/api/delivery/auth", deliveryAuthRoutes);
 app.use("/api/delivery", deliveryRoutes);
-app.use("/api/vendor/auth", vendorAuthRoutes);
-app.use("/api/vendor/items", vendorProductRoutes);
-app.use("/api/vendor/delivery-charge", deliveryPricingRoute);
 
 // user routs for user side
 app.use("/api/user", userRoutes);
@@ -260,6 +267,8 @@ app.use("/api/user/coupons", couponRoutes);
 app.use("/api/user/offers", offerRoutes);
 // app.use("/api/user/video", userVideoRoutes);
 app.use("/api/user/notifications", userNotificationRoutes);
+app.use("/api/user/complaints", userComplaintRoutes);
+app.use("/api/user/support-settings", userSupportSettingRoutes);
 app.use("/api/pandit-availability", userPanditAvailabilityRoutes);
 
 // user pandit booking journey

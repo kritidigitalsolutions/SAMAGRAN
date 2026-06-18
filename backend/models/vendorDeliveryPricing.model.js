@@ -33,8 +33,8 @@ const vendorDeliveryPricingSchema =
 
       status: {
         type: String,
-        enum: ["active", "inactive"]
-        // default: true
+        enum: ["active", "inactive"],
+        default: "active"
       }
     },
     {

@@ -15,6 +15,8 @@ const initialForm = {
   usageLimit: "",
   perUserLimit: "1",
   isActive: true,
+  isWelcomeCoupon: false,
+  welcomeValidDays: "",
   startsAt: "",
   expiresAt: "",
 };
@@ -34,6 +36,7 @@ export default function Coupons() {
   const [menuAnchorRect, setMenuAnchorRect] = useState(null);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const [wcToggling, setWcToggling] = useState(false);
   const [statusFilter, setStatusFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -125,6 +128,8 @@ export default function Coupons() {
       usageLimit: coupon?.usageLimit || "",
       perUserLimit: coupon?.perUserLimit || "1",
       isActive: coupon?.isActive !== false,
+      isWelcomeCoupon: coupon?.isWelcomeCoupon || false,
+      welcomeValidDays: coupon?.welcomeValidDays || "",
       startsAt: coupon?.startsAt ? new Date(coupon.startsAt).toISOString().slice(0, 10) : "",
       expiresAt: coupon?.expiresAt ? new Date(coupon.expiresAt).toISOString().slice(0, 10) : "",
     });
@@ -142,7 +147,7 @@ export default function Coupons() {
   const handleSubmit = async (event) => {
     event.preventDefault();
 
-    if (!form.code.trim()) {
+    if (editingId && !form.code.trim()) {
       setError("Coupon code is required.");
       setSuccess("");
       return;
@@ -154,7 +159,7 @@ export default function Coupons() {
       setSuccess("");
 
       const payload = {
-        code: form.code.toUpperCase().trim(),
+        ...(editingId ? { code: form.code.toUpperCase().trim() } : {}),
         title: form.title.trim(),
         description: form.description.trim(),
         discountType: form.discountType,
@@ -164,6 +169,8 @@ export default function Coupons() {
         usageLimit: Number(form.usageLimit || 0),
         perUserLimit: Number(form.perUserLimit || 1),
         isActive: form.isActive,
+        isWelcomeCoupon: form.isWelcomeCoupon,
+        welcomeValidDays: Number(form.welcomeValidDays || 0),
         startsAt: form.startsAt ? new Date(form.startsAt) : null,
         expiresAt: form.expiresAt ? new Date(form.expiresAt) : null,
       };
@@ -217,6 +224,8 @@ export default function Coupons() {
     usageLimit: Number(overrides.usageLimit ?? coupon.usageLimit ?? 0),
     perUserLimit: Number(overrides.perUserLimit ?? coupon.perUserLimit ?? 1),
     isActive: overrides.isActive ?? coupon.isActive ?? false,
+    isWelcomeCoupon: overrides.isWelcomeCoupon ?? coupon.isWelcomeCoupon ?? false,
+    welcomeValidDays: Number(overrides.welcomeValidDays ?? coupon.welcomeValidDays ?? 0),
     startsAt: (overrides.startsAt ?? coupon.startsAt)
       ? new Date(overrides.startsAt ?? coupon.startsAt)
       : null,
@@ -239,6 +248,27 @@ export default function Coupons() {
       );
     } catch (err) {
       setError(err.response?.data?.message || "Unable to update coupon status.");
+    }
+  };
+
+  const handleToggleWelcomeCoupon = async (welcomeCoupon) => {
+    if (!welcomeCoupon?._id) return;
+    const nextStatus = !welcomeCoupon.isActive;
+    try {
+      setWcToggling(true);
+      await API.patch("/admin/coupons/welcome-coupon/toggle", { isActive: nextStatus });
+      setCoupons((current) =>
+        current.map((entry) =>
+          entry.isWelcomeCoupon ? { ...entry, isActive: nextStatus } : entry
+        )
+      );
+      setSuccess(`Welcome coupon ${nextStatus ? "enabled" : "disabled"} successfully.`);
+      setError("");
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to toggle welcome coupon status.");
+      setSuccess("");
+    } finally {
+      setWcToggling(false);
     }
   };
 
@@ -286,6 +316,90 @@ export default function Coupons() {
             Add Coupon
           </button>
         </div>
+
+        {/* Welcome Coupon Quick Status Card */}
+        {(() => {
+          const welcomeCoupon = coupons.find((c) => c.isWelcomeCoupon);
+          if (!welcomeCoupon) return null;
+          return (
+            <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50/50 p-5 dark:border-amber-500/30 dark:bg-amber-500/5 flex flex-wrap items-center justify-between gap-4">
+              <div className="flex flex-wrap items-center gap-6">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold uppercase tracking-[0.1em] text-amber-800 dark:text-amber-300 bg-amber-100 dark:bg-amber-900/40 px-2 py-0.5 rounded-md">🎁 Welcome Coupon</span>
+                    <span className="font-mono text-sm font-bold text-[#6f3945] dark:text-[#f7e3c0]">{welcomeCoupon.code}</span>
+                  </div>
+                  <p className="text-xs text-[#7b5a4b] dark:text-[#dbcdb8]/70">
+                    Discount: {welcomeCoupon.discountType === "percent" ? `${welcomeCoupon.discountValue}%` : `₹${welcomeCoupon.discountValue}`}
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <label className="text-xs font-semibold text-[#6f3945]">Validity (Days):</label>
+                  <input
+                    type="number"
+                    min="0"
+                    defaultValue={welcomeCoupon.welcomeValidDays || 0}
+                    onChange={(e) => {
+                      const val = Number(e.target.value || 0);
+                      welcomeCoupon.tempValidDays = val;
+                    }}
+                    placeholder="0 = unlimited"
+                    className="h-8 w-20 rounded-lg border border-[#d7c3a3] bg-white px-2 text-xs dark:bg-[#181c24] dark:text-white dark:border-white/20"
+                  />
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const val = welcomeCoupon.tempValidDays !== undefined ? welcomeCoupon.tempValidDays : (welcomeCoupon.welcomeValidDays || 0);
+                      try {
+                        setWcToggling(true);
+                        await API.put(`/admin/coupons/${welcomeCoupon._id}`, { welcomeValidDays: val });
+                        setCoupons((current) =>
+                          current.map((entry) =>
+                            entry.isWelcomeCoupon ? { ...entry, welcomeValidDays: val } : entry
+                          )
+                        );
+                        setSuccess(`Welcome coupon validity updated to ${val} days.`);
+                        setError("");
+                      } catch (err) {
+                        setError(err.response?.data?.message || "Unable to update welcome coupon validity.");
+                        setSuccess("");
+                      } finally {
+                        setWcToggling(false);
+                      }
+                    }}
+                    disabled={wcToggling}
+                    className="rounded-lg bg-[var(--admin-primary)] px-2.5 py-1 text-[10px] font-bold text-white transition-all hover:bg-[var(--admin-primary-strong)] disabled:opacity-50"
+                  >
+                    Save
+                  </button>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                  welcomeCoupon.isActive
+                    ? "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300"
+                    : "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300"
+                }`}>
+                  <span className={`h-1.5 w-1.5 rounded-full ${welcomeCoupon.isActive ? "bg-green-500" : "bg-red-500"}`} />
+                  {welcomeCoupon.isActive ? "Enabled" : "Disabled"}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handleToggleWelcomeCoupon(welcomeCoupon)}
+                  disabled={wcToggling}
+                  className={`rounded-xl px-4 py-2 text-xs font-bold transition-all disabled:opacity-60 ${
+                    welcomeCoupon.isActive
+                      ? "bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-500/10 dark:text-red-300"
+                      : "bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-500/10 dark:text-green-300"
+                  }`}
+                >
+                  {wcToggling ? "Updating..." : welcomeCoupon.isActive ? "Disable" : "Enable"}
+                </button>
+              </div>
+            </div>
+          );
+        })()}
 
         {error && (
           <div className="mb-4 rounded-xl bg-red-100 p-4 text-red-800 dark:bg-red-900 dark:text-red-200">
@@ -371,7 +485,6 @@ export default function Coupons() {
                   </th>
                   <th className="serial-col px-2 py-3 text-left font-semibold">S.No</th>
                   <th className="px-4 py-3 text-left font-semibold">Coupon Code</th>
-                  <th className="px-4 py-3 text-left font-semibold">Code</th>
                   <th className="px-4 py-3 text-left font-semibold">Title</th>
                   <th className="px-4 py-3 text-left font-semibold">Discount</th>
                   <th className="px-4 py-3 text-left font-semibold">Min Amount</th>
@@ -395,8 +508,12 @@ export default function Coupons() {
                       />
                     </td>
                     <td className="serial-col px-2 py-3 text-sm text-[#6f3945] dark:text-[#f7e3c0]">{(page - 1) * pageSize + index + 1}</td>
-                    <td className="px-4 py-3 font-mono text-xs text-[#6f3945] dark:text-[#f7e3c0]">COUPON-{String(coupon._id || "").slice(-6).toUpperCase()}</td>
-                    <td className="px-4 py-3 font-semibold text-[#D4AF37]">{coupon.code}</td>
+                    <td className="px-4 py-3">
+                      <span className="font-semibold text-[#D4AF37]">{coupon.code}</span>
+                      {coupon.isWelcomeCoupon && (
+                        <span className="ml-2 inline-block rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800 dark:bg-amber-900 dark:text-amber-200">🎁 Welcome</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3">{coupon.title || "-"}</td>
                     <td className="px-4 py-3">
                       {coupon.discountType === "percent"
@@ -524,16 +641,15 @@ export default function Coupons() {
             <div className="grid gap-4 md:grid-cols-2">
               <div>
                 <label className="mb-2 block font-medium">
-                  Coupon Code <span className="text-red-500">*</span>
+                  Coupon Code
                 </label>
                 <input
                   type="text"
                   name="code"
-                  value={form.code}
-                  onChange={handleChange}
-                  disabled={!!editingId}
+                  value={editingId ? form.code : "(Auto-Generated on save)"}
+                  disabled={true}
                   placeholder="e.g., DIWALI50"
-                  className="w-full rounded-xl border border-[var(--admin-border)] bg-[var(--admin-input)] px-4 py-2 disabled:opacity-50"
+                  className="w-full rounded-xl border border-[var(--admin-border)] bg-[var(--admin-input)] px-4 py-2 disabled:opacity-60"
                 />
               </div>
 
@@ -665,19 +781,54 @@ export default function Coupons() {
               />
             </div>
 
-            <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                id="isActive"
-                name="isActive"
-                checked={form.isActive}
-                onChange={handleChange}
-                className="rounded"
-              />
-              <label htmlFor="isActive" className="font-medium">
-                Active
-              </label>
+            <div className="flex flex-wrap items-center gap-6">
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="isActive"
+                  name="isActive"
+                  checked={form.isActive}
+                  onChange={handleChange}
+                  className="rounded"
+                />
+                <label htmlFor="isActive" className="font-medium">
+                  Active
+                </label>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="isWelcomeCoupon"
+                  name="isWelcomeCoupon"
+                  checked={form.isWelcomeCoupon}
+                  onChange={handleChange}
+                  className="rounded"
+                />
+                <label htmlFor="isWelcomeCoupon" className="font-medium flex items-center gap-1">
+                  🎁 <span>Mark as Welcome Coupon</span>
+                  <span className="ml-1 text-xs text-[#7b5a4b] dark:text-[#dbcdb8]/70">(Signup par auto-assign)</span>
+                </label>
+              </div>
             </div>
+
+            {form.isWelcomeCoupon && (
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-500/30 dark:bg-amber-500/10">
+                <label className="mb-2 block font-medium text-amber-800 dark:text-amber-200">
+                  🕐 Valid Days for User
+                  <span className="ml-2 text-xs font-normal opacity-70">(Signup ke baad kitne din valid • 0 = unlimited)</span>
+                </label>
+                <input
+                  type="number"
+                  name="welcomeValidDays"
+                  value={form.welcomeValidDays}
+                  onChange={handleChange}
+                  min="0"
+                  placeholder="0 = unlimited"
+                  className="w-full max-w-xs rounded-xl border border-[var(--admin-border)] bg-[var(--admin-input)] px-4 py-2"
+                />
+              </div>
+            )}
 
             <div className="flex gap-3 pt-4">
               <button

@@ -58,6 +58,17 @@ const couponSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    // 🎁 Welcome Coupon fields
+    isWelcomeCoupon: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    // Kitne din ke liye user ke paas valid rahega signup ke baad (0 = unlimited)
+    welcomeValidDays: {
+      type: Number,
+      default: 0,
+    },
     startsAt: {
       type: Date,
       default: null,

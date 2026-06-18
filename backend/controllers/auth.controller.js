@@ -16,52 +16,32 @@ const validatePhone = (phone) => {
 const WELCOME_COUPON_PERCENT = 10;
 const WELCOME_COUPON_MAX = 100;
 
-const buildWelcomeCouponCode = (phone) => {
-  const suffix = String(phone || "").replace(/\D/g, "").slice(-4) || "0000";
-  const rand = Math.floor(1000 + Math.random() * 9000);
-  return `WELCOME${suffix}${rand}`;
-};
-
+// 🎁 Super admin ke globally created welcome coupon ko user ko assign karta hai
+// Per-user unique coupon banana band kiya — ab ek global welcome coupon hoga jo admin control karta hai
 const createWelcomeCouponForUser = async (user) => {
   if (!user || user.welcomeCouponCode || user.welcomeCouponRedeemed) {
     return null;
   }
 
-  let code = buildWelcomeCouponCode(user.phone);
-  let attempts = 0;
-
-  while (attempts < 5) {
-    const existing = await Coupon.findOne({ code });
-    if (!existing) {
-      break;
-    }
-    attempts += 1;
-    code = buildWelcomeCouponCode(user.phone);
-  }
-
-  const coupon = await Coupon.create({
-    code,
-    title: "Welcome Coupon",
-    description: "Welcome discount for first order",
-    discountType: "percent",
-    discountValue: WELCOME_COUPON_PERCENT,
-    minOrderAmount: 0,
-    maxDiscount: WELCOME_COUPON_MAX,
-    usageLimit: 1,
-    perUserLimit: 1,
+  // DB se active global welcome coupon dhundo
+  const welcomeCoupon = await Coupon.findOne({
+    isWelcomeCoupon: true,
     isActive: true,
-    startsAt: new Date(),
-    expiresAt: null,
   });
 
-  user.welcomeCouponCode = coupon.code;
+  if (!welcomeCoupon) {
+    // Koi active welcome coupon nahi hai — assign mat karo
+    return null;
+  }
+
+  // Welcome coupon ka code user ko assign karo
+  user.welcomeCouponCode = welcomeCoupon.code;
   user.welcomeCouponRedeemed = false;
   user.welcomeCouponAssignedAt = new Date();
   await user.save();
 
-  return coupon;
+  return welcomeCoupon;
 };
-
 
 
 export const signup = async (req, res) => {

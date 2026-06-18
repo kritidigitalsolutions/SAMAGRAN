@@ -14,46 +14,63 @@ export const getUserDeliveryCharge = async (req, res) => {
       });
     }
 
-    let city = "";
+    let city = (req.query.city || "").trim();
+    let pincode = (req.query.pincode || "").trim();
+    const vendorId = (req.query.vendorId || "").trim();
 
-    if (user.selectedCity?.trim()) {
-      city = user.selectedCity.trim();
+    if (!city && !pincode) {
+      if (user.selectedCity?.trim()) {
+        city = user.selectedCity.trim();
+      }
+
+      if (user.savedAddresses && user.savedAddresses.length) {
+        const defaultAddress =
+          user.savedAddresses.find(x => x.isDefault) || user.savedAddresses[0];
+
+        if (!city) {
+          city = defaultAddress?.city || "";
+        }
+        pincode = defaultAddress?.pincode || "";
+      }
+
+      if (!city && user.address?.trim()) {
+        city = user.address.trim();
+      }
     }
 
-    if (!city && user.savedAddresses.length) {
-      const defaultAddress =
-        user.savedAddresses.find(
-          x => x.isDefault
-        );
-
-      city = defaultAddress?.city || "";
-    }
-
-    if (!city && user.address?.trim()) {
-      city = user.address.trim();
-    }
-
-    if (!city) {
+    if (!city && !pincode) {
       return res.status(400).json({
         success: false,
         message: "User location not found"
       });
     }
 
-    const pricing =
-      await DeliveryPricing.find({
-        locationName: {
-          $regex: new RegExp(
-            `^${city}$`,
-            "i"
-          )
-        },
-        status: true
+    const filter = { status: { $ne: "inactive" } };
+    if (vendorId) {
+      filter.vendorId = vendorId;
+    }
+
+    let pricing = [];
+    if (pincode) {
+      pricing = await DeliveryPricing.find({
+        ...filter,
+        pincode: pincode
       });
+    }
+
+    if ((!pricing || pricing.length === 0) && city) {
+      pricing = await DeliveryPricing.find({
+        ...filter,
+        locationName: {
+          $regex: new RegExp(`^${city}$`, "i")
+        }
+      });
+    }
 
     return res.json({
       success: true,
       city,
+      pincode,
       count: pricing.length,
       data: pricing
     });
