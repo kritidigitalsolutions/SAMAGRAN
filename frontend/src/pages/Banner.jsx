@@ -6,8 +6,12 @@ import TableMenuPopover from "../components/TableMenuPopover";
 
 const initialForm = {
   title: "",
+  subTitle: "",
   description: "",
+  priceOff: "",
   status: "active",
+  couponId: "",
+  offerId: "",
 };
 
 export default function Banner() {
@@ -21,6 +25,8 @@ export default function Banner() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [imageFile, setImageFile] = useState(null);
+  const [coupons, setCoupons] = useState([]);
+  const [offers, setOffers] = useState([]);
   const [selectedBannerIds, setSelectedBannerIds] = useState([]);
   const [openMenuId, setOpenMenuId] = useState("");
   const [menuAnchorRect, setMenuAnchorRect] = useState(null);
@@ -43,8 +49,22 @@ export default function Banner() {
     }
   };
 
+  const fetchCouponsAndOffers = async () => {
+    try {
+      const [cRes, oRes] = await Promise.all([
+        API.get("/admin/coupons", { params: { status: "active" } }),
+        API.get("/admin/offers")
+      ]);
+      setCoupons(cRes.data?.data || []);
+      setOffers(oRes.data?.data || []);
+    } catch (err) {
+      console.error("Failed to load coupons or offers for banners selection:", err);
+    }
+  };
+
   useEffect(() => {
     fetchbanners();
+    fetchCouponsAndOffers();
   }, []);
 
   useEffect(() => {
@@ -93,6 +113,8 @@ export default function Banner() {
       description: banner?.description || "",
       priceOff: banner?.priceOff || "",
       status: banner?.status || "active",
+      couponId: banner?.couponId?._id || banner?.couponId || "",
+      offerId: banner?.offerId?._id || banner?.offerId || "",
     });
     setEditingId(banner?._id || "");
     setImageFile(null);
@@ -120,13 +142,14 @@ export default function Banner() {
       setError("");
       setSuccess("");
 
-      // const payload = {
       const payload = new FormData();
       payload.append("title", form.title.trim());
-      payload.append("subTitle", form.title.trim());
+      payload.append("subTitle", form.subTitle.trim());
       payload.append("description", form.description.trim());
       payload.append("priceOff", form.priceOff.trim());
       payload.append("status", form.status);
+      payload.append("couponId", form.couponId);
+      payload.append("offerId", form.offerId);
 
       if (imageFile) {
         payload.append("imageFile", imageFile);
@@ -182,6 +205,8 @@ export default function Banner() {
     payload.append("description", String(overrides.description ?? banner.description ?? "").trim());
     payload.append("priceOff", String(overrides.priceOff ?? banner.priceOff ?? "").trim());
     payload.append("status", overrides.status ?? banner.status ?? "inactive");
+    payload.append("couponId", overrides.couponId ?? (banner.couponId?._id || banner.couponId || ""));
+    payload.append("offerId", overrides.offerId ?? (banner.offerId?._id || banner.offerId || ""));
     return payload;
   };
 
@@ -359,6 +384,40 @@ export default function Banner() {
                 <option value="inactive">Inactive</option>
               </select>
             </div>
+
+            <div className="space-y-2 md:col-span-2 lg:col-span-1">
+              <label className="text-sm font-medium">Link Coupon (Optional)</label>
+              <select
+                name="couponId"
+                value={form.couponId}
+                onChange={handleChange}
+                className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-[#15171c] dark:text-white text-black"
+              >
+                <option value="">-- None --</option>
+                {coupons.filter(c => !c.isWelcomeCoupon).map((coupon) => (
+                  <option key={coupon._id} value={coupon._id}>
+                    {coupon.code} ({coupon.discountType === "percent" ? `${coupon.discountValue}%` : `₹${coupon.discountValue}`})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-2 md:col-span-2 lg:col-span-1">
+              <label className="text-sm font-medium">Link Offer (Optional)</label>
+              <select
+                name="offerId"
+                value={form.offerId}
+                onChange={handleChange}
+                className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-[#15171c] dark:text-white text-black"
+              >
+                <option value="">-- None --</option>
+                {offers.map((offer) => (
+                  <option key={offer._id} value={offer._id}>
+                    {offer.title} ({offer.discountType === "percent" ? `${offer.value}%` : `₹${offer.value}`})
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
           <div className="mt-5 flex flex-wrap gap-3">
@@ -425,6 +484,7 @@ export default function Banner() {
                   <th className="px-3 py-3">SubTitle</th>
                   <th className="px-3 py-3">Description</th>
                   <th className="px-3 py-3">PriceOff</th>
+                  <th className="px-3 py-3">Linked Code/Offer</th>
                   <th className="px-3 py-3">Status</th>
                   <th className="px-3 py-3 text-right">Actions</th>
                 </tr>
@@ -451,6 +511,19 @@ export default function Banner() {
                     <td className="px-3 py-4 font-semibold">{banner.subTitle}</td>
                     <td className="px-3 py-4 text-[#6e4b40] dark:text-[#f7e3c0]/80 max-w-[300px]" title={banner.discription}><span className="line-clamp-2">{banner.description || "-"}</span></td>
                     <td className="px-3 py-4 font-semibold">{banner.priceOff}</td>
+                    <td className="px-3 py-4">
+                      {banner.couponId ? (
+                        <span className="rounded bg-indigo-100 text-indigo-700 px-2 py-0.5 text-xs font-semibold dark:bg-indigo-900/40 dark:text-indigo-200">
+                          Coupon: {banner.couponId.code || banner.couponId}
+                        </span>
+                      ) : banner.offerId ? (
+                        <span className="rounded bg-pink-100 text-pink-700 px-2 py-0.5 text-xs font-semibold dark:bg-pink-900/40 dark:text-pink-200">
+                          Offer: {banner.offerId.title || banner.offerId}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-[#7b5a4b] dark:text-[#dbcdb8]/55">-</span>
+                      )}
+                    </td>
                     <td className="px-3 py-4">
                       <span
                         className={`rounded-full px-2 py-1 text-xs font-semibold ${

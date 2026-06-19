@@ -117,29 +117,29 @@ export default function PanditEarnings() {
         <p className="text-xs font-semibold uppercase tracking-widest text-[#8B1E3F]">Pandit Finance</p>
         <h1 className="mt-1 text-2xl font-bold text-[var(--admin-text)]">Pandit Earnings & Payouts</h1>
         <p className="mt-0.5 text-sm text-[var(--admin-muted)]">
-          Track dakshina collected, admin commission, and pandit payout records.
+          Track booking amount collected, admin commission, and pandit payout records.
         </p>
       </div>
 
       {/* Summary Cards */}
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
         <SummaryCard
-          label="Total Dakshina Collected"
-          value={fmt(summary.totalDakshina)}
+          label="Total Booking Amount Collected"
+          value={fmt(summary.totalBookingAmount)}
           sub="Across all completed bookings"
           icon="🕉️"
         />
         <SummaryCard
           label="Admin Commission"
           value={fmt(summary.totalAdminCommission)}
-          sub={`${summary.adminCommissionPercent || 20}% of dakshina`}
+          sub={`${summary.adminCommissionPercent || 20}% of booking amount`}
           color="primary"
           icon="🏛️"
         />
         <SummaryCard
           label="Pandit Earnings"
           value={fmt(summary.totalPanditEarnings)}
-          sub={`${100 - (summary.adminCommissionPercent || 20)}% of dakshina`}
+          sub={`${100 - (summary.adminCommissionPercent || 20)}% of booking amount`}
           color="green"
           icon="👳"
         />
@@ -162,7 +162,7 @@ export default function PanditEarnings() {
       <div className="rounded-2xl border border-[#8B1E3F]/20 bg-[#8B1E3F]/5 px-5 py-3 flex items-center gap-3 dark:bg-[#8B1E3F]/10">
         <span className="text-lg">ℹ️</span>
         <p className="text-sm text-[#6f3945] dark:text-[#f7e3c0]">
-          Commission split: <strong>Admin {summary.adminCommissionPercent || 20}%</strong> · <strong>Pandit {100 - (summary.adminCommissionPercent || 20)}%</strong> of total dakshina per booking.
+          Commission split: <strong>Admin {summary.adminCommissionPercent || 20}%</strong> · <strong>Pandit {100 - (summary.adminCommissionPercent || 20)}%</strong> of total booking amount per booking.
         </p>
       </div>
 
@@ -188,7 +188,7 @@ export default function PanditEarnings() {
               <tr className="text-xs uppercase tracking-wider text-[var(--admin-muted)] bg-[var(--admin-surface-soft)]">
                 <th className="px-5 py-3">Pandit</th>
                 <th className="px-5 py-3 text-center">Bookings</th>
-                <th className="px-5 py-3 text-right">Dakshina</th>
+                <th className="px-5 py-3 text-right">Booking Amount</th>
                 <th className="px-5 py-3 text-right">Admin Share</th>
                 <th className="px-5 py-3 text-right">Pandit Share</th>
                 <th className="px-5 py-3 text-right">Paid</th>
@@ -234,7 +234,7 @@ export default function PanditEarnings() {
                         </div>
                       </td>
                       <td className="px-5 py-3 text-center font-semibold text-[var(--admin-text)]">{row.totalBookings}</td>
-                      <td className="px-5 py-3 text-right font-semibold text-[var(--admin-text)]">{fmt(row.totalDakshina)}</td>
+                      <td className="px-5 py-3 text-right font-semibold text-[var(--admin-text)]">{fmt(row.totalBookingAmount)}</td>
                       <td className="px-5 py-3 text-right font-semibold text-[#8B1E3F]">{fmt(row.adminCommission)}</td>
                       <td className="px-5 py-3 text-right font-bold text-emerald-600 dark:text-emerald-400">{fmt(row.panditEarnings)}</td>
                       <td className="px-5 py-3 text-right text-emerald-600 dark:text-emerald-400 font-semibold">{fmt(row.paidAmount)}</td>
@@ -279,8 +279,8 @@ export default function PanditEarnings() {
                                 </div>
                                 <div className="flex items-center gap-4 text-xs">
                                   <div className="text-center">
-                                    <p className="text-[var(--admin-muted)]">Dakshina</p>
-                                    <p className="font-bold text-[var(--admin-text)]">{fmt(b.dakshina)}</p>
+                                    <p className="text-[var(--admin-muted)]">Booking Amount</p>
+                                    <p className="font-bold text-[var(--admin-text)]">{fmt(b.bookingAmount)}</p>
                                   </div>
                                   <div className="text-center">
                                     <p className="text-[var(--admin-muted)]">Admin</p>

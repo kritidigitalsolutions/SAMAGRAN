@@ -389,7 +389,7 @@ export default function PanditBookings() {
                     <td className="px-4 py-3">{booking.user?.name || booking.user?.phone || "-"}</td>
                     <td className="px-4 py-3">{booking.pandit?.fullName || "-"}</td>
                     <td className="px-4 py-3">{booking.bookingDate} | {booking.timeSlot?.label || "-"}</td>
-                    <td className="px-4 py-3">Rs {Number(booking.dakshinaAmount || 0)}</td>
+                    <td className="px-4 py-3">Rs {Number(booking.bookingAmount || booking.dakshinaAmount || 0)}</td>
                     <td className="px-4 py-3">
                       <div className="flex flex-col gap-1">
                         <span className={`w-fit rounded-full px-2.5 py-1 text-xs font-semibold uppercase ${statusBadgeClass(booking.bookingStatus)}`}>
@@ -708,8 +708,8 @@ export default function PanditBookings() {
                 </h4>
                 <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
                   <div className="rounded-xl bg-gray-50 dark:bg-white/5 p-3">
-                    <span className="block text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-1">Dakshina Amount</span>
-                    <strong className="text-base text-[#8B1E3F] dark:text-[#D4AF37]">Rs {Number(selectedBooking.dakshinaAmount || 0)}</strong>
+                    <span className="block text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-1">Booking Amount</span>
+                    <strong className="text-base text-[#8B1E3F] dark:text-[#D4AF37]">Rs {Number(selectedBooking.bookingAmount || selectedBooking.dakshinaAmount || 0)}</strong>
                   </div>
                   {selectedBooking.price !== undefined && (
                     <div className="rounded-xl bg-gray-50 dark:bg-white/5 p-3">

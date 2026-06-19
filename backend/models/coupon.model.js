@@ -77,6 +77,11 @@ const couponSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    isRestricted: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
   },
   { timestamps: true }
 );

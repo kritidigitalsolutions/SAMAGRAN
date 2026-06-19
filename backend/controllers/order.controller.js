@@ -8,6 +8,7 @@ import Item from "../models/product.model.js";
 import FestivalKit from "../models/festivalKit.model.js";
 import User from "../models/user.model.js";
 import Coupon from "../models/coupon.model.js";
+import UserCoupon from "../models/userCoupon.model.js";
 import Offer from "../models/offer.model.js";
 import Wallet from "../models/wallet.model.js";
 import WalletTransaction from "../models/walletTransaction.model.js";
@@ -339,6 +340,16 @@ const resolveDiscountsAndWallet = async ({
     }
 
     if (coupon) {
+      if (coupon.isRestricted) {
+        const mapping = await UserCoupon.findOne({
+          userId,
+          couponId: coupon._id,
+          isRedeemed: false,
+        });
+        if (!mapping) {
+          throw new Error("This coupon is not valid for your account or has already been redeemed");
+        }
+      }
       couponDiscount = computeCouponDiscount({ amount: baseAmount, coupon });
       welcomeCouponCode = normalizedCode;
     }
@@ -1001,6 +1012,12 @@ export const placeOrder = async (req, res) => {
 
     if (coupon?.code) {
       await Coupon.updateOne({ _id: coupon._id }, { $inc: { usedCount: 1 } });
+      if (coupon.isRestricted) {
+        await UserCoupon.updateOne(
+          { userId, couponId: coupon._id },
+          { $set: { isRedeemed: true, redeemedAt: new Date() } }
+        );
+      }
     }
 
     if (welcomeCouponCode && coupon?.code === welcomeCouponCode) {

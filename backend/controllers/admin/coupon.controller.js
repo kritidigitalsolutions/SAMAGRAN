@@ -1,4 +1,8 @@
+import mongoose from "mongoose";
 import Coupon from "../../models/coupon.model.js";
+import UserCoupon from "../../models/userCoupon.model.js";
+import User from "../../models/user.model.js";
+import { notifyAllUsers, notifyUsersByIds } from "../../utils/notification.service.js";
 import crypto from "crypto";
 
 const generateUniqueCouponCode = async (isWelcomeCoupon) => {
@@ -281,6 +285,125 @@ export const deleteCoupon = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: error.message,
+    });
+  }
+};
+
+export const assignCouponToUsers = async (req, res) => {
+  try {
+    const { couponId, targetType, userIds = [] } = req.body || {};
+
+    if (!couponId || !mongoose.Types.ObjectId.isValid(couponId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid or missing couponId",
+      });
+    }
+
+    if (!["all", "specific"].includes(targetType)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid targetType. Must be 'all' or 'specific'",
+      });
+    }
+
+    const coupon = await Coupon.findById(couponId);
+    if (!coupon) {
+      return res.status(404).json({
+        success: false,
+        message: "Coupon not found",
+      });
+    }
+
+    if (!coupon.isActive) {
+      return res.status(400).json({
+        success: false,
+        message: "Coupon is not active",
+      });
+    }
+
+    // Set isRestricted to true if not already set
+    if (!coupon.isRestricted) {
+      coupon.isRestricted = true;
+      await coupon.save();
+    }
+
+    let targetUsers = [];
+    if (targetType === "all") {
+      targetUsers = await User.find({ isDeleted: { $ne: true }, isBlocked: { $ne: true } }).select("_id").lean();
+    } else {
+      if (!Array.isArray(userIds) || !userIds.length) {
+        return res.status(400).json({
+          success: false,
+          message: "userIds array is required when targetType is 'specific'",
+        });
+      }
+      targetUsers = await User.find({
+        _id: { $in: userIds },
+        isDeleted: { $ne: true },
+        isBlocked: { $ne: true },
+      }).select("_id").lean();
+    }
+
+    if (!targetUsers.length) {
+      return res.status(400).json({
+        success: false,
+        message: "No eligible users found to assign the coupon",
+      });
+    }
+
+    // Find already assigned users to prevent duplicates
+    const alreadyAssigned = await UserCoupon.find({
+      couponId: coupon._id,
+      userId: { $in: targetUsers.map((u) => u._id) },
+    }).select("userId").lean();
+
+    const alreadyAssignedSet = new Set(alreadyAssigned.map((a) => String(a.userId)));
+    const newTargetUsers = targetUsers.filter((u) => !alreadyAssignedSet.has(String(u._id)));
+
+    if (newTargetUsers.length > 0) {
+      const userCoupons = newTargetUsers.map((user) => ({
+        userId: user._id,
+        couponId: coupon._id,
+        code: coupon.code,
+        isRedeemed: false,
+      }));
+
+      await UserCoupon.insertMany(userCoupons);
+    }
+
+    // Send notifications
+    const notificationTitle = "New Coupon Received!";
+    const notificationBody = `You have received a special coupon: "${coupon.code}". Use it on your next purchase!`;
+    const notificationData = {
+      eventType: "coupon.assigned",
+      couponCode: coupon.code,
+    };
+
+    if (targetType === "all") {
+      await notifyAllUsers({
+        title: notificationTitle,
+        body: notificationBody,
+        data: notificationData,
+      });
+    } else {
+      const specificUserIds = targetUsers.map((u) => u._id);
+      await notifyUsersByIds({
+        userIds: specificUserIds,
+        title: notificationTitle,
+        body: notificationBody,
+        data: notificationData,
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: `Coupon assigned to ${targetUsers.length} users successfully (${newTargetUsers.length} new, ${targetUsers.length - newTargetUsers.length} already assigned).`,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to assign coupon",
     });
   }
 };

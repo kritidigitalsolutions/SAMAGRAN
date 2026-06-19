@@ -104,6 +104,10 @@ const panditBookingSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    bookingAmount: {
+      type: Number,
+      default: 0,
+    },
     recommendedKit: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "FestivalKit",

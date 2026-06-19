@@ -7,12 +7,14 @@ import {
   updateCoupon,
   getWelcomeCouponSettings,
   toggleWelcomeCoupon,
+  assignCouponToUsers,
 } from "../../controllers/admin/coupon.controller.js";
 
 const router = express.Router();
 
 router.get("/", protectAdmin, requireSuperAdmin, getCoupons);
 router.post("/", protectAdmin, requireSuperAdmin, createCoupon);
+router.post("/assign", protectAdmin, requireSuperAdmin, assignCouponToUsers);
 router.put("/:id", protectAdmin, requireSuperAdmin, updateCoupon);
 router.delete("/:id", protectAdmin, requireSuperAdmin, deleteCoupon);
 

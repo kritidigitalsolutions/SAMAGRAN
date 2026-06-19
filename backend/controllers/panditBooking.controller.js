@@ -5,6 +5,7 @@ import PanditBooking from "../models/panditBooking.model.js";
 import PanditBookingIntent from "../models/panditBookingIntent.model.js";
 import FestivalKit from "../models/festivalKit.model.js";
 import Ritual from "../models/ritual.model.js";
+import PanditReview from "../models/panditReview.model.js";
 import temple from "../models/temple.model.js";
 import BookingPricing from "../models/bookingPrice.js";
 import mongoose from "mongoose";
@@ -536,6 +537,7 @@ const mapPanditCard = (pandit) => ({
   fullName: pandit.fullName,
   profileImage: pandit.profileImage || "",
   ratingAverage: Number(pandit.ratingAverage || 4.5),
+  ratingCount: Number(pandit.ratingCount || 0),
   yearsOfExperience: Number(pandit.yearsOfExperience || 0),
   languagesSpoken: pandit.languagesSpoken || [],
   templeAssociated: pandit.templeAssociated || "",
@@ -929,6 +931,7 @@ export const createPanditBooking = async (req, res) => {
         landmark: selectedtemple.address?.landmark || "",
       } : {},
       dakshinaAmount: bookingPrice,
+      bookingAmount: bookingPrice,
       price: bookingPrice,
       recommendedKit: recommendedKitId && mongoose.Types.ObjectId.isValid(recommendedKitId) ? recommendedKitId : null,
     };
@@ -1104,7 +1107,7 @@ export const createPanditBookingRazorpayOrder = async (req, res) => {
     const amount = Number(
       booking.payment?.amountDue !== undefined
         ? booking.payment?.amountDue
-        : booking.dakshinaAmount || 0
+        : booking.bookingAmount || booking.dakshinaAmount || 0
     );
     if (!Number.isFinite(amount) || amount <= 0) {
       return res.status(400).json({
@@ -1290,7 +1293,8 @@ export const confirmPanditBookingPayment = async (req, res) => {
         address: bookingInput.address || {},
         temple: bookingInput.temple || null,
         templeSnapshot: bookingInput.templeSnapshot || {},
-        dakshinaAmount: Number(bookingInput.dakshinaAmount || 0),
+        dakshinaAmount: Number(bookingInput.bookingAmount || bookingInput.dakshinaAmount || 0),
+        bookingAmount: Number(bookingInput.bookingAmount || bookingInput.dakshinaAmount || 0),
         recommendedKit: bookingInput.recommendedKit || null,
         payment: {
           status: "paid",
@@ -2474,6 +2478,7 @@ export const createPanditBookingWithWallet = async (req, res) => {
         landmark: selectedtemple.address?.landmark || "",
       } : {},
       dakshinaAmount: bookingPrice,
+      bookingAmount: bookingPrice,
       recommendedKit: recommendedKitId && mongoose.Types.ObjectId.isValid(recommendedKitId) ? recommendedKitId : null,
       payment: {
         status: "paid",
@@ -2571,7 +2576,7 @@ export const autoCancelExpiredBookings = async () => {
         await booking.save();
 
         // 2. Refund money to user's wallet if paid
-        if (booking.payment?.status === "paid" && booking.dakshinaAmount > 0) {
+        if (booking.payment?.status === "paid" && (booking.bookingAmount > 0 || booking.dakshinaAmount > 0)) {
           const userId = booking.user;
           
           let wallet = await Wallet.findOne({ user: userId });
@@ -2579,7 +2584,7 @@ export const autoCancelExpiredBookings = async () => {
             wallet = await Wallet.create({ user: userId, balance: 0 });
           }
 
-          const refundAmount = Number(booking.dakshinaAmount || 0);
+          const refundAmount = Number(booking.bookingAmount || booking.dakshinaAmount || 0);
           wallet.balance = Number((wallet.balance + refundAmount).toFixed(2));
           await wallet.save();
 
@@ -2654,5 +2659,106 @@ export const autoCancelExpiredBookings = async () => {
     }
   } catch (err) {
     console.error("[Auto-Cancel] Global error in autoCancelExpiredBookings:", err.message || err);
+  }
+};
+
+export const addPanditBookingReview = async (req, res) => {
+  try {
+    const { bookingId } = req.params;
+    const { rating, comment = "" } = req.body;
+
+    if (!mongoose.Types.ObjectId.isValid(bookingId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid booking ID",
+      });
+    }
+
+    const booking = await PanditBooking.findById(bookingId);
+    if (!booking) {
+      return res.status(404).json({
+        success: false,
+        message: "Booking not found",
+      });
+    }
+
+    // Verify booking is completed
+    if (booking.bookingStatus !== "completed") {
+      return res.status(400).json({
+        success: false,
+        message: "You can only review completed bookings",
+      });
+    }
+
+    // Verify user owns the booking
+    if (String(booking.user) !== String(req.user._id)) {
+      return res.status(403).json({
+        success: false,
+        message: "You are not authorized to review this booking",
+      });
+    }
+
+    // Validate rating
+    const numRating = Number(rating);
+    if (!Number.isInteger(numRating) || numRating < 1 || numRating > 5) {
+      return res.status(400).json({
+        success: false,
+        message: "Rating must be an integer between 1 and 5",
+      });
+    }
+
+    // Check if review already exists for this booking
+    const existingReview = await PanditReview.findOne({ booking: bookingId });
+    if (existingReview) {
+      return res.status(400).json({
+        success: false,
+        message: "You have already reviewed this booking",
+      });
+    }
+
+    // Create review
+    const review = await PanditReview.create({
+      pandit: booking.pandit,
+      user: req.user._id,
+      booking: bookingId,
+      rating: numRating,
+      comment: String(comment || "").trim(),
+    });
+
+    // Recalculate average rating and rating count for Pandit
+    const stats = await PanditReview.aggregate([
+      { $match: { pandit: booking.pandit } },
+      {
+        $group: {
+          _id: "$pandit",
+          averageRating: { $avg: "$rating" },
+          totalReviews: { $sum: 1 },
+        },
+      },
+    ]);
+
+    let ratingAverage = 4.5;
+    let ratingCount = 0;
+
+    if (stats.length > 0) {
+      ratingAverage = Number(stats[0].averageRating.toFixed(1));
+      ratingCount = stats[0].totalReviews;
+    }
+
+    await Pandit.findByIdAndUpdate(booking.pandit, {
+      ratingAverage,
+      ratingCount,
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: "Review submitted successfully",
+      data: review,
+    });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      message: err.message || "Unable to submit review",
+    });
   }
 };

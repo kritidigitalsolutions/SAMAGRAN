@@ -13,6 +13,7 @@ import {
   getPanditBookingProfile,
   getPanditsForBooking,
   getRitualsForBooking,
+  addPanditBookingReview,
 } from "../../controllers/panditBooking.controller.js";
 
 const router = express.Router();
@@ -30,6 +31,7 @@ router.patch("/:bookingId/reschedule", protect, reschedulePanditBookingByUser);
 router.get("/my", protect, getMyPanditBookings);
 router.get("/:bookingId", protect, getPanditBookingById);
 router.post("/:bookingId/confirm-payment", protect, confirmPanditBookingPayment);
+router.post("/:bookingId/review", protect, addPanditBookingReview);
 
 export default router;
 

@@ -5,7 +5,7 @@ const legalTypes = [
   { id: "privacy", label: "Privacy Policy" },
   { id: "term", label: "Term and Conditions" },
   { id: "refund", label: "Refund Policy" },
-  { id: "about", label: "About Us" },
+  { id: "aboutus", label: "About Us" },
 ];
 
 export default function Legal() {

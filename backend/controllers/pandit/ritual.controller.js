@@ -4,8 +4,8 @@ import mongoose from "mongoose";
 import { notifyAdmins } from "../../utils/notification.service.js";
 import {
   resolveCity,
-  getRitualTitlesAvailableInCity,
-  sendCityRequired,
+  // getRitualTitlesAvailableInCity,
+  // sendCityRequired,
   getVendorIdsByCity,
 } from "../../utils/locationFilter.js";
 
@@ -360,7 +360,7 @@ export const addRitualForPandit = async (req, res) => {
           travelForSpecialPooja: Boolean(travelForSpecialPooja),
           standardSamagri: Boolean(standardSamagri),
           customSamagri: Boolean(customSamagri),
-          status: "active",
+          status: "pending",
           panditId: pandit._id,
           city: panditCity,
         });
@@ -434,6 +434,7 @@ export const addRitualForPandit = async (req, res) => {
       pandit.poojaOfferings.push(newOffering);
     }
 
+    pandit.markModified("poojaOfferings");
     await pandit.save();
 
     return res.status(201).json({
@@ -492,7 +493,7 @@ export const addCustomSamagriToPanditRitual = async (req, res) => {
     const normalizedName = normalizeName(finalItemName);
     const existingItemIndex = items.findIndex((item) => normalizeName(item.itemName) === normalizedName);
 
-    const incomingItem = createAutoApprovedCustomSamagriItem({
+    const incomingItem = createPendingCustomSamagriItem({
       itemName: finalItemName,
       quantity: Math.max(1, Number(quantity || 1)),
       size: String(size || "").trim(),
@@ -521,6 +522,7 @@ export const addCustomSamagriToPanditRitual = async (req, res) => {
       pandit.poojaOfferings.push(baseOffering);
     }
 
+    pandit.markModified("poojaOfferings");
     await pandit.save();
 
     void notifyAdmins({
@@ -632,6 +634,7 @@ export const removeCustomSamagriFromPanditRitual = async (req, res) => {
     offering.customSamagri = filteredItems.length > 0 ? true : Boolean(offering.customSamagri);
     pandit.poojaOfferings[offeringIndex] = offering;
 
+    pandit.markModified("poojaOfferings");
     await pandit.save();
 
     return res.json({
@@ -652,3 +655,4 @@ export const removeCustomSamagriFromPanditRitual = async (req, res) => {
     });
   }
 };
+

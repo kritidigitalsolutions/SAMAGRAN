@@ -36,6 +36,16 @@ const BannerSchema = new mongoose.Schema(
       // enum: ["active", "inactive"],
       default: "active",
     },
+    couponId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Coupon",
+      default: null,
+    },
+    offerId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Offer",
+      default: null,
+    },
   },
   { timestamps: true }
 );

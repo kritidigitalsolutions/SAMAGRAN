@@ -4,6 +4,8 @@ import { uploadFileToFirebase } from "../utils/firebaseUpload.js";
 export const getAllBannersForAdmin = async (req, res) => {
   try {
     const banner = await Banner.find()
+      .populate("couponId")
+      .populate("offerId");
 
     return res.json({
       success: true,

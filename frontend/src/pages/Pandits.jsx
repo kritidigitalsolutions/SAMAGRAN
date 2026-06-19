@@ -944,7 +944,7 @@ export default function Pandits() {
                         <td className="px-4 py-3">{booking.user?.name || booking.user?.phone || "-"}</td>
                         <td className="px-4 py-3">{booking.bookingDate} | {booking.timeSlot?.label || "-"}</td>
                         <td className="px-4 py-3">{booking.bookingMode || "-"}</td>
-                        <td className="px-4 py-3">Rs {Number(booking.dakshinaAmount || 0).toFixed(2)}</td>
+                        <td className="px-4 py-3">Rs {Number(booking.bookingAmount || booking.dakshinaAmount || 0).toFixed(2)}</td>
                         <td className="px-4 py-3">{booking.bookingStatus || "requested"}</td>
                       </tr>
                     ))}

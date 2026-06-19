@@ -99,7 +99,11 @@ export const getAllRitualsForAdmin = async (req, res) => {
 
     const filter = {};
 
-    if (status !== "all") {
+    if (status === "pending") {
+      filter.status = "pending";
+    } else if (status === "approved") {
+      filter.status = { $in: ["active", "inactive"] };
+    } else if (status !== "all") {
       filter.status = status;
     }
 
@@ -137,7 +141,9 @@ export const getAllRitualsForAdmin = async (req, res) => {
       Object.assign(filter, searchFilter);
     }
 
-    const rituals = await Ritual.find(filter).sort({ createdAt: -1 });
+    const rituals = await Ritual.find(filter)
+      .populate("panditId", "fullName phone")
+      .sort({ createdAt: -1 });
 
     return res.json({
       success: true,
@@ -184,6 +190,8 @@ export const updateRitual = async (req, res) => {
         message: "Access denied",
       });
     }
+
+    const oldTitle = ritual.title;
 
     if (typeof title === "string" && title.trim()) {
       const existingFilter = {
@@ -237,11 +245,23 @@ export const updateRitual = async (req, res) => {
       ritual.customSamagri = Boolean(customSamagri);
     }
 
-    if (status === "active" || status === "inactive") {
+    if (status === "active" || status === "inactive" || status === "pending") {
+      if (status === "active" && ritual.status === "pending") {
+        ritual.panditId = null; // Auto-globalize on approval
+      }
       ritual.status = status;
     }
 
     await ritual.save();
+
+    if (typeof title === "string" && title.trim() && normalizeName(oldTitle) !== normalizeName(title.trim())) {
+      const newTitle = title.trim();
+      await Pandit.updateMany(
+        { "poojaOfferings.name": oldTitle },
+        { $set: { "poojaOfferings.$[elem].name": newTitle } },
+        { arrayFilters: [{ "elem.name": oldTitle }] }
+      );
+    }
 
     return res.json({
       success: true,
@@ -332,7 +352,7 @@ export const getPendingCustomSamagriItems = async (req, res) => {
             panditPhone: pandit.phone || "",
             ritualId: ritualMap.get(normalizeName(offering.name)) || null,
             ritualName: offering.name || "",
-            customSamagriNotes: [],
+            customSamagriNotes: offering.customSamagriNotes || [],
             customSamagriItems: pendingItems,
           });
         }

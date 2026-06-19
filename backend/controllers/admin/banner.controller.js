@@ -5,11 +5,13 @@ export const createBenner = async (req, res) => {
   try {
     const {
       title = "",
-      subTitle= "",
+      subTitle = "",
       description = "",
       image = "",
-      priceOff= "",
+      priceOff = "",
       status = "active",
+      couponId = null,
+      offerId = null,
     } = req.body;
 
     if (!title.trim()) {
@@ -39,6 +41,9 @@ export const createBenner = async (req, res) => {
       ? await uploadFileToFirebase(req.file, { folder: "banner" })
       : "";
 
+    const resolvedCouponId = couponId === "" || couponId === "null" || couponId === null ? null : couponId;
+    const resolvedOfferId = offerId === "" || offerId === "null" || offerId === null ? null : offerId;
+
     const banner = await Banner.create({
       vendorId: req.admin.role === "vendor" ? req.vendor._id : null,
       title: title.trim(),
@@ -47,6 +52,8 @@ export const createBenner = async (req, res) => {
       image: uploadedImage || String(image || "").trim(),
       priceOff: subTitle.trim(),
       status: status === "inactive" ? "inactive" : "active",
+      couponId: resolvedCouponId,
+      offerId: resolvedOfferId,
     });
 
     return res.status(201).json({
@@ -88,7 +95,10 @@ export const getAllBannersForAdmin = async (req, res) => {
       Object.assign(filter, searchFilter);
     }
 
-    const banner = await Banner.find(filter).sort({ createdAt: -1 });
+    const banner = await Banner.find(filter)
+      .populate("couponId")
+      .populate("offerId")
+      .sort({ createdAt: -1 });
 
     return res.json({
       success: true,
@@ -117,6 +127,8 @@ export const updateBanner = async (req, res) => {
       image,
       priceOff,
       status,
+      couponId,
+      offerId,
     } = req.body;
 
     const banner = await Banner.findById(id);
@@ -171,6 +183,13 @@ export const updateBanner = async (req, res) => {
     }
     if (status === "active" || status === "inactive") {
       banner.status = status;
+    }
+
+    if (couponId !== undefined) {
+      banner.couponId = couponId === "" || couponId === "null" || couponId === null ? null : couponId;
+    }
+    if (offerId !== undefined) {
+      banner.offerId = offerId === "" || offerId === "null" || offerId === null ? null : offerId;
     }
 
     await banner.save();

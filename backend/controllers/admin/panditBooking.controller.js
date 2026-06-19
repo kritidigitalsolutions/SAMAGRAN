@@ -51,10 +51,10 @@ export const getAllPanditBookingsForAdmin = async (req, res) => {
         const payment = booking?.payment || {};
         const walletAmount = Number(payment.walletAmount || 0);
         const amountDue = Number(payment.amountDue || 0);
-        const dakshinaAmount = Number(booking.dakshinaAmount || 0);
+        const bookingAmount = Number(booking.bookingAmount || booking.dakshinaAmount || 0);
         const isWalletPaid =
           String(payment.method || "").toUpperCase() === "WALLET" ||
-          (amountDue <= 0 && walletAmount >= dakshinaAmount && dakshinaAmount > 0);
+          (amountDue <= 0 && walletAmount >= bookingAmount && bookingAmount > 0);
 
         if (isWalletPaid && String(payment.status || "").toLowerCase() !== "paid") {
           booking.payment.status = "paid";
@@ -105,6 +105,7 @@ export const updatePanditBookingByAdmin = async (req, res) => {
       bookingDate,
       timeSlot,
       dakshinaAmount,
+      bookingAmount,
       notes,
       payment,
       bookingMode,
@@ -126,8 +127,10 @@ export const updatePanditBookingByAdmin = async (req, res) => {
       };
     }
 
-    if (dakshinaAmount !== undefined) {
-      booking.dakshinaAmount = Number(dakshinaAmount || 0);
+    const targetAmount = bookingAmount !== undefined ? bookingAmount : dakshinaAmount;
+    if (targetAmount !== undefined) {
+      booking.dakshinaAmount = Number(targetAmount || 0);
+      booking.bookingAmount = Number(targetAmount || 0);
     }
 
     if (notes !== undefined) {

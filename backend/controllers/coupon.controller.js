@@ -1,5 +1,6 @@
 import Coupon from "../models/coupon.model.js";
 import Order from "../models/order.model.js";
+import UserCoupon from "../models/userCoupon.model.js";
 
 const toMoney = (value) => {
   const parsed = Number(value || 0);
@@ -83,6 +84,20 @@ export const applyCoupon = async (req, res) => {
         success: false,
         message: "Coupon not found or inactive",
       });
+    }
+
+    if (coupon.isRestricted) {
+      const mapping = await UserCoupon.findOne({
+        userId: req.user._id,
+        couponId: coupon._id,
+        isRedeemed: false,
+      });
+      if (!mapping) {
+        return res.status(400).json({
+          success: false,
+          message: "This coupon is not valid for your account or has already been redeemed",
+        });
+      }
     }
 
     // If it is a welcome coupon, run welcome coupon specific validations
@@ -189,10 +204,11 @@ export const getCoupons = async (req, res) => {
       }
     }
 
-    // 2. Fetch all other active general coupons (that are NOT welcome coupons)
+    // 2. Fetch all other active general coupons (that are NOT welcome coupons and NOT restricted)
     const now = new Date();
     const generalCoupons = await Coupon.find({
       isWelcomeCoupon: { $ne: true },
+      isRestricted: { $ne: true },
       isActive: true,
       $and: [
         { $or: [{ startsAt: null }, { startsAt: { $lte: now } }] },
@@ -201,6 +217,23 @@ export const getCoupons = async (req, res) => {
     }).sort({ createdAt: -1 });
 
     coupons.push(...generalCoupons);
+
+    // 3. Fetch user's unredeemed assigned coupons
+    if (req.user) {
+      const userAssignedMappings = await UserCoupon.find({
+        userId: req.user._id,
+        isRedeemed: false,
+      }).populate("couponId").lean();
+
+      for (const mapping of userAssignedMappings) {
+        const assignedCoupon = mapping.couponId;
+        if (assignedCoupon && assignedCoupon.isActive && isWithinWindow(assignedCoupon)) {
+          if (!coupons.some((c) => String(c._id) === String(assignedCoupon._id))) {
+            coupons.push(assignedCoupon);
+          }
+        }
+      }
+    }
 
     return res.json({
       success: true,

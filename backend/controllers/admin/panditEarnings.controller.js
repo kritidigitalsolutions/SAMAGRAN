@@ -36,16 +36,16 @@ export const getPanditEarningsSummary = async (req, res) => {
 
     for (const booking of allBookings) {
       const pid = String(booking.pandit?._id || "unknown");
-      const dakshina = Number(booking.dakshinaAmount || booking.price || 0);
-      const adminShare = Math.round((dakshina * ADMIN_COMMISSION_PERCENT) / 100 * 100) / 100;
-      const panditShare = Math.round((dakshina - adminShare) * 100) / 100;
+      const bookingAmount = Number(booking.bookingAmount || booking.dakshinaAmount || booking.price || 0);
+      const adminShare = Math.round((bookingAmount * ADMIN_COMMISSION_PERCENT) / 100 * 100) / 100;
+      const panditShare = Math.round((bookingAmount - adminShare) * 100) / 100;
       const isPaid = booking.payoutPaid === true;
 
       if (!panditMap.has(pid)) {
         panditMap.set(pid, {
           pandit: booking.pandit,
           totalBookings: 0,
-          totalDakshina: 0,
+          totalBookingAmount: 0,
           adminCommission: 0,
           panditEarnings: 0,
           paidAmount: 0,
@@ -56,7 +56,7 @@ export const getPanditEarningsSummary = async (req, res) => {
 
       const row = panditMap.get(pid);
       row.totalBookings += 1;
-      row.totalDakshina += dakshina;
+      row.totalBookingAmount += bookingAmount;
       row.adminCommission += adminShare;
       row.panditEarnings += panditShare;
       if (isPaid) {
@@ -68,7 +68,7 @@ export const getPanditEarningsSummary = async (req, res) => {
         _id: booking._id,
         ritualName: booking.ritual?.name || "",
         bookingDate: booking.bookingDate,
-        dakshina,
+        bookingAmount,
         adminShare,
         panditShare,
         payoutPaid: isPaid,
@@ -79,7 +79,7 @@ export const getPanditEarningsSummary = async (req, res) => {
 
     const rows = Array.from(panditMap.values()).map((row) => ({
       ...row,
-      totalDakshina: Math.round(row.totalDakshina * 100) / 100,
+      totalBookingAmount: Math.round(row.totalBookingAmount * 100) / 100,
       adminCommission: Math.round(row.adminCommission * 100) / 100,
       panditEarnings: Math.round(row.panditEarnings * 100) / 100,
       paidAmount: Math.round(row.paidAmount * 100) / 100,
@@ -87,7 +87,7 @@ export const getPanditEarningsSummary = async (req, res) => {
     }));
 
     const summary = {
-      totalDakshina: rows.reduce((s, r) => s + r.totalDakshina, 0),
+      totalBookingAmount: rows.reduce((s, r) => s + r.totalBookingAmount, 0),
       totalAdminCommission: rows.reduce((s, r) => s + r.adminCommission, 0),
       totalPanditEarnings: rows.reduce((s, r) => s + r.panditEarnings, 0),
       totalPaid: rows.reduce((s, r) => s + r.paidAmount, 0),
