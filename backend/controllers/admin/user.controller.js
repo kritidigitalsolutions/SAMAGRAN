@@ -4,6 +4,16 @@ import mongoose from "mongoose";
 import Order from "../../models/order.model.js";
 import Cart from "../../models/cart.model.js";
 import { uploadFileToFirebase } from "../../utils/firebaseUpload.js";
+import Wallet from "../../models/wallet.model.js";
+import WalletTransaction from "../../models/walletTransaction.model.js";
+import Wishlist from "../../models/wishlist.model.js";
+import UserCoupon from "../../models/userCoupon.model.js";
+import PanditBooking from "../../models/panditBooking.model.js";
+import PanditBookingIntent from "../../models/panditBookingIntent.model.js";
+import PanditReview from "../../models/panditReview.model.js";
+import ProductReview from "../../models/productReview.model.js";
+import Complaint from "../../models/complaint.model.js";
+import Notification from "../../models/notification.model.js";
 
 
 const escapeRegex = (value = "") => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -135,11 +145,41 @@ export const getAllUsers = async (req, res) => {
   }
 };
 
+export const deleteUserCompleteData = async (userId) => {
+  const id = mongoose.Types.ObjectId.isValid(userId) ? new mongoose.Types.ObjectId(userId) : userId;
+
+  await Promise.all([
+    Cart.deleteMany({ user: id }),
+    Order.deleteMany({ user: id }),
+    Wallet.deleteOne({ user: id }),
+    WalletTransaction.deleteMany({ user: id }),
+    Wishlist.deleteMany({ user: id }),
+    UserCoupon.deleteMany({ userId: id }),
+    PanditBooking.deleteMany({ user: id }),
+    PanditBookingIntent.deleteMany({ user: id }),
+    PanditReview.deleteMany({ user: id }),
+    ProductReview.deleteMany({ user: id }),
+    Complaint.deleteMany({ user: id }),
+    Notification.deleteMany({ "audience.type": "user", "audience.ids": { $size: 1, $all: [id] } }),
+    Notification.updateMany(
+      {},
+      {
+        $pull: {
+          readBy: id,
+          deletedBy: id,
+          "audience.ids": id
+        }
+      }
+    ),
+    User.findByIdAndDelete(id)
+  ]);
+};
+
 export const deleteUser = async (req, res) => {
   try {
     const { id } = req.params;
 
-    await User.findByIdAndDelete(id);
+    await deleteUserCompleteData(id);
 
     res.json({
       success: true,

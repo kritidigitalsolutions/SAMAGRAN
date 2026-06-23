@@ -15,6 +15,13 @@ const buildUserVisibilityQuery = (userId) => ({
   deletedBy: { $ne: toObjectId(userId) },
 });
 
+const buildUserCreatedAtQuery = (user) => {
+  if (user?.createdAt) {
+    return { createdAt: { $gte: user.createdAt } };
+  }
+  return {};
+};
+
 export const getUserNotifications = async (req, res) => {
   try {
     const userId = req.user?._id;
@@ -25,6 +32,7 @@ export const getUserNotifications = async (req, res) => {
     const baseQuery = {
       ...buildUserAudienceQuery(userId),
       ...buildUserVisibilityQuery(userId),
+      ...buildUserCreatedAtQuery(req.user),
     };
 
     if (status === "read") {
@@ -79,6 +87,7 @@ export const markNotificationRead = async (req, res) => {
       _id: notificationId,
       ...buildUserAudienceQuery(userId),
       ...buildUserVisibilityQuery(userId),
+      ...buildUserCreatedAtQuery(req.user),
     };
 
     const notification = await Notification.findOneAndUpdate(
@@ -123,6 +132,7 @@ export const deleteUserNotification = async (req, res) => {
       _id: notificationId,
       ...buildUserAudienceQuery(userId),
       ...buildUserVisibilityQuery(userId),
+      ...buildUserCreatedAtQuery(req.user),
     };
 
     const notification = await Notification.findOneAndUpdate(
@@ -158,6 +168,7 @@ export const clearUserNotifications = async (req, res) => {
     const query = {
       ...buildUserAudienceQuery(userId),
       ...buildUserVisibilityQuery(userId),
+      ...buildUserCreatedAtQuery(req.user),
     };
 
     const result = await Notification.updateMany(query, {

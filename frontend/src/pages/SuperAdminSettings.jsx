@@ -244,7 +244,7 @@ export default function SuperAdminSettings() {
               <strong>"Mark as Welcome Coupon"</strong> checkbox check karo.
             </p>
             <a
-              href="/coupons"
+              href="/dashboard/coupons"
               className="mt-4 inline-flex items-center gap-2 rounded-xl bg-[var(--admin-primary)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--admin-primary-strong)] transition"
             >
               + Create Welcome Coupon

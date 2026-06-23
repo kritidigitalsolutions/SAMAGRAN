@@ -1,5 +1,6 @@
 import User from "../models/user.model.js";
 import generateToken from "../utils/generateToken.js";
+import { deleteUserCompleteData } from "./admin/user.controller.js";
 import OTP from "../models/otp.model.js";
 import Coupon from "../models/coupon.model.js";
 import { notifyAdmins, updateDeviceToken } from "../utils/notification.service.js";
@@ -119,11 +120,16 @@ export const signup = async (req, res) => {
     const existingUser = await User.findOne({ phone });
 
     if (existingUser) {
-      return res.status(400).json({
-        success: false,
-        isNewUser: false,
-        message: "User already exists. Please login.",
-      });
+      if (existingUser.isDeleted) {
+        // If the user has been soft-deleted, they are registering fresh. WIPE the old user's data!
+        await deleteUserCompleteData(existingUser._id);
+      } else {
+        return res.status(400).json({
+          success: false,
+          isNewUser: false,
+          message: "User already exists. Please login.",
+        });
+      }
     }
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
@@ -200,7 +206,7 @@ export const login = async (req, res) => {
       });
     }
 
-    const user = await User.findOne({ phone });
+    const user = await User.findOne({ phone, isDeleted: { $ne: true } });
 
     if (!user) {
       return res.status(400).json({
