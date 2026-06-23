@@ -170,9 +170,14 @@ export const respondToComplaint = async (req, res) => {
     complaint.adminResponse = String(adminResponse).trim();
     await complaint.save();
 
+    await complaint.populate([
+      { path: "user", select: "name email phone" },
+      { path: "order" }
+    ]);
+
     // Notify the user about the response/resolution
     void notifyUsersByIds({
-      userIds: [complaint.user],
+      userIds: [complaint.user?._id || complaint.user],
       title: `Complaint ${status}`,
       body: `Your complaint for Order #${String(complaint.order?._id || '').slice(-6).toUpperCase()} has been ${status.toLowerCase()}.${adminResponse ? ` Admin Response: "${adminResponse}"` : ""}`,
       data: {

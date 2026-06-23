@@ -132,7 +132,9 @@ export default function CategoryCommissionPage() {
   const filterSubCategoryOptions = useMemo(() => {
     const subs = new Set();
     commissions.forEach((c) => {
-      if (c.subCategory) subs.add(c.subCategory);
+      if (c.subCategory && String(c.subCategory).toLowerCase() !== "all") {
+        subs.add(c.subCategory);
+      }
     });
     return ["All", ...Array.from(subs)];
   }, [commissions]);

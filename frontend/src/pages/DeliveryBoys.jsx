@@ -9,6 +9,10 @@ const initialForm = {
   phone: "",
   status: "active",
   notes: "",
+  email: "",
+  address: "",
+  aadhar: "",
+  pan: "",
 };
 
 const statusBadgeClass = (status = "") => {
@@ -125,6 +129,10 @@ export default function DeliveryBoys() {
       phone: deliveryBoy?.phone || "",
       status: deliveryBoy?.status || "active",
       notes: deliveryBoy?.notes || "",
+      email: deliveryBoy?.email || "",
+      address: deliveryBoy?.address || "",
+      aadhar: deliveryBoy?.aadhar || "",
+      pan: deliveryBoy?.pan || "",
     });
     setEditingId(deliveryBoy?._id || "");
     setShowForm(true);
@@ -167,6 +175,10 @@ export default function DeliveryBoys() {
         phone: form.phone.trim(),
         status: form.status,
         notes: form.notes.trim(),
+        email: form.email.trim(),
+        address: form.address.trim(),
+        aadhar: form.aadhar.trim(),
+        pan: form.pan.trim(),
       };
 
       if (editingId) {
@@ -325,6 +337,54 @@ export default function DeliveryBoys() {
             </div>
 
             <div className="space-y-2">
+              <label className="text-sm font-medium">Email</label>
+              <input
+                type="email"
+                name="email"
+                value={form.email}
+                onChange={handleChange}
+                placeholder="Email address"
+                className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-[#16181d] dark:text-white text-black"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Aadhar Card</label>
+              <input
+                type="text"
+                name="aadhar"
+                value={form.aadhar}
+                onChange={handleChange}
+                placeholder="Aadhar card number"
+                className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-[#16181d] dark:text-white text-black"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">PAN Card</label>
+              <input
+                type="text"
+                name="pan"
+                value={form.pan}
+                onChange={handleChange}
+                placeholder="PAN card number"
+                className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-[#16181d] dark:text-white text-black"
+              />
+            </div>
+
+            <div className="space-y-2 md:col-span-2">
+              <label className="text-sm font-medium">Address</label>
+              <textarea
+                name="address"
+                rows={2}
+                value={form.address}
+                onChange={handleChange}
+                placeholder="Complete address"
+                className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-[#16181d] dark:text-white text-black"
+              />
+            </div>
+
+            <div className="space-y-2">
               <label className="text-sm font-medium">Status</label>
               <select
                 name="status"
@@ -432,6 +492,9 @@ export default function DeliveryBoys() {
                     <th className="px-4 py-3 font-semibold">S.No</th>
                     <th className="px-4 py-3 font-semibold">Name</th>
                     <th className="px-4 py-3 font-semibold">Phone</th>
+                    <th className="px-4 py-3 font-semibold">Email</th>
+                    <th className="px-4 py-3 font-semibold">Address</th>
+                    <th className="px-4 py-3 font-semibold">Aadhar / PAN</th>
                     <th className="px-4 py-3 font-semibold">Status</th>
                     <th className="px-4 py-3 font-semibold">Last Login</th>
                     <th className="px-4 py-3 font-semibold">Notes</th>
@@ -456,6 +519,12 @@ export default function DeliveryBoys() {
                         {deliveryBoy.fullName || "-"}
                       </td>
                       <td className="px-4 py-3 text-sm">{deliveryBoy.phone || "-"}</td>
+                      <td className="px-4 py-3 text-sm">{deliveryBoy.email || "-"}</td>
+                      <td className="px-4 py-3 text-xs max-w-[150px] truncate" title={deliveryBoy.address}>{deliveryBoy.address || "-"}</td>
+                      <td className="px-4 py-3 text-xs">
+                        <div><span className="font-semibold text-xs text-[#7b5a4b] dark:text-[#dbcdb8]/70">Aadhar:</span> {deliveryBoy.aadhar || "-"}</div>
+                        <div><span className="font-semibold text-xs text-[#7b5a4b] dark:text-[#dbcdb8]/70">PAN:</span> {deliveryBoy.pan || "-"}</div>
+                      </td>
                       <td className="px-4 py-3">
                         <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${statusBadgeClass(deliveryBoy.status)}`}>
                           {deliveryBoy.status || "inactive"}

@@ -752,7 +752,19 @@ useEffect(() => {
 
           <div className="grid grid-cols-4 gap-2 pb-1 text-center text-[11px]">
             {["Booked", "Assigning", "On The Way", "Completed"].map((step, idx) => {
-              const done = idx === 0 || String(selectedOrder.orderStatus || "").toLowerCase() === "delivered";
+              const statusLower = String(selectedOrder.orderStatus || "").toLowerCase();
+              let done = false;
+              if (idx === 0) {
+                done = statusLower !== "cancelled";
+              } else if (idx === 1) {
+                const hasDeliveryBoy = !!(selectedOrder.deliveryBoy?._id || selectedOrder.deliveryBoy);
+                const isOutOrDelivered = ["out for delivery", "delivered"].includes(statusLower);
+                done = hasDeliveryBoy || isOutOrDelivered;
+              } else if (idx === 2) {
+                done = ["out for delivery", "delivered"].includes(statusLower);
+              } else if (idx === 3) {
+                done = statusLower === "delivered";
+              }
               return (
                 <div key={step} className={`rounded-lg border px-2 py-1 ${done ? "border-[#d8c4a5] bg-[#fff3dd] text-[#6f3945]" : "border-[#e8d7bf] bg-white text-[#8b6b5b] dark:border-white/10 dark:bg-white/5 dark:text-[#dbcdb8]/70"}`}>
                   {step}
@@ -785,6 +797,26 @@ useEffect(() => {
                 <span className="text-[#7b5a4b] dark:text-[#dbcdb8]/70">Phone</span>
                 <span className="font-semibold">{selectedOrder.deliveryBoy?.phone || "-"}</span>
               </div>
+              {selectedOrder.deliveryBoy && typeof selectedOrder.deliveryBoy === "object" && (
+                <>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="text-[#7b5a4b] dark:text-[#dbcdb8]/70">Email</span>
+                    <span className="font-semibold">{selectedOrder.deliveryBoy.email || "-"}</span>
+                  </div>
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <span className="text-[#7b5a4b] dark:text-[#dbcdb8]/70">Address</span>
+                    <span className="font-semibold text-right max-w-[70%] break-words">{selectedOrder.deliveryBoy.address || "-"}</span>
+                  </div>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="text-[#7b5a4b] dark:text-[#dbcdb8]/70">Aadhar</span>
+                    <span className="font-semibold">{selectedOrder.deliveryBoy.aadhar || "-"}</span>
+                  </div>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="text-[#7b5a4b] dark:text-[#dbcdb8]/70">PAN</span>
+                    <span className="font-semibold">{selectedOrder.deliveryBoy.pan || "-"}</span>
+                  </div>
+                </>
+              )}
               <div className="flex flex-wrap gap-2">
                 <select
                   value={deliveryBoySelection}

@@ -16,10 +16,21 @@ import BookingPricing from "../models/bookingPrice.js";
 import PanditWallet from "../models/panditWallet.model.js";
 import PanditWalletTransaction from "../models/panditWalletTransaction.model.js";
 import DeliveryPricing from "../models/vendorDeliveryPricing.model.js";
-import { notifyAdmins, notifyUsersByIds, notifyVendorsByIds } from "../utils/notification.service.js";
+import ProductReview from "../models/productReview.model.js";
+import {
+  notifyAdmins,
+  notifyUsersByIds,
+  notifyVendorsByIds,
+} from "../utils/notification.service.js";
 
 const SUPPORTED_PRODUCT_TYPES = ["Item", "FestivalKit", "DefaultKit"];
-const TRACKING_STEPS = ["Placed", "Confirmed", "Preparing", "Out for Delivery", "Delivered"];
+const TRACKING_STEPS = [
+  "Placed",
+  "Confirmed",
+  "Preparing",
+  "Out for Delivery",
+  "Delivered",
+];
 const ADDRESS_TYPES = ["home", "work", "others"];
 const ORDER_ITEMS_POPULATE = {
   path: "items.product",
@@ -59,13 +70,19 @@ const getDeliveryFee = (inputFee) => {
   return 20;
 };
 
-const resolveAddressForCheckout = async ({ userId, addressId, addressInput, addressType, req }) => {
+const resolveAddressForCheckout = async ({
+  userId,
+  addressId,
+  addressInput,
+  addressType,
+  req,
+}) => {
   let resolvedAddress = null;
 
   if (addressId) {
     const user = await User.findById(userId).select("savedAddresses");
     const selectedAddress = user?.savedAddresses?.find(
-      (saved) => String(saved._id) === String(addressId)
+      (saved) => String(saved._id) === String(addressId),
     );
     if (selectedAddress) {
       resolvedAddress = {
@@ -78,7 +95,10 @@ const resolveAddressForCheckout = async ({ userId, addressId, addressInput, addr
         pincode: selectedAddress.pincode,
       };
     }
-  } else if (addressInput && (addressInput.city || addressInput.pincode || addressInput.fullAddress)) {
+  } else if (
+    addressInput &&
+    (addressInput.city || addressInput.pincode || addressInput.fullAddress)
+  ) {
     try {
       resolvedAddress = buildAddress(req, addressInput, addressType);
     } catch (err) {
@@ -86,7 +106,9 @@ const resolveAddressForCheckout = async ({ userId, addressId, addressInput, addr
         name: addressInput.name || req?.user?.name || "",
         phone: addressInput.phone || req?.user?.phone || "",
         fullAddress: addressInput.fullAddress || "",
-        addressType: normalizeAddressType(addressType || addressInput.addressType || "others"),
+        addressType: normalizeAddressType(
+          addressType || addressInput.addressType || "others",
+        ),
         city: String(addressInput.city || "").trim(),
         state: String(addressInput.state || "").trim(),
         pincode: String(addressInput.pincode || "").trim(),
@@ -97,7 +119,9 @@ const resolveAddressForCheckout = async ({ userId, addressId, addressInput, addr
   if (!resolvedAddress) {
     const user = await User.findById(userId);
     if (user) {
-      const defaultAddress = user.savedAddresses?.find((x) => x.isDefault) || user.savedAddresses?.[0];
+      const defaultAddress =
+        user.savedAddresses?.find((x) => x.isDefault) ||
+        user.savedAddresses?.[0];
       if (defaultAddress) {
         resolvedAddress = {
           name: defaultAddress.name,
@@ -156,7 +180,9 @@ const calculateDynamicDeliveryFee = async (vendorId, address, inputFee) => {
 };
 
 const normalizePaymentMethod = (value = "COD") => {
-  const normalized = String(value || "COD").trim().toUpperCase();
+  const normalized = String(value || "COD")
+    .trim()
+    .toUpperCase();
   if (["ONLINE", "UPI", "RAZORPAY", "PREPAID"].includes(normalized)) {
     return "ONLINE";
   }
@@ -164,7 +190,9 @@ const normalizePaymentMethod = (value = "COD") => {
 };
 
 const normalizeOrderStatus = (value = "Placed") => {
-  const normalized = String(value || "Placed").trim().toLowerCase();
+  const normalized = String(value || "Placed")
+    .trim()
+    .toLowerCase();
 
   if (normalized === "placed") return "Placed";
   if (normalized === "confirmed") return "Confirmed";
@@ -173,8 +201,12 @@ const normalizeOrderStatus = (value = "Placed") => {
     return "Out for Delivery";
   }
   if (normalized === "delivered") return "Delivered";
-  if (normalized === "cancelled" || normalized === "canceled") return "Cancelled";
-  if (normalized === "reschedule requested" || normalized === "reschedule_requested") {
+  if (normalized === "cancelled" || normalized === "canceled")
+    return "Cancelled";
+  if (
+    normalized === "reschedule requested" ||
+    normalized === "reschedule_requested"
+  ) {
     return "Reschedule Requested";
   }
 
@@ -182,13 +214,19 @@ const normalizeOrderStatus = (value = "Placed") => {
 };
 
 const normalizeAddressType = (value = "others") => {
-  const normalized = String(value || "others").trim().toLowerCase();
+  const normalized = String(value || "others")
+    .trim()
+    .toLowerCase();
   return ADDRESS_TYPES.includes(normalized) ? normalized : "others";
 };
 
 const getRazorpayCredentials = () => {
-  const keyId = String(process.env.RAZORPAY_KEY_ID || process.env.key_id || "").trim();
-  const keySecret = String(process.env.RAZORPAY_KEY_SECRET || process.env.key_secret || "").trim();
+  const keyId = String(
+    process.env.RAZORPAY_KEY_ID || process.env.key_id || "",
+  ).trim();
+  const keySecret = String(
+    process.env.RAZORPAY_KEY_SECRET || process.env.key_secret || "",
+  ).trim();
 
   if (!keyId || !keySecret) {
     throw new Error("Razorpay keys are not configured in environment");
@@ -256,7 +294,9 @@ const applyPanditCommission = async ({ panditId, orderId, baseAmount }) => {
     return null;
   }
 
-  const commissionAmount = toMoney((toMoney(baseAmount) * commissionPercent) / 100);
+  const commissionAmount = toMoney(
+    (toMoney(baseAmount) * commissionPercent) / 100,
+  );
 
   if (commissionAmount <= 0) {
     return null;
@@ -268,7 +308,8 @@ const applyPanditCommission = async ({ panditId, orderId, baseAmount }) => {
 
   wallet.balance = nextBalance;
   wallet.totalEarned = toMoney(wallet.totalEarned + commissionAmount);
-  wallet.isPayable = Number.isFinite(threshold) && threshold > 0 && nextBalance >= threshold;
+  wallet.isPayable =
+    Number.isFinite(threshold) && threshold > 0 && nextBalance >= threshold;
   wallet.payableBalance = wallet.isPayable ? nextBalance : 0;
   await wallet.save();
 
@@ -303,7 +344,7 @@ const resolveDiscountsAndWallet = async ({
   let offerDiscount = 0;
   let cashbackAmount = 0;
   let welcomeCouponCode = "";
-  
+
   let walletUsed = 0;
 
   const resolvedCouponCode = couponCode;
@@ -313,7 +354,10 @@ const resolveDiscountsAndWallet = async ({
     coupon = await Coupon.findOne({
       code: normalizedCode,
       isActive: true,
-      ...(vendorId ? { vendorId } : {}),
+      $or: [
+        { vendorId: null },
+        ...(vendorId ? [{ vendorId }] : [])
+      ]
     });
 
     if (!coupon || !isWithinWindow(coupon)) {
@@ -347,7 +391,9 @@ const resolveDiscountsAndWallet = async ({
           isRedeemed: false,
         });
         if (!mapping) {
-          throw new Error("This coupon is not valid for your account or has already been redeemed");
+          throw new Error(
+            "This coupon is not valid for your account or has already been redeemed",
+          );
         }
       }
       couponDiscount = computeCouponDiscount({ amount: baseAmount, coupon });
@@ -504,16 +550,21 @@ const resolveCheckoutItems = async ({ userId, directItems = null }) => {
       quantity = 1;
     }
 
-    const { unitPrice, doc, productType, vendorId } = await getProductDocAndPrice({
-      userId,
-      productType: providedProductType,
-      productId,
-    });
+    const { unitPrice, doc, productType, vendorId } =
+      await getProductDocAndPrice({
+        userId,
+        productType: providedProductType,
+        productId,
+      });
 
     const itemVendorId = vendorId || doc?.vendorId || null;
     if (!resolvedVendorId && itemVendorId) {
       resolvedVendorId = itemVendorId;
-    } else if (resolvedVendorId && itemVendorId && String(itemVendorId) !== String(resolvedVendorId)) {
+    } else if (
+      resolvedVendorId &&
+      itemVendorId &&
+      String(itemVendorId) !== String(resolvedVendorId)
+    ) {
       throw new Error("Multiple vendors in one order are not supported");
     }
 
@@ -535,7 +586,7 @@ const resolveCheckoutItems = async ({ userId, directItems = null }) => {
   }
 
   const itemTotal = toMoney(
-    resolved.reduce((sum, item) => sum + item.lineTotal, 0)
+    resolved.reduce((sum, item) => sum + item.lineTotal, 0),
   );
 
   const orderItems = resolved.map(({ lineTotal, ...item }) => item);
@@ -553,10 +604,16 @@ const buildAddress = (req, addressInput = {}, explicitAddressType = "") => {
     name: String(addressInput?.name || req.user?.name || "").trim(),
     phone: String(addressInput?.phone || req.user?.phone || "").trim(),
     fullAddress: String(
-      addressInput?.fullAddress || addressInput?.line1 || req.user?.address || ""
+      addressInput?.fullAddress ||
+        addressInput?.line1 ||
+        req.user?.address ||
+        "",
     ).trim(),
     addressType: normalizeAddressType(
-      explicitAddressType || addressInput?.addressType || addressInput?.label || "others"
+      explicitAddressType ||
+        addressInput?.addressType ||
+        addressInput?.label ||
+        "others",
     ),
     city: String(addressInput?.city || "").trim(),
     state: String(addressInput?.state || "").trim(),
@@ -572,11 +629,24 @@ const buildAddress = (req, addressInput = {}, explicitAddressType = "") => {
 
 const buildAddressFingerprint = (address = {}) => {
   const normalized = [
-    String(address.phone || "").replace(/\s+/g, "").trim().toLowerCase(),
-    String(address.fullAddress || "").replace(/\s+/g, " ").trim().toLowerCase(),
-    String(address.city || "").trim().toLowerCase(),
-    String(address.state || "").trim().toLowerCase(),
-    String(address.pincode || "").replace(/\s+/g, "").trim().toLowerCase(),
+    String(address.phone || "")
+      .replace(/\s+/g, "")
+      .trim()
+      .toLowerCase(),
+    String(address.fullAddress || "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .toLowerCase(),
+    String(address.city || "")
+      .trim()
+      .toLowerCase(),
+    String(address.state || "")
+      .trim()
+      .toLowerCase(),
+    String(address.pincode || "")
+      .replace(/\s+/g, "")
+      .trim()
+      .toLowerCase(),
   ];
 
   return normalized.join("|");
@@ -597,7 +667,9 @@ const buildTrackingPayload = (order) => {
 
     return {
       label: step,
-      completed: index < currentIndex || (currentStatus === "Delivered" && index === currentIndex),
+      completed:
+        index < currentIndex ||
+        (currentStatus === "Delivered" && index === currentIndex),
       active: index === currentIndex,
     };
   });
@@ -611,7 +683,13 @@ const buildTrackingPayload = (order) => {
   };
 };
 
-const sendOrderNotificationToUser = async ({ userId, orderId, title, body, data = {} }) => {
+const sendOrderNotificationToUser = async ({
+  userId,
+  orderId,
+  title,
+  body,
+  data = {},
+}) => {
   return notifyUsersByIds({
     userIds: [userId],
     title,
@@ -622,7 +700,13 @@ const sendOrderNotificationToUser = async ({ userId, orderId, title, body, data 
   });
 };
 
-const sendOrderNotificationToVendor = async ({ vendorId, orderId, title, body, data = {} }) => {
+const sendOrderNotificationToVendor = async ({
+  vendorId,
+  orderId,
+  title,
+  body,
+  data = {},
+}) => {
   if (!vendorId) {
     return null;
   }
@@ -653,8 +737,8 @@ const upsertSavedAddressForUser = async ({
   }
 
   const fingerprint = buildAddressFingerprint(address);
-  const existingAddress = user.savedAddresses.find((saved) =>
-    buildAddressFingerprint(saved) === fingerprint
+  const existingAddress = user.savedAddresses.find(
+    (saved) => buildAddressFingerprint(saved) === fingerprint,
   );
 
   let targetAddress;
@@ -696,7 +780,11 @@ const upsertSavedAddressForUser = async ({
   return targetAddress;
 };
 
-const verifyRazorpaySignature = ({ razorpayOrderId, razorpayPaymentId, razorpaySignature }) => {
+const verifyRazorpaySignature = ({
+  razorpayOrderId,
+  razorpayPaymentId,
+  razorpaySignature,
+}) => {
   const { keySecret } = getRazorpayCredentials();
   const expectedSignature = crypto
     .createHmac("sha256", keySecret)
@@ -713,7 +801,15 @@ const populateOrderItems = async (orders) => {
 export const createRazorpayOrder = async (req, res) => {
   try {
     const userId = req.user._id;
-    const { items = null, deliveryFee, couponCode, offerId, walletAmount, addressId, address } = req.body;
+    const {
+      items = null,
+      deliveryFee,
+      couponCode,
+      offerId,
+      walletAmount,
+      addressId,
+      address,
+    } = req.body;
 
     const { orderItems, itemTotal, vendorId } = await resolveCheckoutItems({
       userId,
@@ -727,7 +823,11 @@ export const createRazorpayOrder = async (req, res) => {
       req,
     });
 
-    const finalDeliveryFee = await calculateDynamicDeliveryFee(vendorId, resolvedAddress, deliveryFee);
+    const finalDeliveryFee = await calculateDynamicDeliveryFee(
+      vendorId,
+      resolvedAddress,
+      deliveryFee,
+    );
     const totalAmount = toMoney(itemTotal + finalDeliveryFee);
 
     if (totalAmount <= 0) {
@@ -791,6 +891,13 @@ export const createRazorpayOrder = async (req, res) => {
         userId: String(userId),
         itemCount: String(orderItems.length),
         vendorId: vendorId ? String(vendorId) : "",
+        couponCode: coupon?.code || "",
+        offerId: offer?._id ? String(offer._id) : "",
+        couponDiscount: String(couponDiscount),
+        offerDiscount: String(offerDiscount),
+        walletUsed: String(walletUsed),
+        payableAmount: String(payableAmount),
+        welcomeCouponCode: welcomeCouponCode || "",
       },
     });
 
@@ -821,7 +928,7 @@ export const createRazorpayOrder = async (req, res) => {
       message: err.message,
     });
   }
-}; 
+};
 
 export const placeOrder = async (req, res) => {
   try {
@@ -857,16 +964,17 @@ export const placeOrder = async (req, res) => {
 
     const normalizedPaymentMethod = normalizePaymentMethod(paymentMethod);
 
-    const { orderItems, itemTotal, source, vendorId } = await resolveCheckoutItems({
-      userId,
-      directItems: items,
-    });
+    const { orderItems, itemTotal, source, vendorId } =
+      await resolveCheckoutItems({
+        userId,
+        directItems: items,
+      });
 
     let finalAddress;
     if (addressId) {
       const user = await User.findById(userId).select("savedAddresses");
       const selectedAddress = user?.savedAddresses?.find(
-        (saved) => String(saved._id) === String(addressId)
+        (saved) => String(saved._id) === String(addressId),
       );
 
       if (!selectedAddress) {
@@ -889,27 +997,76 @@ export const placeOrder = async (req, res) => {
       finalAddress = buildAddress(req, address, addressType);
     }
 
-    const finalDeliveryFee = await calculateDynamicDeliveryFee(vendorId, finalAddress, deliveryFee);
+    const finalDeliveryFee = await calculateDynamicDeliveryFee(
+      vendorId,
+      finalAddress,
+      deliveryFee,
+    );
     const totalAmount = toMoney(itemTotal + finalDeliveryFee);
 
-    const {
-      coupon,
-      offer,
-      couponDiscount,
-      offerDiscount,
-      cashbackAmount,
-      discountTotal,
-      walletUsed,
-      payableAmount,
-      welcomeCouponCode,
-    } = await resolveDiscountsAndWallet({
-      userId,
-      baseAmount: totalAmount,
-      couponCode,
-      offerId,
-      walletAmount,
-      vendorId,
-    });
+    let coupon = null;
+    let offer = null;
+    let couponDiscount = 0;
+    let offerDiscount = 0;
+    let cashbackAmount = 0;
+    let discountTotal = 0;
+    let walletUsed = 0;
+    let payableAmount = totalAmount;
+    let welcomeCouponCode = "";
+
+    let resolvedCouponCode = couponCode;
+    let resolvedOfferId = offerId;
+    let resolvedWalletAmount = walletAmount;
+
+    let fetchedFromRazorpay = false;
+
+    if (normalizedPaymentMethod === "ONLINE" && razorpayOrderId) {
+      try {
+        const { keyId, keySecret } = getRazorpayCredentials();
+        const razorpay = new Razorpay({ key_id: keyId, key_secret: keySecret });
+        const rpOrder = await razorpay.orders.fetch(razorpayOrderId);
+        if (rpOrder && rpOrder.notes) {
+          resolvedCouponCode = rpOrder.notes.couponCode || null;
+          resolvedOfferId = rpOrder.notes.offerId || null;
+          couponDiscount = toMoney(rpOrder.notes.couponDiscount);
+          offerDiscount = toMoney(rpOrder.notes.offerDiscount);
+          walletUsed = toMoney(rpOrder.notes.walletUsed);
+          payableAmount = toMoney(rpOrder.notes.payableAmount);
+          discountTotal = toMoney(couponDiscount + offerDiscount);
+          welcomeCouponCode = rpOrder.notes.welcomeCouponCode || "";
+          fetchedFromRazorpay = true;
+        }
+      } catch (fetchErr) {
+        console.error("Error fetching Razorpay order details:", fetchErr.message);
+      }
+    }
+
+    if (!fetchedFromRazorpay) {
+      const resolvedDiscounts = await resolveDiscountsAndWallet({
+        userId,
+        baseAmount: totalAmount,
+        couponCode: resolvedCouponCode,
+        offerId: resolvedOfferId,
+        walletAmount: resolvedWalletAmount,
+        vendorId,
+      });
+      coupon = resolvedDiscounts.coupon;
+      offer = resolvedDiscounts.offer;
+      couponDiscount = resolvedDiscounts.couponDiscount;
+      offerDiscount = resolvedDiscounts.offerDiscount;
+      cashbackAmount = resolvedDiscounts.cashbackAmount;
+      discountTotal = resolvedDiscounts.discountTotal;
+      walletUsed = resolvedDiscounts.walletUsed;
+      payableAmount = resolvedDiscounts.payableAmount;
+      welcomeCouponCode = resolvedDiscounts.welcomeCouponCode;
+    } else {
+      if (resolvedCouponCode) {
+        coupon = await Coupon.findOne({ code: String(resolvedCouponCode).trim().toUpperCase() });
+      }
+      if (resolvedOfferId && mongoose.Types.ObjectId.isValid(resolvedOfferId)) {
+        offer = await Offer.findById(resolvedOfferId);
+      }
+    }
 
     let paymentStatus = "Pending";
     let paymentGateway = null;
@@ -1015,7 +1172,7 @@ export const placeOrder = async (req, res) => {
       if (coupon.isRestricted) {
         await UserCoupon.updateOne(
           { userId, couponId: coupon._id },
-          { $set: { isRedeemed: true, redeemedAt: new Date() } }
+          { $set: { isRedeemed: true, redeemedAt: new Date() } },
         );
       }
     }
@@ -1058,7 +1215,9 @@ export const placeOrder = async (req, res) => {
         couponCode: coupon?.code || "",
         paymentStatus,
       },
-    }).catch((error) => console.error("ORDER NOTIFICATION ERROR:", error.message));
+    }).catch((error) =>
+      console.error("ORDER NOTIFICATION ERROR:", error.message),
+    );
 
     void sendOrderNotificationToUser({
       userId,
@@ -1139,7 +1298,9 @@ export const placeOrder = async (req, res) => {
 export const getSavedAddresses = async (req, res) => {
   try {
     const user = await User.findById(req.user._id).select("savedAddresses");
-    const savedAddresses = Array.isArray(user?.savedAddresses) ? user.savedAddresses : [];
+    const savedAddresses = Array.isArray(user?.savedAddresses)
+      ? user.savedAddresses
+      : [];
 
     const ordered = savedAddresses.sort((a, b) => {
       if (a.isDefault === b.isDefault) {
@@ -1213,10 +1374,14 @@ export const updateSavedAddress = async (req, res) => {
       });
     }
 
-    const mergedAddress = buildAddress(req, {
-      ...targetAddress.toObject(),
-      ...payload,
-    }, rootPayload.addressType);
+    const mergedAddress = buildAddress(
+      req,
+      {
+        ...targetAddress.toObject(),
+        ...payload,
+      },
+      rootPayload.addressType,
+    );
 
     targetAddress.name = mergedAddress.name;
     targetAddress.phone = mergedAddress.phone;
@@ -1265,7 +1430,9 @@ export const deleteSavedAddress = async (req, res) => {
     }
 
     const user = await User.findById(req.user._id);
-    const addresses = Array.isArray(user?.savedAddresses) ? user.savedAddresses : [];
+    const addresses = Array.isArray(user?.savedAddresses)
+      ? user.savedAddresses
+      : [];
     const targetAddress = addresses.id(addressId);
 
     if (!targetAddress) {
@@ -1301,15 +1468,91 @@ export const deleteSavedAddress = async (req, res) => {
   }
 };
 
+// export const getMyOrders = async (req, res) => {
+//   try {
+//     const orders = await Order.find({ user: req.user._id })
+//       .sort({ createdAt: -1 })
+//       .lean();
+//     const populatedOrders = await populateOrderItems(orders);
+//     const reviews = await ProductReview.find({
+//       user: req.user._id,
+//     }).select("product");
+
+//     const reviewedProductIds = new Set(
+//       reviews.map((r) => r.product.toString()),
+//     );
+//     // const formattedOrders = populatedOrders.map((order) => ({
+//     //   ...order,
+//     //   tracking: buildTrackingPayload(order),
+//     //   itemCount: Array.isArray(order.items) ? order.items.length : 0,
+//     // }));
+
+//     const formattedOrders = populatedOrders.map((order) => ({
+//       ...order,
+//       tracking: buildTrackingPayload(order),
+//       itemCount: Array.isArray(order.items) ? order.items.length : 0,
+
+//       items: order.items.map((item) => ({
+//         ...item,
+//         isUserReview: reviewedProductIds.has(
+//           item.product?._id?.toString() || item.product?.toString(),
+//         ),
+//       })),
+//     }));
+
+//     return res.json({
+//       success: true,
+//       count: formattedOrders.length,
+//       data: {
+//         orders: formattedOrders,
+//       },
+//     });
+//   } catch (err) {
+//     return res.status(500).json({
+//       success: false,
+//       message: err.message,
+//     });
+//   }
+// };
 export const getMyOrders = async (req, res) => {
   try {
-    const orders = await Order.find({ user: req.user._id }).sort({ createdAt: -1 }).lean();
+    const orders = await Order.find({
+      user: req.user._id,
+    })
+      .sort({ createdAt: -1 })
+      .lean();
+
     const populatedOrders = await populateOrderItems(orders);
+
+    // User ke reviews
+    const reviews = await ProductReview.find({
+      user: req.user._id,
+    }).select("product");
+
+    const reviewedProducts = new Set(
+      reviews.map((r) => String(r.product))
+    );
 
     const formattedOrders = populatedOrders.map((order) => ({
       ...order,
       tracking: buildTrackingPayload(order),
-      itemCount: Array.isArray(order.items) ? order.items.length : 0,
+      itemCount: Array.isArray(order.items)
+        ? order.items.length
+        : 0,
+
+      items: (order.items || []).map((item) => {
+        const productId =
+          item?.product?._id ||
+          item?.productId ||
+          item?._id;
+
+        return {
+          ...item,
+          isUserReview:
+            productId &&
+            reviewedProducts.has(String(productId)),
+        };
+      }),
     }));
 
     return res.json({
@@ -1326,7 +1569,6 @@ export const getMyOrders = async (req, res) => {
     });
   }
 };
-
 export const getOrderTracking = async (req, res) => {
   try {
     const { orderId } = req.params;
@@ -1338,7 +1580,10 @@ export const getOrderTracking = async (req, res) => {
       });
     }
 
-    const order = await Order.findOne({ _id: orderId, user: req.user._id }).lean();
+    const order = await Order.findOne({
+      _id: orderId,
+      user: req.user._id,
+    }).lean();
 
     if (!order) {
       return res.status(404).json({
@@ -1411,7 +1656,9 @@ export const cancelOrderByUser = async (req, res) => {
     // Process Refund to Wallet
     let refundAmount = 0;
     if (order.paymentStatus === "Paid") {
-      refundAmount = toMoney((order.payableAmount || 0) + (order.walletUsed || 0));
+      refundAmount = toMoney(
+        (order.payableAmount || 0) + (order.walletUsed || 0),
+      );
     } else if (order.walletUsed > 0) {
       refundAmount = toMoney(order.walletUsed);
     }
@@ -1461,7 +1708,9 @@ export const cancelOrderByUser = async (req, res) => {
         userId: String(req.user._id),
         refundAmount: String(refundAmount),
       },
-    }).catch((error) => console.error("CANCEL NOTIFICATION ERROR:", error.message));
+    }).catch((error) =>
+      console.error("CANCEL NOTIFICATION ERROR:", error.message),
+    );
 
     // Notify User
     void sendOrderNotificationToUser({
@@ -1583,11 +1832,13 @@ export const getOrderInvoicePdf = async (req, res) => {
 
     // Set headers for PDF download
     res.setHeader("Content-Type", "application/pdf");
-    res.setHeader("Content-Disposition", `attachment; filename=invoice-${orderId}.pdf`);
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename=invoice-${orderId}.pdf`,
+    );
 
     // Generate PDF and pipe to response
     generateInvoicePdf(order, res);
-
   } catch (err) {
     console.error("Invoice Generation Error:", err);
     return res.status(500).json({

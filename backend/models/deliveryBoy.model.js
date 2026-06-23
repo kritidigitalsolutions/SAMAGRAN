@@ -23,6 +23,26 @@ const deliveryBoySchema = new mongoose.Schema(
       trim: true,
       default: "",
     },
+    address: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    email: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    aadhar: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    pan: {
+      type: String,
+      trim: true,
+      default: "",
+    },
     lastLoginAt: {
       type: Date,
       default: null,

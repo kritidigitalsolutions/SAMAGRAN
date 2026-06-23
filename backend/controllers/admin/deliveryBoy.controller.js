@@ -26,7 +26,7 @@ export const getAllDeliveryBoys = async (req, res) => {
 
 export const createDeliveryBoy = async (req, res) => {
   try {
-    const { fullName = "", phone = "", status = "active", notes = "" } = req.body || {};
+    const { fullName = "", phone = "", status = "active", notes = "", email = "", address = "", aadhar = "", pan = "" } = req.body || {};
 
     if (!String(fullName).trim()) {
       return res.status(400).json({ success: false, message: "Full name is required" });
@@ -46,6 +46,10 @@ export const createDeliveryBoy = async (req, res) => {
       phone: String(phone).trim(),
       status: status === "inactive" ? "inactive" : "active",
       notes: String(notes || "").trim(),
+      email: String(email || "").trim(),
+      address: String(address || "").trim(),
+      aadhar: String(aadhar || "").trim(),
+      pan: String(pan || "").trim(),
     });
 
     return res.status(201).json({ success: true, data: { deliveryBoy } });
@@ -57,7 +61,7 @@ export const createDeliveryBoy = async (req, res) => {
 export const updateDeliveryBoy = async (req, res) => {
   try {
     const { id } = req.params;
-    const { fullName, phone, status, notes } = req.body || {};
+    const { fullName, phone, status, notes, email, address, aadhar, pan } = req.body || {};
 
     const deliveryBoy = await DeliveryBoy.findById(id);
     if (!deliveryBoy) {
@@ -86,6 +90,22 @@ export const updateDeliveryBoy = async (req, res) => {
 
     if (notes !== undefined) {
       deliveryBoy.notes = String(notes || "").trim();
+    }
+
+    if (email !== undefined) {
+      deliveryBoy.email = String(email || "").trim();
+    }
+
+    if (address !== undefined) {
+      deliveryBoy.address = String(address || "").trim();
+    }
+
+    if (aadhar !== undefined) {
+      deliveryBoy.aadhar = String(aadhar || "").trim();
+    }
+
+    if (pan !== undefined) {
+      deliveryBoy.pan = String(pan || "").trim();
     }
 
     await deliveryBoy.save();

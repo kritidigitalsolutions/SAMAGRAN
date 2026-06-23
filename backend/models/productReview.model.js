@@ -23,10 +23,15 @@ const productReviewSchema = new mongoose.Schema(
       trim: true,
       default: "",
     },
+    order: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Order",
+      required: true,
+    },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 productReviewSchema.index({ product: 1, user: 1 }, { unique: true });
-
+productReviewSchema.index({ product: 1, user: 1, order: 1 },{ unique: true });
 export default mongoose.model("ProductReview", productReviewSchema);

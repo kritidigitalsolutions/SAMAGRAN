@@ -1455,21 +1455,77 @@ export const confirmPanditBookingPayment = async (req, res) => {
   }
 };
 
+// export const getMyPanditBookings = async (req, res) => {
+//   try {
+//     await autoCancelExpiredBookings();
+//     const bookings = await PanditBooking.find({ user: req.user._id, "payment.status": "paid" })
+//       .populate("pandit", "fullName phone profileImage ratingAverage yearsOfExperience languagesSpoken poojaOfferings")
+//       .populate("temple", "name image description address contactPhone contactPerson")
+//       .populate("ritualRef", "title description image durationHours status")
+//       .populate("recommendedKit", "name image kitPrice")
+//       .select("-__V")
+//       .sort({ createdAt: -1 });
+
+//     res.json({
+//       success: true,
+//       count: bookings.length,
+//       data: bookings,
+//     });
+//   } catch (err) {
+//     res.status(500).json({
+//       success: false,
+//       message: err.message || "Unable to load bookings",
+//     });
+//   }
+// };
+
 export const getMyPanditBookings = async (req, res) => {
   try {
     await autoCancelExpiredBookings();
-    const bookings = await PanditBooking.find({ user: req.user._id, "payment.status": "paid" })
-      .populate("pandit", "fullName phone profileImage ratingAverage yearsOfExperience languagesSpoken poojaOfferings")
-      .populate("temple", "name image description address contactPhone contactPerson")
-      .populate("ritualRef", "title description image durationHours status")
+
+    const bookings = await PanditBooking.find({
+      user: req.user._id,
+      "payment.status": "paid",
+    })
+      .populate(
+        "pandit",
+        "fullName phone profileImage ratingAverage yearsOfExperience languagesSpoken poojaOfferings"
+      )
+      .populate(
+        "temple",
+        "name image description address contactPhone contactPerson"
+      )
+      .populate(
+        "ritualRef",
+        "title description image durationHours status"
+      )
       .populate("recommendedKit", "name image kitPrice")
-      .select("-__V")
-      .sort({ createdAt: -1 });
+      .select("-__v")
+      .sort({ createdAt: -1 })
+      .lean();
+
+    // Get all booking ids
+    const bookingIds = bookings.map((item) => item._id);
+
+    // Find reviewed bookings
+    const reviews = await PanditReview.find({
+      booking: { $in: bookingIds },
+    }).select("booking");
+
+    const reviewedBookingIds = new Set(
+      reviews.map((item) => item.booking.toString())
+    );
+
+    // Add isUserReview field
+    const updatedBookings = bookings.map((item) => ({
+      ...item,
+      isUserReview: reviewedBookingIds.has(item._id.toString()),
+    }));
 
     res.json({
       success: true,
-      count: bookings.length,
-      data: bookings,
+      count: updatedBookings.length,
+      data: updatedBookings,
     });
   } catch (err) {
     res.status(500).json({
@@ -2717,12 +2773,25 @@ export const addPanditBookingReview = async (req, res) => {
     }
 
     // Create review
+    // const review = await PanditReview.create({
+    //   pandit: booking.pandit,
+    //   user: req.user._id,
+    //   booking: bookingId,
+    //   rating: numRating,
+    //   comment: String(comment || "").trim(),
+    // });
+    // Create review
     const review = await PanditReview.create({
       pandit: booking.pandit,
       user: req.user._id,
       booking: bookingId,
       rating: numRating,
       comment: String(comment || "").trim(),
+    });
+
+    // Update booking review status
+    await PanditBooking.findByIdAndUpdate(bookingId, {
+      isUserReview: true,
     });
 
     // Recalculate average rating and rating count for Pandit
@@ -2762,3 +2831,26 @@ export const addPanditBookingReview = async (req, res) => {
     });
   }
 };
+
+
+
+// export const getMyPanditBookings = async (req, res) => {
+//   try {
+//     const bookings = await PanditBooking.find({
+//       user: req.user._id,
+//     })
+//       .populate("pandit", "name profileImage ratingAverage ratingCount")
+//       .sort({ createdAt: -1 });
+
+//     return res.status(200).json({
+//       success: true,
+//       count: bookings.length,
+//       data: bookings,
+//     });
+//   } catch (error) {
+//     return res.status(500).json({
+//       success: false,
+//       message: error.message,
+//     });
+//   }
+// };

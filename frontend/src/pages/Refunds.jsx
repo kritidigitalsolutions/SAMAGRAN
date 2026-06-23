@@ -74,7 +74,7 @@ export default function Refunds() {
     return complaints.filter((c) => {
       const matchesStatus = statusFilter === "All" || c.status === statusFilter;
       
-      const userField = c.user || {};
+      const userField = typeof c.user === "object" && c.user !== null ? c.user : {};
       const orderField = c.order || {};
       
       const matchesSearch =
@@ -254,7 +254,7 @@ export default function Refunds() {
                     </tr>
                   ) : (
                     pagedComplaints.map((c) => {
-                      const user = c.user || {};
+                      const user = typeof c.user === "object" && c.user !== null ? c.user : {};
                       const order = c.order || {};
                       const formattedDate = c.createdAt ? new Date(c.createdAt).toLocaleDateString() : "-";
                       
@@ -468,14 +468,19 @@ export default function Refunds() {
 
             {/* Details body */}
             <div className="space-y-4 max-h-[40vh] overflow-y-auto pr-2">
-              <div>
-                <span className="text-xs font-semibold uppercase tracking-wider text-[var(--admin-text-muted)]">
-                  User Details
-                </span>
-                <p className="text-sm font-medium mt-1">
-                  {selectedComplaint.user?.name || "N/A"} ({selectedComplaint.user?.phone || ""})
-                </p>
-              </div>
+              {(() => {
+                const compUser = typeof selectedComplaint.user === "object" && selectedComplaint.user !== null ? selectedComplaint.user : {};
+                return (
+                  <div>
+                    <span className="text-xs font-semibold uppercase tracking-wider text-[var(--admin-text-muted)]">
+                      User Details
+                    </span>
+                    <p className="text-sm font-medium mt-1">
+                      {compUser.name || "N/A"} ({compUser.phone || ""})
+                    </p>
+                  </div>
+                );
+              })()}
 
               <div>
                 <span className="text-xs font-semibold uppercase tracking-wider text-[var(--admin-text-muted)]">
