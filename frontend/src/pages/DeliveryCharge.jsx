@@ -9,6 +9,7 @@ import {
 import API from "../api/axios";
 import TablePagination from "../components/TablePagination";
 import TableMenuPopover from "../components/TableMenuPopover";
+import { getAdminRole } from "../utils/auth";
 
 const initialForm = {
   locationName: "",
@@ -19,6 +20,10 @@ const initialForm = {
 };
 
 export default function DeliveryCharge() {
+  const isSuperAdmin = getAdminRole() === "super-admin";
+  const [vendors, setVendors] = useState([]);
+  const [selectedVendorId, setSelectedVendorId] = useState("");
+
   const [pricings, setPricings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -54,10 +59,38 @@ export default function DeliveryCharge() {
     return filteredPricings.slice(start, start + pageSize);
   }, [filteredPricings, page, pageSize]);
 
+  // Load vendors list if super admin
+  const loadVendors = async () => {
+    try {
+      const res = await API.get("/admin/vendors?limit=100");
+      setVendors(res.data?.data?.vendors || []);
+      if (res.data?.data?.vendors?.length > 0) {
+        setSelectedVendorId(res.data.data.vendors[0]._id);
+      }
+    } catch (err) {
+      console.error("Failed to load vendors:", err);
+    }
+  };
+
+  useEffect(() => {
+    if (isSuperAdmin) {
+      loadVendors();
+    }
+  }, [isSuperAdmin]);
+
   const fetchPricings = useCallback(async () => {
+    if (isSuperAdmin && !selectedVendorId) {
+      setPricings([]);
+      setLoading(false);
+      return;
+    }
     try {
       setLoading(true);
-      const res = await API.get("/vendor/delivery-charge/list");
+      setError("");
+      const url = isSuperAdmin
+        ? `/vendor/delivery-charge/list?vendorId=${selectedVendorId}`
+        : "/vendor/delivery-charge/list";
+      const res = await API.get(url);
       setPricings(res.data?.data || []);
     } catch (err) {
       setError(
@@ -66,7 +99,7 @@ export default function DeliveryCharge() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [isSuperAdmin, selectedVendorId]);
 
   useEffect(() => {
     fetchPricings();
@@ -133,6 +166,11 @@ export default function DeliveryCharge() {
   const handleSubmit = async (event) => {
     event.preventDefault();
 
+    if (isSuperAdmin && !selectedVendorId) {
+      setError("Please select a vendor first.");
+      return;
+    }
+
     if (!form.locationName.trim()) {
       setError("Location name is required.");
       setSuccess("");
@@ -150,6 +188,7 @@ export default function DeliveryCharge() {
         pincode: form.pincode.trim(),
         deliveryCharge: Number(form.deliveryCharge),
         status: form.status,
+        ...(isSuperAdmin ? { vendorId: selectedVendorId } : {}),
       };
 
       if (editingId) {
@@ -213,6 +252,7 @@ export default function DeliveryCharge() {
         pincode: pricing.pincode,
         deliveryCharge: pricing.deliveryCharge,
         status: nextStatus,
+        ...(isSuperAdmin ? { vendorId: selectedVendorId } : {}),
       };
 
       await API.put(`/vendor/delivery-charge/update/${pricing._id}`, payload);
@@ -273,17 +313,17 @@ export default function DeliveryCharge() {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.26em] text-[var(--admin-primary)]">
-              Vendor Settings
+              {isSuperAdmin ? "Super Admin Panel" : "Vendor Settings"}
             </p>
             <h2 className="mt-2 text-2xl font-bold">Manage Delivery Charges</h2>
             <p className="mt-2 text-sm text-[#6e4b40] dark:text-[#f7e3c0]/75">
-              Set up your delivery charges based on locations, states, and
-              pincodes.
+              Set up delivery charges based on locations, states, and pincodes.
             </p>
           </div>
 
           <button
             type="button"
+            disabled={isSuperAdmin && !selectedVendorId}
             onClick={() => {
               if (showForm) {
                 closeForm();
@@ -291,12 +331,36 @@ export default function DeliveryCharge() {
                 openCreate();
               }
             }}
-            className="admin-btn-primary rounded-2xl px-4 py-2 text-sm font-semibold shadow"
+            className="admin-btn-primary rounded-2xl px-4 py-2 text-sm font-semibold shadow disabled:opacity-60"
           >
             {showForm ? "Hide Form" : "Add Location"}
           </button>
         </div>
       </section>
+
+      {/* Vendor Selector for Super Admin */}
+      {isSuperAdmin && (
+        <div className="rounded-3xl border border-[var(--admin-border)] bg-[var(--admin-surface)] p-5 shadow-[var(--admin-shadow)]">
+          <label className="block text-xs font-semibold uppercase tracking-wider text-[var(--admin-muted)] mb-2">
+            Select Vendor
+          </label>
+          <select
+            value={selectedVendorId}
+            onChange={(e) => {
+              setSelectedVendorId(e.target.value);
+              closeForm();
+            }}
+            className="w-full max-w-md rounded-xl border border-[var(--admin-border)] bg-transparent px-3 py-2 text-sm text-[var(--admin-text)] outline-none focus:border-[#8B1E3F] dark:bg-[#1a1f2b]"
+          >
+            <option value="">-- Choose Vendor --</option>
+            {vendors.map((v) => (
+              <option key={v._id} value={v._id}>
+                {v.businessName || v.name} ({v.email})
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {(error || success) && (
         <div
@@ -448,13 +512,17 @@ export default function DeliveryCharge() {
           </div>
         </div>
 
-        {loading ? (
+        {isSuperAdmin && !selectedVendorId ? (
+          <div className="rounded-2xl border border-dashed border-[#d7bf9b] px-4 py-6 text-center text-sm text-[#7b5a4b] dark:border-white/15 dark:text-[#f7e3c0]/75">
+            Please select a vendor to view and manage delivery charges.
+          </div>
+        ) : loading ? (
           <div className="rounded-2xl border border-dashed border-[#d7bf9b] px-4 py-6 text-sm text-[#7b5a4b] dark:border-white/15 dark:text-[#f7e3c0]/75">
             Loading delivery charges...
           </div>
         ) : filteredPricings.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-[#d7bf9b] px-4 py-6 text-sm text-[#7b5a4b] dark:border-white/15 dark:text-[#f7e3c0]/75">
-            No delivery charges found.
+            No delivery charges found for this vendor.
           </div>
         ) : (
           <>

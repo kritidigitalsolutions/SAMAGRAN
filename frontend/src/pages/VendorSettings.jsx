@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Navigate } from "react-router-dom";
 import API from "../api/axios";
 import { getAdminRole, setStoredAdmin } from "../utils/auth";
+import { FiEye, FiEyeOff } from "react-icons/fi";
 
 const TABS = [
   { key: "profile", label: "Profile Info" },
@@ -71,6 +72,9 @@ export default function VendorSettings() {
   const [passwordSaving, setPasswordSaving] = useState(false);
   const [passwordMessage, setPasswordMessage] = useState("");
   const [passwordError, setPasswordError] = useState("");
+  const [showCurrent, setShowCurrent] = useState(false);
+  const [showNew, setShowNew] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
 
   const activeTabLabel = useMemo(
     () => TABS.find((tab) => tab.key === activeTab)?.label || "Profile",
@@ -651,41 +655,68 @@ export default function VendorSettings() {
                   <label className="text-sm font-medium text-[var(--admin-text)]">
                     Current Password (optional)
                   </label>
-                  <input
-                    name="currentPassword"
-                    type="password"
-                    value={passwordForm.currentPassword}
-                    onChange={handlePasswordChange}
-                    className="mt-2 w-full rounded-lg border border-[var(--admin-border)] bg-transparent px-3 py-2 text-sm"
-                  />
+                  <div className="relative mt-2">
+                    <input
+                      name="currentPassword"
+                      type={showCurrent ? "text" : "password"}
+                      value={passwordForm.currentPassword}
+                      onChange={handlePasswordChange}
+                      className="w-full rounded-lg border border-[var(--admin-border)] bg-transparent pl-3 pr-10 py-2 text-sm text-[var(--admin-text)] outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowCurrent(!showCurrent)}
+                      className="absolute inset-y-0 right-3 flex items-center text-gray-500 hover:text-[var(--admin-primary)]"
+                    >
+                      {showCurrent ? <FiEyeOff className="h-4 w-4" /> : <FiEye className="h-4 w-4" />}
+                    </button>
+                  </div>
                 </div>
 
                 <div>
                   <label className="text-sm font-medium text-[var(--admin-text)]">
                     New Password
                   </label>
-                  <input
-                    name="newPassword"
-                    type="password"
-                    value={passwordForm.newPassword}
-                    onChange={handlePasswordChange}
-                    className="mt-2 w-full rounded-lg border border-[var(--admin-border)] bg-transparent px-3 py-2 text-sm"
-                    required
-                  />
+                  <div className="relative mt-2">
+                    <input
+                      name="newPassword"
+                      type={showNew ? "text" : "password"}
+                      value={passwordForm.newPassword}
+                      onChange={handlePasswordChange}
+                      className="w-full rounded-lg border border-[var(--admin-border)] bg-transparent pl-3 pr-10 py-2 text-sm text-[var(--admin-text)] outline-none"
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowNew(!showNew)}
+                      className="absolute inset-y-0 right-3 flex items-center text-gray-500 hover:text-[var(--admin-primary)]"
+                    >
+                      {showNew ? <FiEyeOff className="h-4 w-4" /> : <FiEye className="h-4 w-4" />}
+                    </button>
+                  </div>
                 </div>
 
                 <div>
                   <label className="text-sm font-medium text-[var(--admin-text)]">
                     Confirm New Password
                   </label>
-                  <input
-                    name="confirmPassword"
-                    type="password"
-                    value={passwordForm.confirmPassword}
-                    onChange={handlePasswordChange}
-                    className="mt-2 w-full rounded-lg border border-[var(--admin-border)] bg-transparent px-3 py-2 text-sm"
-                    required
-                  />
+                  <div className="relative mt-2">
+                    <input
+                      name="confirmPassword"
+                      type={showConfirm ? "text" : "password"}
+                      value={passwordForm.confirmPassword}
+                      onChange={handlePasswordChange}
+                      className="w-full rounded-lg border border-[var(--admin-border)] bg-transparent pl-3 pr-10 py-2 text-sm text-[var(--admin-text)] outline-none"
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirm(!showConfirm)}
+                      className="absolute inset-y-0 right-3 flex items-center text-gray-500 hover:text-[var(--admin-primary)]"
+                    >
+                      {showConfirm ? <FiEyeOff className="h-4 w-4" /> : <FiEye className="h-4 w-4" />}
+                    </button>
+                  </div>
                 </div>
 
                 <div className="flex justify-end">

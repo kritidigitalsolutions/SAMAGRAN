@@ -41,6 +41,7 @@ import Kits from "./pages/Kits";
 import Invoices from "./pages/Invoices";
 import DeliveryCharge from "./pages/DeliveryCharge";
 import PanditEarnings from "./pages/PanditEarnings";
+import PanditPayouts from "./pages/PanditPayouts";
 
 import { getHostRole } from "./utils/hostRouting";
 
@@ -113,8 +114,9 @@ function App() {
         <Route path="withdrawals" element={<AccessRoute pageKey="withdrawals"><Withdrawals /></AccessRoute>} />
         <Route path="refunds" element={<AccessRoute pageKey="refunds"><Refunds /></AccessRoute>} />
         <Route path="vendor-commission" element={<AccessRoute pageKey="vendor-commission"><VendorCommissionReport /></AccessRoute>} />
-        <Route path="delivery-charges" element={<AccessRoute pageKey="delivery-charges" vendorOnly={true}><DeliveryCharge /></AccessRoute>} />
+        <Route path="delivery-charges" element={<AccessRoute pageKey="delivery-charges"><DeliveryCharge /></AccessRoute>} />
         <Route path="pandit-earnings" element={<AccessRoute pageKey="pandit-bookings"><PanditEarnings /></AccessRoute>} />
+        <Route path="pandit-payouts" element={<AccessRoute pageKey="pandit-bookings"><PanditPayouts /></AccessRoute>} />
         <Route
           path="vendors"
           element={

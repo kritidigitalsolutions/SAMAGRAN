@@ -157,6 +157,31 @@ export const notifyPandits = async ({ title, body, data = {} }) => {
   });
 };
 
+export const notifyPanditById = async ({ panditId, title, body, data = {} }) => {
+  const pandit = await Pandit.findById(panditId).select("fcmToken").lean();
+  if (!pandit) {
+    return { status: "FAILED", message: "Pandit not found" };
+  }
+
+  const sendResult = await sendPushNotifications({
+    tokens: [pandit.fcmToken],
+    title,
+    body,
+    data,
+  });
+
+  await createNotificationRecord({
+    title,
+    body,
+    data,
+    audienceType: "pandit",
+    audienceIds: [panditId],
+    sendResult,
+  });
+
+  return sendResult;
+};
+
 export const notifyVendors = async ({ title, body, data = {} }) => {
   const vendors = await Vendor.find(queryWithToken).select("fcmToken").lean();
   const sendResult = await sendPushNotifications({

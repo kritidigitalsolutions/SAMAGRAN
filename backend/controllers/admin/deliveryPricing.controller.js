@@ -1,24 +1,33 @@
 import DeliveryPricing from "../../models/vendorDeliveryPricing.model.js";
 
+const resolveVendorId = (req) => {
+  if (req.admin?.role === "vendor") {
+    return req.admin.vendorId ? String(req.admin.vendorId) : null;
+  }
+  if (req.admin?.role === "super") {
+    return req.query?.vendorId || req.body?.vendorId || null;
+  }
+  return null;
+};
 
 export const addPricing = async (req, res) => {
   try {
+    const vendorId = resolveVendorId(req);
 
-    console.log("vendorId =>", req.vendorId);
-
-    if (!req.vendorId) {
+    if (!vendorId) {
       return res.status(400).json({
         success: false,
-        message: "Vendor ID missing from middleware"
+        message: "Vendor ID is required"
       });
     }
 
     const pricing = await DeliveryPricing.create({
-      vendorId: req.vendorId,
+      vendorId,
       locationName: req.body.locationName,
       state: req.body.state || "",
       pincode: req.body.pincode || "",
-      deliveryCharge: req.body.deliveryCharge
+      deliveryCharge: req.body.deliveryCharge,
+      status: req.body.status || "active"
     });
 
     return res.status(201).json({
@@ -27,21 +36,24 @@ export const addPricing = async (req, res) => {
     });
 
   } catch (error) {
-
     console.error(error);
-
     return res.status(500).json({
       success: false,
       message: error.message
     });
-
   }
 };
 
 export const getPricingList = async (req, res) => {
   try {
+    const vendorId = resolveVendorId(req);
 
-    const vendorId = req.vendorId;
+    if (!vendorId) {
+      return res.status(400).json({
+        success: false,
+        message: "Vendor ID is required"
+      });
+    }
 
     const data = await DeliveryPricing
       .find({ vendorId })
@@ -54,30 +66,35 @@ export const getPricingList = async (req, res) => {
     });
 
   } catch (error) {
-
     return res.status(500).json({
       success: false,
       message: error.message
     });
-
   }
 };
 
 export const updatePricing = async (req, res) => {
   try {
-
     const { id } = req.params;
 
-    const pricing = await DeliveryPricing.findOne({
-      _id: id,
-      vendorId: req.vendorId
-    });
+    const pricing = await DeliveryPricing.findById(id);
 
     if (!pricing) {
       return res.status(404).json({
         success: false,
         message: "Pricing not found"
       });
+    }
+
+    // Verify ownership for vendor role
+    if (req.admin?.role === "vendor") {
+      const vendorId = String(req.admin.vendorId);
+      if (String(pricing.vendorId) !== vendorId) {
+        return res.status(403).json({
+          success: false,
+          message: "You can only update your own delivery charges"
+        });
+      }
     }
 
     pricing.locationName =
@@ -109,31 +126,38 @@ export const updatePricing = async (req, res) => {
     });
 
   } catch (error) {
-
     return res.status(500).json({
       success: false,
       message: error.message
     });
-
   }
 };
 
-
 export const deletePricing = async (req, res) => {
   try {
+    const { id } = req.params;
 
-    const deleted =
-      await DeliveryPricing.findOneAndDelete({
-        _id: req.params.id,
-        vendorId: req.vendorId
-      });
+    const pricing = await DeliveryPricing.findById(id);
 
-    if (!deleted) {
+    if (!pricing) {
       return res.status(404).json({
         success: false,
         message: "Pricing not found"
       });
     }
+
+    // Verify ownership for vendor role
+    if (req.admin?.role === "vendor") {
+      const vendorId = String(req.admin.vendorId);
+      if (String(pricing.vendorId) !== vendorId) {
+        return res.status(403).json({
+          success: false,
+          message: "You can only delete your own delivery charges"
+        });
+      }
+    }
+
+    await DeliveryPricing.findByIdAndDelete(id);
 
     return res.json({
       success: true,
@@ -141,11 +165,9 @@ export const deletePricing = async (req, res) => {
     });
 
   } catch (error) {
-
     return res.status(500).json({
       success: false,
       message: error.message
     });
-
   }
 };

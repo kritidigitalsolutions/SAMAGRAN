@@ -46,6 +46,8 @@ export const sendAdminOtpEmail = async (to, otp, purpose, adminName = "Admin") =
         ? "Password Reset"
         : "Password Update";
 
+  const text = `Hi ${adminName},\n\nYou requested a ${purposeLabel} for your Samagran admin account.\nUse the OTP below to proceed. It is valid for 10 minutes.\n\nYour OTP Code: ${otp}\n\nNever share this OTP with anyone.\nIf you did not initiate this request, please ignore this email.\n\n© ${new Date().getFullYear()} Samagran.`;
+
   const html = `
     <!DOCTYPE html>
     <html>
@@ -62,7 +64,7 @@ export const sendAdminOtpEmail = async (to, otp, purpose, adminName = "Admin") =
               <!-- Header -->
               <tr>
                 <td style="background:linear-gradient(135deg,#4f46e5,#7c3aed);padding:32px;text-align:center;">
-                  <h1 style="margin:0;color:#ffffff;font-size:24px;letter-spacing:1px;">🔐 Admin Panel</h1>
+                  <h1 style="margin:0;color:#ffffff;font-size:24px;letter-spacing:1px;">Samagran Admin Panel</h1>
                   <p style="margin:8px 0 0;color:#c7d2fe;font-size:14px;">${purposeLabel} Verification</p>
                 </td>
               </tr>
@@ -81,14 +83,14 @@ export const sendAdminOtpEmail = async (to, otp, purpose, adminName = "Admin") =
                     <p style="margin:0;color:#4f46e5;font-size:42px;font-weight:900;letter-spacing:10px;">${otp}</p>
                   </div>
 
-                  <p style="color:#6b7280;font-size:13px;margin:0 0 8px;">⚠️ Never share this OTP with anyone.</p>
+                  <p style="color:#6b7280;font-size:13px;margin:0 0 8px;">Never share this OTP with anyone.</p>
                   <p style="color:#6b7280;font-size:13px;margin:0;">If you did not initiate this request, please ignore this email or contact your system administrator.</p>
                 </td>
               </tr>
               <!-- Footer -->
               <tr>
                 <td style="background:#f9fafb;padding:20px 40px;text-align:center;border-top:1px solid #e5e7eb;">
-                  <p style="margin5u67uuA:0;color:#9ca3af;font-size:12px;">© ${new Date().getFullYear()} Admin Panel &nbsp;|&nbsp; This is an automated message</p>
+                  <p style="margin:0;color:#9ca3af;font-size:12px;">© ${new Date().getFullYear()} Samagran &nbsp;|&nbsp; This is an automated message</p>
                 </td>
               </tr>
             </table>
@@ -100,9 +102,10 @@ export const sendAdminOtpEmail = async (to, otp, purpose, adminName = "Admin") =
   `;
 
   await transporter.sendMail({
-    from: `"Admin Panel 🔐" <${process.env.EMAIL_USER}>`,
+    from: `"Samagran Admin Support" <${process.env.EMAIL_USER}>`,
     to,
-    subject: `[Admin Panel] OTP for ${purposeLabel} — ${otp}`,
+    subject: `Samagran ${purposeLabel} OTP Verification Code: ${otp}`,
+    text,
     html
   });
 

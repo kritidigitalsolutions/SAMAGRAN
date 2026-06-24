@@ -15,7 +15,7 @@ const navSections = [
       { label: "Invoices", path: "/dashboard/invoices", icon: "invoice", accessKey: "orders" },
       { label: "Users", path: "/dashboard/users", icon: "users", accessKey: "users" },
       { label: "Delivery Boys", path: "/dashboard/delivery-boys", icon: "delivery", accessKey: "delivery-boys" },
-      { label: "Delivery Charges", path: "/dashboard/delivery-charges", icon: "delivery", accessKey: "delivery-charges", vendorOnly: true },
+      { label: "Delivery Charges", path: "/dashboard/delivery-charges", icon: "delivery", accessKey: "delivery-charges" },
       {
         label: "Vendors",
         path: "/dashboard/vendors",
@@ -43,6 +43,7 @@ const navSections = [
       { label: "Pandits", path: "/dashboard/pandits", icon: "pandits", accessKey: "pandits" },
       { label: "Pandit Bookings", path: "/dashboard/pandit-bookings", icon: "pandit-bookings", accessKey: "pandit-bookings" },
       { label: "Pandit Earnings", path: "/dashboard/pandit-earnings", icon: "earnings", accessKey: "pandit-bookings" },
+      { label: "Pandit Payouts", path: "/dashboard/pandit-payouts", icon: "withdrawals", accessKey: "pandit-bookings" },
       {
         label: "Booking Pricing",
         path: "/dashboard/booking-pricing",

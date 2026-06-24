@@ -71,12 +71,11 @@ const vendorSchema = new mongoose.Schema(
 );
 
 // Auto-generate vendorCode before save if not set
-vendorSchema.pre("save", async function (next) {
+vendorSchema.pre("save", async function () {
   if (!this.vendorCode) {
     const count = await mongoose.model("Vendor").countDocuments();
     this.vendorCode = `VND-${String(count + 1).padStart(3, "0")}`;
   }
-  next();
 });
 
 export default mongoose.model("Vendor", vendorSchema);

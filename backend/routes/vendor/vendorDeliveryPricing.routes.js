@@ -1,5 +1,5 @@
 import express from "express";
-import { protectVendor } from "../../middleware/vendor.middleware.js";
+import { protectAdmin } from "../../middleware/admin.middleware.js";
 
 import {
   addPricing,
@@ -10,12 +10,12 @@ import {
 
 const router = express.Router();
 
-router.post("/add", protectVendor, addPricing);
+router.post("/add", protectAdmin, addPricing);
 
-router.get("/list", protectVendor, getPricingList);
+router.get("/list", protectAdmin, getPricingList);
 
-router.put("/update/:id", protectVendor, updatePricing);
+router.put("/update/:id", protectAdmin, updatePricing);
 
-router.delete("/delete/:id", protectVendor, deletePricing);
+router.delete("/delete/:id", protectAdmin, deletePricing);
 
 export default router;
