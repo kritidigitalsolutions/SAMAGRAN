@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import Order from "../../models/order.model.js";
+import { notifyUsersByIds } from "../../utils/notification.service.js";
 
 const DELIVERY_STATUSES = [
   "Placed",
@@ -98,6 +99,29 @@ export const updateDeliveryOrderStatus = async (req, res) => {
 
     order.orderStatus = nextStatus;
     await order.save();
+
+    // Notify User about status update by delivery boy
+    const shortId = String(order._id).slice(-6).toUpperCase();
+    let title = `Order ${nextStatus}`;
+    let body = `Your order #${shortId} is now ${nextStatus.toLowerCase()}.`;
+    if (nextStatus === "Out for Delivery") {
+      title = "Out for Delivery! 🚚";
+      body = `Your order #${shortId} is out for delivery.`;
+    } else if (nextStatus === "Delivered") {
+      title = "Order Delivered! 🎉";
+      body = `Your order #${shortId} has been delivered. Thank you!`;
+    }
+
+    void notifyUsersByIds({
+      userIds: [order.user],
+      title,
+      body,
+      data: {
+        eventType: "order.status.updated",
+        orderStatus: nextStatus,
+        orderId: String(order._id),
+      },
+    }).catch((err) => console.error("DELIVERY BOY ORDER STATUS USER NOTIFICATION ERROR:", err.message));
 
     const updated = await Order.findById(order._id)
       .populate("user", "name phone")

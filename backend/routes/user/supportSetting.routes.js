@@ -4,6 +4,6 @@ import { getSupportSetting } from "../../controllers/admin/supportSetting.contro
 
 const router = express.Router();
 
-router.get("/", protect, getSupportSetting);
+router.get("/", getSupportSetting);
 
 export default router;

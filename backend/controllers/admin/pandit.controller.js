@@ -1,7 +1,7 @@
 import Pandit from "../../models/pandit.model.js";
 import mongoose from "mongoose";
 import PanditBooking from "../../models/panditBooking.model.js";
-import { notifyAdmins } from "../../utils/notification.service.js";
+import { notifyAdmins, notifyPanditById } from "../../utils/notification.service.js";
 import { toTitleCase, normalizeCityList } from "../../utils/cityNormalizer.js";
 
 export const getAllPanditsForAdmin = async (req, res) => {
@@ -382,6 +382,7 @@ export const updatePanditStatusByAdmin = async (req, res) => {
       });
     }
 
+    const previousStatus = panditObj.status;
     panditObj.status = normalizedStatus;
     const pandit = await panditObj.save();
 
@@ -390,6 +391,30 @@ export const updatePanditStatusByAdmin = async (req, res) => {
         success: false,
         message: "Pandit not found",
       });
+    }
+
+    if (pandit.status !== previousStatus) {
+      if (pandit.status === "active") {
+        void notifyPanditById({
+          panditId: pandit._id,
+          title: "Account Activated 🌟",
+          body: "Your pandit profile has been approved and activated! You can now start receiving bookings.",
+          data: {
+            eventType: "pandit.status.updated",
+            status: "active",
+          },
+        }).catch((err) => console.error("Pandit activation notification error:", err.message));
+      } else if (pandit.status === "blocked") {
+        void notifyPanditById({
+          panditId: pandit._id,
+          title: "Account Blocked ⚠️",
+          body: "Your pandit profile has been blocked by the admin. Please contact support.",
+          data: {
+            eventType: "pandit.status.updated",
+            status: "blocked",
+          },
+        }).catch((err) => console.error("Pandit block notification error:", err.message));
+      }
     }
 
     return res.json({

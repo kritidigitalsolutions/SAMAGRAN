@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import { ensureZoomMeetingForBooking, autoCancelExpiredBookings } from "../../controllers/panditBooking.controller.js";
 import { createMeeting } from "../../utils/zoom.service.js";
 import { normalizeCityList } from "../../utils/cityNormalizer.js";
+import { notifyPanditBookingStatusUpdate, notifyPanditBookingAction } from "../../utils/booking.notifications.js";
 
 export const getAllPanditBookingsForAdmin = async (req, res) => {
   try {
@@ -112,6 +113,7 @@ export const updatePanditBookingByAdmin = async (req, res) => {
       address,
     } = req.body;
 
+    const previousBookingStatus = booking.bookingStatus;
     if (bookingStatus !== undefined) {
       booking.bookingStatus = String(bookingStatus || "").trim() || booking.bookingStatus;
     }
@@ -162,6 +164,35 @@ export const updatePanditBookingByAdmin = async (req, res) => {
       .populate("user", "name phone email")
       .populate("temple")
       .populate("recommendedKit");
+
+    // Send notifications if booking status changed
+    if (bookingStatus !== undefined && String(bookingStatus).trim() !== previousBookingStatus) {
+      const nextStatus = String(bookingStatus).trim().toLowerCase();
+      const panditName = populated.pandit?.fullName || "Pandit";
+      const ritualName = populated.ritual?.name || "Ritual";
+
+      // Notify User
+      void notifyPanditBookingStatusUpdate(
+        populated.user?._id,
+        populated._id,
+        nextStatus,
+        { _id: populated.pandit?._id, name: panditName },
+        ritualName
+      ).catch((err) => console.error("Error notifying user of pandit booking status change:", err.message));
+
+      // Notify Pandit
+      let panditAction = "booking_update";
+      if (nextStatus === "confirmed") panditAction = "user_confirmed";
+      else if (nextStatus === "cancelled") panditAction = "user_cancelled";
+
+      void notifyPanditBookingAction(
+        populated.pandit?._id,
+        populated._id,
+        panditAction,
+        { _id: populated.user?._id, name: populated.user?.name || populated.user?.phone || "User" },
+        ritualName
+      ).catch((err) => console.error("Error notifying pandit of booking status change:", err.message));
+    }
 
     return res.json({
       success: true,

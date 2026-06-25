@@ -154,6 +154,8 @@ import adminComplaintRoutes from "./routes/admin/complaint.routes.js";
 import adminSupportSettingRoutes from "./routes/admin/supportSetting.routes.js";
 import userComplaintRoutes from "./routes/user/complaint.routes.js";
 import userSupportSettingRoutes from "./routes/user/supportSetting.routes.js";
+import panditComplaintRoutes from "./routes/pandit/complaint.routes.js";
+import adminPanditComplaintRoutes from "./routes/admin/panditComplaint.routes.js";
 
 
 app.use("/api/user/items", userProductRoutes);
@@ -242,6 +244,7 @@ app.use("/api/admin/sub-categories", adminSubCategoryRoutes);
 app.use("/api/admin", adminCategoryCommissionRoutes);
 app.use("/api/admin/complaints", adminComplaintRoutes);
 app.use("/api/admin/support-settings", adminSupportSettingRoutes);
+app.use("/api/admin/pandit-complaints", adminPanditComplaintRoutes);
 
 app.use("/api/vendor/auth", vendorAuthRoutes);
 app.use("/api/vendor/items", vendorProductRoutes);
@@ -254,6 +257,7 @@ app.use("/api/pandit/auth", panditAuthRoutes);
 app.use("/api/pandit/availability", panditAvailabilityRoutes);
 app.use("/api/pandit/wallet", panditWalletRoutes);
 app.use("/api/pandit/notifications", panditNotificationRoutes);
+app.use("/api/pandit/complaints", panditComplaintRoutes);
 app.use("/api/delivery/auth", deliveryAuthRoutes);
 app.use("/api/delivery", deliveryRoutes);
 

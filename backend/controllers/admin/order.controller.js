@@ -165,11 +165,67 @@ const buildTrackingPayload = (order) => {
   };
 };
 
-const sendAdminOrderNotificationToUser = async ({ userId, orderId, title, body, data = {} }) => {
+const getOrderStatusNotification = (status, orderId) => {
+  const shortId = String(orderId).slice(-6).toUpperCase();
+  switch (String(status).trim()) {
+    case "Placed":
+      return {
+        title: "Order Placed! 🛒",
+        body: `Your order #${shortId} has been placed successfully.`,
+      };
+    case "Confirmed":
+      return {
+        title: "Order Confirmed! ✅",
+        body: `Your order #${shortId} has been confirmed.`,
+      };
+    case "Preparing":
+      return {
+        title: "Preparing Order! 🍳",
+        body: `We are preparing your order #${shortId}.`,
+      };
+    case "Accepted":
+      return {
+        title: "Order Accepted! 👍",
+        body: `Your order #${shortId} has been accepted.`,
+      };
+    case "Out for Delivery":
+    case "Out For Delivery":
+      return {
+        title: "Out for Delivery! 🚚",
+        body: `Your order #${shortId} is out for delivery.`,
+      };
+    case "Delivered":
+      return {
+        title: "Order Delivered! 🎉",
+        body: `Your order #${shortId} has been delivered. Thank you!`,
+      };
+    case "Cancelled":
+      return {
+        title: "Order Cancelled! ❌",
+        body: `Your order #${shortId} has been cancelled.`,
+      };
+    default:
+      return {
+        title: `Order Status: ${status}`,
+        body: `Your order #${shortId} is now ${status}.`,
+      };
+  }
+};
+
+const sendAdminOrderNotificationToUser = async ({ userId, orderId, title, body, status, data = {} }) => {
+  let finalTitle = title;
+  let finalBody = body;
+
+  if (status) {
+    const custom = getOrderStatusNotification(status, orderId);
+    finalTitle = custom.title;
+    finalBody = custom.body;
+  }
+
   return notifyUsersByIds({
     userIds: [userId],
-    title,
-    body,
+    title: finalTitle,
+    body: finalBody,
     data: { orderId: String(orderId), ...data },
   }).catch((error) => {
     console.error("ADMIN USER ORDER NOTIFICATION ERROR:", error?.message || error);
@@ -504,8 +560,7 @@ export const updateOrderByAdmin = async (req, res) => {
       void sendAdminOrderNotificationToUser({
         userId: effectiveUserId,
         orderId: order._id,
-        title: `Order ${nextOrderStatus}`,
-        body: `Order #${String(order._id).slice(-6).toUpperCase()} is now ${nextOrderStatus}.`,
+        status: nextOrderStatus,
         data: {
           eventType: "order.status.updated",
           orderStatus: nextOrderStatus,
@@ -602,8 +657,7 @@ export const updateOrderTrackingByAdmin = async (req, res) => {
     void sendAdminOrderNotificationToUser({
       userId: effectiveUserId,
       orderId: order._id,
-      title: `Order ${nextStatus}`,
-      body: `Order #${String(order._id).slice(-6).toUpperCase()} is now ${nextStatus}.`,
+      status: nextStatus,
       data: {
         eventType: "order.status.updated",
         orderStatus: nextStatus,
@@ -689,6 +743,20 @@ export const assignDeliveryBoyToOrder = async (req, res) => {
     order.deliveryAssignedAt = new Date();
     order.deliveryAssignedBy = req.admin?._id || null;
     await order.save();
+
+    // Notify User that delivery boy is assigned
+    const shortId = String(order._id).slice(-6).toUpperCase();
+    void sendAdminOrderNotificationToUser({
+      userId: String(order.user),
+      orderId: order._id,
+      title: "Delivery Partner Assigned 🛵",
+      body: `${deliveryBoy.fullName} has been assigned to deliver your order #${shortId}.`,
+      data: {
+        eventType: "order.delivery_boy.assigned",
+        deliveryBoyName: deliveryBoy.fullName,
+        deliveryBoyPhone: deliveryBoy.phone,
+      },
+    });
 
     const populatedOrder = await Order.findById(order._id)
       .populate("user", "name email phone")
