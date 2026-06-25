@@ -14,6 +14,8 @@ export const getBookingPrice = async (req, res) => {
       price: pricing.price,
       panditCommissionPercent: pricing.panditCommissionPercent || 0,
       panditCommissionThreshold: pricing.panditCommissionThreshold || 0,
+      minRecommendationPriceForCommission: pricing.minRecommendationPriceForCommission || 0,
+      freeDeliveryThreshold: pricing.freeDeliveryThreshold || 0,
     });
   } catch (error) {
     res.status(500).json({ message: error.message });

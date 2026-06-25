@@ -127,44 +127,44 @@ export default function PanditEarnings() {
           label="Total Booking Amount Collected"
           value={fmt(summary.totalBookingAmount)}
           sub="Across all completed bookings"
-          icon="🕉️"
+          // icon="🕉️"
         />
         <SummaryCard
           label="Admin Commission"
           value={fmt(summary.totalAdminCommission)}
           sub={`${summary.adminCommissionPercent || 20}% of booking amount`}
           color="primary"
-          icon="🏛️"
+          // icon="🏛️"
         />
         <SummaryCard
           label="Pandit Earnings"
           value={fmt(summary.totalPanditEarnings)}
           sub={`${100 - (summary.adminCommissionPercent || 20)}% of booking amount`}
           color="green"
-          icon="👳"
+          // icon="👳"
         />
         <SummaryCard
           label="Total Paid Out"
           value={fmt(summary.totalPaid)}
           color="green"
-          icon="✅"
+          // icon="✅"
         />
         <SummaryCard
           label="Pending Payout"
           value={fmt(summary.totalPending)}
           sub="Not yet settled"
           color="amber"
-          icon="⏳"
+          // icon="⏳"
         />
       </div>
 
       {/* Commission Info Banner */}
-      <div className="rounded-2xl border border-[#8B1E3F]/20 bg-[#8B1E3F]/5 px-5 py-3 flex items-center gap-3 dark:bg-[#8B1E3F]/10">
+      {/* <div className="rounded-2xl border border-[#8B1E3F]/20 bg-[#8B1E3F]/5 px-5 py-3 flex items-center gap-3 dark:bg-[#8B1E3F]/10">
         <span className="text-lg">ℹ️</span>
         <p className="text-sm text-[#6f3945] dark:text-[#f7e3c0]">
           Commission split: <strong>Admin {summary.adminCommissionPercent || 20}%</strong> · <strong>Pandit {100 - (summary.adminCommissionPercent || 20)}%</strong> of total booking amount per booking.
         </p>
-      </div>
+      </div> */}
 
       {/* Pandit-wise Breakdown */}
       <div className="overflow-hidden rounded-2xl border border-[var(--admin-border)] bg-[var(--admin-surface)] shadow-[var(--admin-shadow)]">

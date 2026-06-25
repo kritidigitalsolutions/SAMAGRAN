@@ -47,6 +47,12 @@ const deliveryBoySchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    vendorId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Vendor",
+      default: null,
+      index: true,
+    },
   },
   { timestamps: true }
 );

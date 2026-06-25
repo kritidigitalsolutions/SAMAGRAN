@@ -5,6 +5,8 @@ const initialForm = {
   price: "",
   panditCommissionPercent: "",
   panditCommissionThreshold: "",
+  minRecommendationPriceForCommission: "",
+  freeDeliveryThreshold: "",
 };
 
 export default function BookingPricing() {
@@ -25,6 +27,8 @@ export default function BookingPricing() {
         price: data.price ?? "",
         panditCommissionPercent: data.panditCommissionPercent ?? 0,
         panditCommissionThreshold: data.panditCommissionThreshold ?? 500,
+        minRecommendationPriceForCommission: data.minRecommendationPriceForCommission ?? 0,
+        freeDeliveryThreshold: data.freeDeliveryThreshold ?? 0,
       });
     } catch (err) {
       setError(err.response?.data?.message || "Unable to load booking pricing");
@@ -55,6 +59,8 @@ export default function BookingPricing() {
       price: Number(form.price),
       panditCommissionPercent: Number(form.panditCommissionPercent),
       panditCommissionThreshold: Number(form.panditCommissionThreshold),
+      minRecommendationPriceForCommission: Number(form.minRecommendationPriceForCommission),
+      freeDeliveryThreshold: Number(form.freeDeliveryThreshold),
     };
 
     try {
@@ -100,7 +106,7 @@ export default function BookingPricing() {
 
             <div className="grid gap-4 md:grid-cols-3">
               <label className="space-y-2 text-sm font-semibold text-[var(--admin-text)]">
-                Booking Price (INR)
+                Pandit Booking Charge (INR)
                 <input
                   type="number"
                   min="0"
@@ -128,13 +134,39 @@ export default function BookingPricing() {
               </label>
 
               <label className="space-y-2 text-sm font-semibold text-[var(--admin-text)]">
-                Payout Threshold (INR)
+                Pandit Withdrawal Threshold (INR)
                 <input
                   type="number"
                   min="0"
                   step="1"
                   name="panditCommissionThreshold"
                   value={form.panditCommissionThreshold}
+                  onChange={handleChange}
+                  className="w-full rounded-2xl border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] px-4 py-3 text-sm"
+                />
+              </label>
+
+              <label className="space-y-2 text-sm font-semibold text-[var(--admin-text)]">
+                Pandit  Min Recommendation Price for Commission (INR)
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  name="minRecommendationPriceForCommission"
+                  value={form.minRecommendationPriceForCommission}
+                  onChange={handleChange}
+                  className="w-full rounded-2xl border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] px-4 py-3 text-sm"
+                />
+              </label>
+
+              <label className="space-y-2 text-sm font-semibold text-[var(--admin-text)]">
+                Free Delivery Product Order Limit (INR)
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  name="freeDeliveryThreshold"
+                  value={form.freeDeliveryThreshold}
                   onChange={handleChange}
                   className="w-full rounded-2xl border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] px-4 py-3 text-sm"
                 />

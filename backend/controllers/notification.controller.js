@@ -3,42 +3,68 @@ import Notification from "../models/notification.model.js";
 
 const toObjectId = (value) => new mongoose.Types.ObjectId(value);
 
-const buildUserAudienceQuery = (userId) => ({
-  "audience.type": "user",
+const getActorFromRequest = (req) => {
+  if (req.pandit) {
+    return {
+      id: req.pandit._id,
+      role: "pandit",
+      createdAt: req.pandit.createdAt,
+    };
+  }
+  if (req.user) {
+    return {
+      id: req.user._id,
+      role: "user",
+      createdAt: req.user.createdAt,
+    };
+  }
+  return null;
+};
+
+const buildAudienceQuery = (actorId, role) => ({
+  "audience.type": role,
   $or: [
     { "audience.ids": { $size: 0 } },
-    { "audience.ids": toObjectId(userId) },
+    { "audience.ids": toObjectId(actorId) },
   ],
 });
 
-const buildUserVisibilityQuery = (userId) => ({
-  deletedBy: { $ne: toObjectId(userId) },
+const buildVisibilityQuery = (actorId) => ({
+  deletedBy: { $ne: toObjectId(actorId) },
 });
 
-const buildUserCreatedAtQuery = (user) => {
-  if (user?.createdAt) {
-    return { createdAt: { $gte: user.createdAt } };
+const buildCreatedAtQuery = (createdAt) => {
+  if (createdAt) {
+    return { createdAt: { $gte: new Date(createdAt) } };
   }
   return {};
 };
 
 export const getUserNotifications = async (req, res) => {
   try {
-    const userId = req.user?._id;
+    const actor = getActorFromRequest(req);
+    if (!actor) {
+      return res.status(401).json({
+        success: false,
+        message: "Not authorized",
+      });
+    }
+
+    const { id: actorId, role, createdAt } = actor;
     const page = Math.max(Number(req.query.page || 1), 1);
     const limit = Math.max(Number(req.query.limit || 20), 1);
     const status = String(req.query.status || "all").toLowerCase();
 
     const baseQuery = {
-      ...buildUserAudienceQuery(userId),
-      ...buildUserVisibilityQuery(userId),
-      ...buildUserCreatedAtQuery(req.user),
+      ...buildAudienceQuery(actorId, role),
+      ...buildVisibilityQuery(actorId),
+      ...buildCreatedAtQuery(createdAt),
     };
 
     if (status === "read") {
-      baseQuery.readBy = toObjectId(userId);
+      baseQuery.readBy = toObjectId(actorId);
     } else if (status === "unread") {
-      baseQuery.readBy = { $ne: toObjectId(userId) };
+      baseQuery.readBy = { $ne: toObjectId(actorId) };
     }
 
     const total = await Notification.countDocuments(baseQuery);
@@ -51,7 +77,7 @@ export const getUserNotifications = async (req, res) => {
     const data = notifications.map((notification) => ({
       ...notification,
       isRead: Array.isArray(notification.readBy)
-        ? notification.readBy.some((id) => String(id) === String(userId))
+        ? notification.readBy.some((id) => String(id) === String(actorId))
         : false,
     }));
 
@@ -73,7 +99,15 @@ export const getUserNotifications = async (req, res) => {
 
 export const markNotificationRead = async (req, res) => {
   try {
-    const userId = req.user?._id;
+    const actor = getActorFromRequest(req);
+    if (!actor) {
+      return res.status(401).json({
+        success: false,
+        message: "Not authorized",
+      });
+    }
+
+    const { id: actorId, role, createdAt } = actor;
     const notificationId = req.params.id;
 
     if (!mongoose.Types.ObjectId.isValid(notificationId)) {
@@ -85,14 +119,14 @@ export const markNotificationRead = async (req, res) => {
 
     const query = {
       _id: notificationId,
-      ...buildUserAudienceQuery(userId),
-      ...buildUserVisibilityQuery(userId),
-      ...buildUserCreatedAtQuery(req.user),
+      ...buildAudienceQuery(actorId, role),
+      ...buildVisibilityQuery(actorId),
+      ...buildCreatedAtQuery(createdAt),
     };
 
     const notification = await Notification.findOneAndUpdate(
       query,
-      { $addToSet: { readBy: toObjectId(userId) } },
+      { $addToSet: { readBy: toObjectId(actorId) } },
       { new: true }
     ).lean();
 
@@ -118,7 +152,15 @@ export const markNotificationRead = async (req, res) => {
 
 export const deleteUserNotification = async (req, res) => {
   try {
-    const userId = req.user?._id;
+    const actor = getActorFromRequest(req);
+    if (!actor) {
+      return res.status(401).json({
+        success: false,
+        message: "Not authorized",
+      });
+    }
+
+    const { id: actorId, role, createdAt } = actor;
     const notificationId = req.params.id;
 
     if (!mongoose.Types.ObjectId.isValid(notificationId)) {
@@ -130,14 +172,14 @@ export const deleteUserNotification = async (req, res) => {
 
     const query = {
       _id: notificationId,
-      ...buildUserAudienceQuery(userId),
-      ...buildUserVisibilityQuery(userId),
-      ...buildUserCreatedAtQuery(req.user),
+      ...buildAudienceQuery(actorId, role),
+      ...buildVisibilityQuery(actorId),
+      ...buildCreatedAtQuery(createdAt),
     };
 
     const notification = await Notification.findOneAndUpdate(
       query,
-      { $addToSet: { deletedBy: toObjectId(userId) } },
+      { $addToSet: { deletedBy: toObjectId(actorId) } },
       { new: true }
     ).lean();
 
@@ -163,16 +205,24 @@ export const deleteUserNotification = async (req, res) => {
 
 export const clearUserNotifications = async (req, res) => {
   try {
-    const userId = req.user?._id;
+    const actor = getActorFromRequest(req);
+    if (!actor) {
+      return res.status(401).json({
+        success: false,
+        message: "Not authorized",
+      });
+    }
+
+    const { id: actorId, role, createdAt } = actor;
 
     const query = {
-      ...buildUserAudienceQuery(userId),
-      ...buildUserVisibilityQuery(userId),
-      ...buildUserCreatedAtQuery(req.user),
+      ...buildAudienceQuery(actorId, role),
+      ...buildVisibilityQuery(actorId),
+      ...buildCreatedAtQuery(createdAt),
     };
 
     const result = await Notification.updateMany(query, {
-      $addToSet: { deletedBy: toObjectId(userId) },
+      $addToSet: { deletedBy: toObjectId(actorId) },
     });
 
     return res.json({
@@ -190,3 +240,4 @@ export const clearUserNotifications = async (req, res) => {
     });
   }
 };
+

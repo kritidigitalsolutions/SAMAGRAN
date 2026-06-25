@@ -6,20 +6,21 @@ import TableMenuPopover from "../components/TableMenuPopover";
 
 const apiOrigin = (API.defaults.baseURL || "http://localhost:8000/api").replace(/\/api\/?$/, "");
 
-const initialForm = {
-  name: "",
-  description: "",
-  subCategory: "",
-  status: "active",
-};
-
 const formatImageUrl = (path) => {
   if (!path) return "";
   if (/^(https?:|data:|blob:)/i.test(path)) return path;
   return `${apiOrigin}/${path.replace(/\\/g, "/").replace(/^\/+/, "")}`;
 };
 
-export default function Categories() {
+const initialForm = {
+  name: "",
+  description: "",
+  categoryId: "",
+  status: "active",
+};
+
+export default function SubCategories() {
+  const [subCategories, setSubCategories] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -36,42 +37,57 @@ export default function Categories() {
   const [pageSize, setPageSize] = useState(10);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [categoryFilter, setCategoryFilter] = useState("all");
 
-  const pagedCategories = useMemo(() => {
+  const pagedSubCategories = useMemo(() => {
     const start = (page - 1) * pageSize;
-    return categories.slice(start, start + pageSize);
-  }, [categories, page, pageSize]);
+    return subCategories.slice(start, start + pageSize);
+  }, [subCategories, page, pageSize]);
 
-  const fetchCategories = useCallback(async () => {
+  // Fetch active categories for dropdown options
+  const fetchCategories = async () => {
+    try {
+      const res = await API.get("/admin/categories", { params: { status: "active" } });
+      setCategories(res.data?.data || []);
+    } catch (err) {
+      console.error("Unable to load parent categories:", err);
+    }
+  };
+
+  const fetchSubCategories = useCallback(async () => {
     try {
       setLoading(true);
       setError("");
-      const res = await API.get("/admin/categories", {
-        params: {
-          status: statusFilter,
-          ...(searchTerm.trim() ? { search: searchTerm.trim() } : {}),
-        },
-      });
-      setCategories(res.data?.data || []);
+      const params = {
+        status: statusFilter,
+        ...(searchTerm.trim() ? { search: searchTerm.trim() } : {}),
+        ...(categoryFilter !== "all" ? { categoryId: categoryFilter } : {}),
+      };
+      const res = await API.get("/admin/sub-categories", { params });
+      setSubCategories(res.data?.data || []);
     } catch (err) {
-      setError(err.response?.data?.message || "Unable to load categories.");
+      setError(err.response?.data?.message || "Unable to load sub-categories.");
     } finally {
       setLoading(false);
     }
-  }, [searchTerm, statusFilter]);
+  }, [searchTerm, statusFilter, categoryFilter]);
 
   useEffect(() => {
-    const timer = setTimeout(fetchCategories, 300);
+    fetchCategories();
+  }, []);
+
+  useEffect(() => {
+    const timer = setTimeout(fetchSubCategories, 300);
     return () => clearTimeout(timer);
-  }, [fetchCategories]);
+  }, [fetchSubCategories]);
 
   useEffect(() => {
     setPage(1);
-  }, [categories.length]);
+  }, [subCategories.length]);
 
   useEffect(() => {
     const handleClick = (event) => {
-      if (!event.target.closest("[data-category-menu], [data-table-menu-popover]")) {
+      if (!event.target.closest("[data-subcategory-menu], [data-table-menu-popover]")) {
         setOpenMenuId("");
       }
     };
@@ -99,15 +115,14 @@ export default function Categories() {
     setShowForm(true);
   };
 
-  const openEdit = (category) => {
+  const openEdit = (subCategory) => {
     setForm({
-      name: category?.name || "",
-      description: category?.description || "",
-      subCategory: category?.subCategory?._id || category?.subCategory || "",
-      status: category?.status || "active",
+      name: subCategory?.name || "",
+      description: subCategory?.description || "",
+      categoryId: subCategory?.categoryId?._id || subCategory?.categoryId || "",
+      status: subCategory?.status || "active",
     });
-    setEditingId(category?._id || "");
-    setImageFile(null);
+    setEditingId(subCategory?._id || "");
     setError("");
     setSuccess("");
     setShowForm(true);
@@ -127,7 +142,13 @@ export default function Categories() {
     event.preventDefault();
 
     if (!form.name.trim()) {
-      setError("Category name is required.");
+      setError("Sub-category name is required.");
+      setSuccess("");
+      return;
+    }
+
+    if (!form.categoryId) {
+      setError("Parent category selection is required.");
       setSuccess("");
       return;
     }
@@ -140,91 +161,83 @@ export default function Categories() {
       const payload = new FormData();
       payload.append("name", form.name.trim());
       payload.append("description", form.description.trim());
+      payload.append("categoryId", form.categoryId);
       payload.append("status", form.status);
-      payload.append("subCategory", form.subCategory || "");
 
       if (imageFile) {
         payload.append("imageFile", imageFile);
       }
 
       if (editingId) {
-        await API.put(`/admin/categories/${editingId}`, payload, {
+        await API.put(`/admin/sub-categories/${editingId}`, payload, {
           headers: { "Content-Type": "multipart/form-data" },
         });
       } else {
-        await API.post("/admin/categories", payload, {
+        await API.post("/admin/sub-categories", payload, {
           headers: { "Content-Type": "multipart/form-data" },
         });
       }
 
-      await fetchCategories();
-      setSuccess(editingId ? "Category updated successfully." : "Category created successfully.");
+      await fetchSubCategories();
+      setSuccess(editingId ? "Sub-category updated successfully." : "Sub-category created successfully.");
       closeForm();
     } catch (err) {
-      setError(err.response?.data?.message || "Unable to save category.");
+      setError(err.response?.data?.message || "Unable to save sub-category.");
       setSuccess("");
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleDelete = async (category) => {
-    if (!category?._id) return;
-    if (!window.confirm(`Delete category "${category.name}"?`)) return;
+  const handleDelete = async (subCategory) => {
+    if (!subCategory?._id) return;
+    if (!window.confirm(`Delete sub-category "${subCategory.name}"?`)) return;
 
     try {
       setError("");
       setSuccess("");
-      await API.delete(`/admin/categories/${category._id}`);
-      setCategories((current) => current.filter((entry) => entry._id !== category._id));
-      setSelectedIds((current) => current.filter((id) => id !== category._id));
-      setSuccess("Category deleted successfully.");
-      if (editingId === category._id) {
+      await API.delete(`/admin/sub-categories/${subCategory._id}`);
+      setSubCategories((current) => current.filter((entry) => entry._id !== subCategory._id));
+      setSelectedIds((current) => current.filter((id) => id !== subCategory._id));
+      setSuccess("Sub-category deleted successfully.");
+      if (editingId === subCategory._id) {
         closeForm();
       }
     } catch (err) {
-      setError(err.response?.data?.message || "Unable to delete category.");
+      setError(err.response?.data?.message || "Unable to delete sub-category.");
     }
   };
 
-  const buildCategoryPayload = (category, overrides = {}) => {
-    const payload = new FormData();
-    payload.append("name", String(overrides.name ?? category.name ?? "").trim());
-    payload.append("description", String(overrides.description ?? category.description ?? "").trim());
-    payload.append("status", overrides.status ?? category.status ?? "inactive");
-    payload.append("subCategory", overrides.subCategory ?? category.subCategory?._id ?? "");
-    return payload;
-  };
-
-  const handleToggleStatus = async (category) => {
-    if (!category?._id) return;
-    const nextStatus = category.status === "active" ? "inactive" : "active";
+  const handleToggleStatus = async (subCategory) => {
+    if (!subCategory?._id) return;
+    const nextStatus = subCategory.status === "active" ? "inactive" : "active";
 
     try {
-      const payload = buildCategoryPayload(category, { status: nextStatus });
-      await API.put(`/admin/categories/${category._id}`, payload, {
-        headers: { "Content-Type": "multipart/form-data" },
+      await API.put(`/admin/sub-categories/${subCategory._id}`, {
+        name: subCategory.name,
+        categoryId: subCategory.categoryId?._id || subCategory.categoryId,
+        status: nextStatus,
       });
-      setCategories((current) =>
-        current.map((entry) => (entry._id === category._id ? { ...entry, status: nextStatus } : entry))
+      setSubCategories((current) =>
+        current.map((entry) => (entry._id === subCategory._id ? { ...entry, status: nextStatus } : entry))
       );
     } catch (err) {
-      setError(err.response?.data?.message || "Unable to update category status.");
+      setError(err.response?.data?.message || "Unable to update sub-category status.");
     }
   };
 
-  const toggleSelection = (categoryId, checked) => {
+  const toggleSelection = (subCategoryId, checked) => {
     setSelectedIds((current) => {
       if (checked) {
-        return current.includes(categoryId) ? current : [...current, categoryId];
+        return current.includes(subCategoryId) ? current : [...current, subCategoryId];
       }
-      return current.filter((id) => id !== categoryId);
+      return current.filter((id) => id !== subCategoryId);
     });
   };
 
   const toggleAll = (checked) => {
     if (checked) {
-      setSelectedIds(categories.map((category) => category._id));
+      setSelectedIds(subCategories.map((subCat) => subCat._id));
       return;
     }
     setSelectedIds([]);
@@ -232,19 +245,17 @@ export default function Categories() {
 
   const handleDeleteSelected = async () => {
     if (!selectedIds.length) return;
-    if (!window.confirm(`Delete ${selectedIds.length} selected categories?`)) return;
+    if (!window.confirm(`Delete ${selectedIds.length} selected sub-categories?`)) return;
 
     try {
-      await Promise.all(selectedIds.map((id) => API.delete(`/admin/categories/${id}`)));
-      setCategories((current) => current.filter((entry) => !selectedIds.includes(entry._id)));
+      await Promise.all(selectedIds.map((id) => API.delete(`/admin/sub-categories/${id}`)));
+      setSubCategories((current) => current.filter((entry) => !selectedIds.includes(entry._id)));
       setSelectedIds([]);
-      setSuccess("Selected categories deleted successfully.");
+      setSuccess("Selected sub-categories deleted successfully.");
     } catch (err) {
-      setError(err.response?.data?.message || "Unable to delete selected categories.");
+      setError(err.response?.data?.message || "Unable to delete selected sub-categories.");
     }
   };
-
-
 
   return (
     <div className="space-y-6 text-[#2f1618] dark:text-[#fff3dc]">
@@ -252,11 +263,11 @@ export default function Categories() {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.26em] text-[var(--admin-primary)]">Catalog</p>
-            <h2 className="mt-2 text-2xl font-bold">Manage categories</h2>
-            <p className="mt-2 text-sm text-[#6e4b40] dark:text-[#f7e3c0]/75">Add, update and organize categories for products.</p>
+            <h2 className="mt-2 text-2xl font-bold">Manage Sub Categories</h2>
+            <p className="mt-2 text-sm text-[#6e4b40] dark:text-[#f7e3c0]/75">Add, update and organize sub-categories linked to parent categories.</p>
           </div>
           <button type="button" onClick={openCreate} className="admin-btn-primary inline-flex items-center gap-2 rounded-2xl px-4 py-2 text-sm font-semibold shadow">
-            <FiPlus className="h-4 w-4" /> Add Category
+            <FiPlus className="h-4 w-4" /> Add Sub Category
           </button>
         </div>
       </section>
@@ -275,7 +286,7 @@ export default function Categories() {
       {showForm && (
         <form onSubmit={handleSubmit} className="grid gap-4 rounded-3xl border border-[#d9c3a2]/60 bg-white/80 p-5 shadow-[var(--admin-shadow)] dark:border-white/10 dark:bg-white/5">
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-bold">{editingId ? "Edit Category" : "Create Category"}</h3>
+            <h3 className="text-lg font-bold">{editingId ? "Edit Sub Category" : "Create Sub Category"}</h3>
             <button type="button" onClick={closeForm} className="rounded-full border border-[#d9c3a2] p-2 text-[#7b3a4b] hover:bg-[#8B1E3F]/8 dark:border-white/20">
               <FiX className="h-4 w-4" />
             </button>
@@ -283,9 +294,20 @@ export default function Categories() {
 
           <div className="grid gap-3 md:grid-cols-2">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Category Name</label>
+              <label className="text-sm font-medium">Sub Category Name</label>
               <input name="name" value={form.name} onChange={handleChange} className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-black/20" required />
             </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Parent Category</label>
+              <select name="categoryId" value={form.categoryId} onChange={handleChange} className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-[#1d2026] dark:text-white" required>
+                <option value="">Select Category</option>
+                {categories.map((cat) => (
+                  <option key={cat._id} value={cat._id}>{cat.name}</option>
+                ))}
+              </select>
+            </div>
+
             <div className="space-y-2">
               <label className="text-sm font-medium">Status</label>
               <select name="status" value={form.status} onChange={handleChange} className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-[#1d2026] dark:text-white">
@@ -307,7 +329,7 @@ export default function Categories() {
 
           <div className="flex gap-2">
             <button type="button" onClick={closeForm} className="w-full rounded-2xl border border-[#d9c3a2] bg-white px-4 py-3 text-sm font-semibold text-[#7b3a4b] dark:border-white/20 dark:bg-black/20">Cancel</button>
-            <button type="submit" disabled={submitting} className="admin-btn-primary w-full rounded-2xl px-4 py-3 text-sm font-semibold shadow disabled:opacity-60">{submitting ? "Saving..." : editingId ? "Save Changes" : "Create Category"}</button>
+            <button type="submit" disabled={submitting} className="admin-btn-primary w-full rounded-2xl px-4 py-3 text-sm font-semibold shadow disabled:opacity-60">{submitting ? "Saving..." : editingId ? "Save Changes" : "Create Sub Category"}</button>
           </div>
         </form>
       )}
@@ -320,18 +342,26 @@ export default function Categories() {
               type="search"
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}
-              placeholder="Search categories"
+              placeholder="Search sub-categories"
               className="h-11 w-full bg-transparent text-sm text-[#2f1618] outline-none placeholder:text-[#8c7461] dark:text-[#fff3dc]"
             />
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <select value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)} className="h-11 rounded-xl border border-[#d7c3a3] bg-white px-3 text-sm outline-none dark:border-white/20 dark:bg-[#181c24] dark:text-white">
+              <option value="all">All Categories</option>
+              {categories.map((cat) => (
+                <option key={cat._id} value={cat._id}>{cat.name}</option>
+              ))}
+            </select>
+
             <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="h-11 rounded-xl border border-[#d7c3a3] bg-white px-3 text-sm outline-none dark:border-white/20 dark:bg-[#181c24] dark:text-white">
               <option value="all">All Status</option>
               <option value="active">Active</option>
               <option value="inactive">Inactive</option>
             </select>
-            <button type="button" onClick={fetchCategories} className="inline-flex items-center gap-2 rounded-xl border border-[#d7bf9b] px-3 py-2 text-sm font-medium text-[#6f3945] hover:bg-[#8B1E3F]/10 dark:border-white/20 dark:text-[#f7e3c0]">
+
+            <button type="button" onClick={fetchSubCategories} className="inline-flex items-center gap-2 rounded-xl border border-[#d7bf9b] px-3 py-2 text-sm font-medium text-[#6f3945] hover:bg-[#8B1E3F]/10 dark:border-white/20 dark:text-[#f7e3c0]">
               <FiRefreshCw className="h-4 w-4" /> Refresh
             </button>
             <button type="button" onClick={handleDeleteSelected} disabled={!selectedIds.length} className="h-11 rounded-xl border border-red-200 bg-red-50 px-4 text-sm font-semibold text-red-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200">
@@ -341,9 +371,9 @@ export default function Categories() {
         </div>
 
         {loading ? (
-          <p className="rounded-xl bg-white/60 p-6 text-sm dark:bg-white/5">Loading categories...</p>
-        ) : !categories.length ? (
-          <p className="rounded-xl bg-white/60 p-6 text-sm dark:bg-white/5">No categories found.</p>
+          <p className="rounded-xl bg-white/60 p-6 text-sm dark:bg-white/5">Loading sub-categories...</p>
+        ) : !subCategories.length ? (
+          <p className="rounded-xl bg-white/60 p-6 text-sm dark:bg-white/5">No sub-categories found.</p>
         ) : (
           <>
             <div className="admin-table-wrap overflow-x-auto">
@@ -353,7 +383,7 @@ export default function Categories() {
                     <th className="text-center py-3 font-semibold">
                       <input
                         type="checkbox"
-                        checked={categories.length > 0 && selectedIds.length === categories.length}
+                        checked={subCategories.length > 0 && selectedIds.length === subCategories.length}
                         onChange={(event) => toggleAll(event.target.checked)}
                         className="h-4 w-4 rounded-[4px] border border-[#d7c3a3]"
                       />
@@ -363,55 +393,57 @@ export default function Categories() {
                     <th className="px-4 py-3 font-semibold">Name</th>
                     <th className="px-4 py-3 font-semibold">Code</th>
                     <th className="px-4 py-3 font-semibold">Description</th>
+                    <th className="px-4 py-3 font-semibold">Parent Category</th>
                     <th className="px-4 py-3 font-semibold">Status</th>
                     <th className="px-4 py-3 font-semibold text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {pagedCategories.map((category, index) => (
-                    <tr key={category._id} className="border-b border-[#f0e3d1] align-top last:border-none dark:border-white/10">
+                  {pagedSubCategories.map((subCat, index) => (
+                    <tr key={subCat._id} className="border-b border-[#f0e3d1] align-top last:border-none dark:border-white/10">
                       <td className="text-center px-4 py-3">
                         <input
                           type="checkbox"
-                          checked={selectedIds.includes(category._id)}
-                          onChange={(event) => toggleSelection(category._id, event.target.checked)}
+                          checked={selectedIds.includes(subCat._id)}
+                          onChange={(event) => toggleSelection(subCat._id, event.target.checked)}
                           className="h-4 w-4 rounded-[4px] border border-[#d7c3a3]"
                         />
                       </td>
                       <td className="px-4 py-3 text-sm text-[#6f3945] dark:text-[#f7e3c0]">{(page - 1) * pageSize + index + 1}</td>
                       <td className="px-4 py-3">
-                        {category.image ? (
-                          <img src={formatImageUrl(category.image)} alt={category.name} className="h-10 w-10 rounded-lg border border-[#D4AF37]/30 object-cover" />
+                        {subCat.image ? (
+                          <img src={formatImageUrl(subCat.image)} alt={subCat.name} className="h-10 w-10 rounded-lg border border-[#D4AF37]/30 object-cover" />
                         ) : (
                           <div className="grid h-10 w-10 place-items-center rounded-lg bg-[#f8ecda] text-xs text-[#7b5a4e]">No</div>
                         )}
                       </td>
-                      <td className="px-4 py-3 font-semibold text-[#2f1618] dark:text-[#fff3dc]">{category.name}</td>
-                      <td className="px-4 py-3 text-sm text-[#6f3945] dark:text-[#f7e3c0]">{category.code || "-"}</td>
-                      <td className="px-4 py-3 text-sm text-[#6f3945] dark:text-[#f7e3c0] max-w-[300px]"><span className="line-clamp-2" title={category.description}>{category.description || "-"}</span></td>
+                      <td className="px-4 py-3 font-semibold text-[#2f1618] dark:text-[#fff3dc]">{subCat.name}</td>
+                      <td className="px-4 py-3 text-sm text-[#6f3945] dark:text-[#f7e3c0]">{subCat.code || "-"}</td>
+                      <td className="px-4 py-3 text-sm text-[#6f3945] dark:text-[#f7e3c0] max-w-[300px]"><span className="line-clamp-2" title={subCat.description}>{subCat.description || "-"}</span></td>
+                      <td className="px-4 py-3 text-sm font-semibold text-[#6f3945] dark:text-[#f7e3c0]">{subCat.categoryId?.name || "-"}</td>
                       <td className="px-4 py-3">
-                        <span className={`rounded-full px-2.5 py-1 text-xs font-semibold uppercase ${category.status === "inactive" ? "bg-red-100 text-red-700" : "bg-emerald-100 text-emerald-700"}`}>
-                          {category.status || "active"}
+                        <span className={`rounded-full px-2.5 py-1 text-xs font-semibold uppercase ${subCat.status === "inactive" ? "bg-red-100 text-red-700" : "bg-emerald-100 text-emerald-700"}`}>
+                          {subCat.status || "active"}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-right" data-category-menu>
+                      <td className="px-4 py-3 text-right" data-subcategory-menu>
                         <div className="relative inline-flex">
                           <button
-                            type="button"
-                            onClick={(event) => {
-                              const nextId = openMenuId === category._id ? "" : category._id;
-                              setOpenMenuId(nextId);
-                              setMenuAnchorRect(nextId ? event.currentTarget.getBoundingClientRect() : null);
-                            }}
-                            className="grid h-9 w-9 place-items-center rounded-lg border border-[#d7bf9b] text-[#6f3945] hover:bg-[#8B1E3F]/10 dark:border-white/20 dark:text-[#f7e3c0]"
+                             type="button"
+                             onClick={(event) => {
+                               const nextId = openMenuId === subCat._id ? "" : subCat._id;
+                               setOpenMenuId(nextId);
+                               setMenuAnchorRect(nextId ? event.currentTarget.getBoundingClientRect() : null);
+                             }}
+                             className="grid h-9 w-9 place-items-center rounded-lg border border-[#d7bf9b] text-[#6f3945] hover:bg-[#8B1E3F]/10 dark:border-white/20 dark:text-[#f7e3c0]"
                           >
                             <FiMoreVertical />
                           </button>
-                          {openMenuId === category._id && (
+                          {openMenuId === subCat._id && (
                             <TableMenuPopover
                               open
                               anchorRect={menuAnchorRect}
-                              preferUp={index >= pagedCategories.length - 3}
+                              preferUp={index >= pagedSubCategories.length - 3}
                               onClose={() => setOpenMenuId("")}
                               className="w-44 overflow-hidden rounded-xl border border-[#d9c3a2] bg-white text-sm shadow-lg dark:border-white/10 dark:bg-[#1b1f27]"
                             >
@@ -419,7 +451,7 @@ export default function Categories() {
                                 type="button"
                                 onClick={() => {
                                   setOpenMenuId("");
-                                  openEdit(category);
+                                  openEdit(subCat);
                                 }}
                                 className="flex w-full items-center gap-2 px-4 py-2 text-left hover:bg-[#8B1E3F]/10"
                               >
@@ -429,19 +461,19 @@ export default function Categories() {
                                 type="button"
                                 onClick={() => {
                                   setOpenMenuId("");
-                                  handleToggleStatus(category);
+                                  handleToggleStatus(subCat);
                                 }}
                                 className="flex w-full items-center gap-2 px-4 py-2 text-left hover:bg-[#8B1E3F]/10"
                               >
                                 <span className="text-[#6f3945]">
-                                  {category.status === "inactive" ? "Mark Active" : "Mark Inactive"}
+                                  {subCat.status === "inactive" ? "Mark Active" : "Mark Inactive"}
                                 </span>
                               </button>
                               <button
                                 type="button"
                                 onClick={() => {
                                   setOpenMenuId("");
-                                  handleDelete(category);
+                                  handleDelete(subCat);
                                 }}
                                 className="flex w-full items-center gap-2 px-4 py-2 text-left text-red-700 hover:bg-red-50 dark:text-red-200 dark:hover:bg-red-500/10"
                               >
@@ -459,7 +491,7 @@ export default function Categories() {
             <TablePagination
               page={page}
               pageSize={pageSize}
-              total={categories.length}
+              total={subCategories.length}
               onPageChange={setPage}
               onPageSizeChange={(size) => {
                 setPageSize(size);

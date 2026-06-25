@@ -17,6 +17,7 @@ import PanditWallet from "../models/panditWallet.model.js";
 import PanditWalletTransaction from "../models/panditWalletTransaction.model.js";
 import DeliveryPricing from "../models/vendorDeliveryPricing.model.js";
 import ProductReview from "../models/productReview.model.js";
+import PanditBooking from "../models/panditBooking.model.js";
 import {
   notifyAdmins,
   notifyUsersByIds,
@@ -144,7 +145,15 @@ const resolveAddressForCheckout = async ({
   return resolvedAddress;
 };
 
-const calculateDynamicDeliveryFee = async (vendorId, address, inputFee) => {
+const calculateDynamicDeliveryFee = async (vendorId, address, inputFee, itemTotal = 0) => {
+  // Check if free delivery threshold applies
+  const bpSettings = await BookingPricing.findOne({ isActive: true }).lean();
+  const freeDeliveryThreshold = Number(bpSettings?.freeDeliveryThreshold || 0);
+
+  if (freeDeliveryThreshold > 0 && itemTotal >= freeDeliveryThreshold) {
+    return 0;
+  }
+
   let matchedCharge = null;
 
   if (vendorId && address) {
@@ -292,6 +301,43 @@ const applyPanditCommission = async ({ panditId, orderId, baseAmount }) => {
 
   if (!Number.isFinite(commissionPercent) || commissionPercent <= 0) {
     return null;
+  }
+
+  const minRecommendationPrice = Number(pricing?.minRecommendationPriceForCommission || 0);
+
+  if (minRecommendationPrice > 0) {
+    const order = await Order.findById(orderId).lean();
+    if (order) {
+      let recommendedProductPrice = 0;
+
+      // 1. Check order items for a FestivalKit
+      const kitItem = order.items?.find((item) => item.productType === "FestivalKit");
+      if (kitItem) {
+        recommendedProductPrice = kitItem.price || 0;
+      }
+
+      // 2. Fall back to booking history
+      if (recommendedProductPrice === 0) {
+        const booking = await PanditBooking.findOne({
+          user: order.user,
+          pandit: panditId,
+          recommendedKit: { $ne: null }
+        })
+        .sort({ createdAt: -1 })
+        .populate("recommendedKit")
+        .lean();
+
+        if (booking && booking.recommendedKit) {
+          recommendedProductPrice = booking.recommendedKit.kitPrice || booking.recommendedKit.totalPrice || 0;
+        }
+      }
+
+      // 3. Reject if below the required limit
+      if (recommendedProductPrice < minRecommendationPrice) {
+        console.log(`[Pandit Commission] Skipped: recommended product price (${recommendedProductPrice}) is below threshold (${minRecommendationPrice})`);
+        return null;
+      }
+    }
   }
 
   const commissionAmount = toMoney(
@@ -827,6 +873,7 @@ export const createRazorpayOrder = async (req, res) => {
       vendorId,
       resolvedAddress,
       deliveryFee,
+      itemTotal,
     );
     const totalAmount = toMoney(itemTotal + finalDeliveryFee);
 
@@ -1001,6 +1048,7 @@ export const placeOrder = async (req, res) => {
       vendorId,
       finalAddress,
       deliveryFee,
+      itemTotal,
     );
     const totalAmount = toMoney(itemTotal + finalDeliveryFee);
 

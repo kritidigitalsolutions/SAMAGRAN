@@ -154,39 +154,19 @@ export const upsertPanditAvailability = async (req, res) => {
   }
 };
 
-const fetchPanditAvailability = async ({ panditId, month, year }) => {
-  return PanditAvailability.findOne({ pandit: panditId, month, year });
+const fetchPanditAvailability = async (panditId) => {
+  return PanditAvailability.find({ pandit: panditId });
 };
+
+// import mongoose from "mongoose";
 
 export const getPanditAvailabilityForPandit = async (req, res) => {
   try {
-    const { month, year } = req.query;
-    const { month: resolvedMonth, year: resolvedYear, error } = resolveMonthYear({
-      month,
-      year,
-    });
-
-    if (error) {
-      return res.status(400).json({
-        success: false,
-        message: error,
-      });
-    }
-
-    const record = await fetchPanditAvailability({
-      panditId: req.pandit?._id,
-      month: resolvedMonth,
-      year: resolvedYear,
-    });
+    const record = await fetchPanditAvailability(req.pandit?._id);
 
     return res.json({
       success: true,
-      data: record || {
-        pandit: req.pandit?._id,
-        month: resolvedMonth,
-        year: resolvedYear,
-        availability: [],
-      },
+      data: record,
     });
   } catch (err) {
     return res.status(500).json({
@@ -199,19 +179,8 @@ export const getPanditAvailabilityForPandit = async (req, res) => {
 export const getPanditAvailabilityForUser = async (req, res) => {
   try {
     const { panditId } = req.params;
-    const { month, year } = req.query;
-    const { month: resolvedMonth, year: resolvedYear, error } = resolveMonthYear({
-      month,
-      year,
-    });
 
-    if (error) {
-      return res.status(400).json({
-        success: false,
-        message: error,
-      });
-    }
-
+    // Validate the panditId from params
     if (!panditId || !mongoose.Types.ObjectId.isValid(panditId)) {
       return res.status(400).json({
         success: false,
@@ -219,20 +188,11 @@ export const getPanditAvailabilityForUser = async (req, res) => {
       });
     }
 
-    const record = await fetchPanditAvailability({
-      panditId,
-      month: resolvedMonth,
-      year: resolvedYear,
-    });
+    const record = await fetchPanditAvailability(panditId);
 
     return res.json({
       success: true,
-      data: record || {
-        pandit: panditId,
-        month: resolvedMonth,
-        year: resolvedYear,
-        availability: [],
-      },
+      data: record,
     });
   } catch (err) {
     return res.status(500).json({

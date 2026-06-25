@@ -129,6 +129,7 @@ export const getProductsUser = async (req, res) => {
 
     const items = await Item.find(query)
       .populate("categoryId", "name subCategory")
+      .populate("subCategoryId", "name code status")
       .populate("brandId", "name subBrand")
       .sort({ createdAt: -1 });
 
@@ -143,7 +144,7 @@ export const getProductsUser = async (req, res) => {
 
       // Derive category/brand from populated ref, falling back to embedded fields
       const categoryName = item.categoryId?.name || item.category?.name || "";
-      const categorySubCategory = item.categoryId?.subCategory || item.category?.subCategory || "";
+      const categorySubCategory = item.subCategoryId?.name || item.categoryId?.subCategory || item.category?.subCategory || "";
       const brandName = item.brandId?.name || item.details?.brand || "";
       const brandSubBrand = item.brandId?.subBrand || item.details?.subBrand || "";
 
@@ -169,6 +170,7 @@ export const getProductsUser = async (req, res) => {
             img.replace(/\\/g, "/")
           ) || [],
         categoryId: item.categoryId || null,
+        subCategoryId: item.subCategoryId || null,
         category: {
           name: categoryName,
           subCategory: categorySubCategory,
@@ -228,6 +230,7 @@ export const getSingleProductUser = async (req, res) => {
   try {
     const item = await Item.findById(req.params.id)
       .populate("categoryId", "name subCategory")
+      .populate("subCategoryId", "name code status")
       .populate("brandId", "name subBrand");
 
     if (!item || item.status !== "active") {
@@ -248,7 +251,7 @@ export const getSingleProductUser = async (req, res) => {
 
     // Derive category/brand from populated ref, falling back to embedded fields
     const categoryName = item.categoryId?.name || item.category?.name || "";
-    const categorySubCategory = item.categoryId?.subCategory || item.category?.subCategory || "";
+    const categorySubCategory = item.subCategoryId?.name || item.categoryId?.subCategory || item.category?.subCategory || "";
     const brandName = item.brandId?.name || item.details?.brand || "";
     const brandSubBrand = item.brandId?.subBrand || item.details?.subBrand || "";
 
@@ -268,6 +271,7 @@ export const getSingleProductUser = async (req, res) => {
           expiresAt: null,
         },
         categoryId: item.categoryId || null,
+        subCategoryId: item.subCategoryId || null,
         category: {
           name: categoryName,
           subCategory: categorySubCategory,

@@ -4,9 +4,21 @@ import BookingPricing from "../../models/bookingPrice.js";
 // 👉 ADMIN: Create or Update Pricing
 export const setBookingPrice = async (req, res) => {
   try {
-    const { price, panditCommissionPercent, panditCommissionThreshold } = req.body;
+    const {
+      price,
+      panditCommissionPercent,
+      panditCommissionThreshold,
+      minRecommendationPriceForCommission,
+      freeDeliveryThreshold
+    } = req.body;
 
-    if (price === undefined && panditCommissionPercent === undefined && panditCommissionThreshold === undefined) {
+    if (
+      price === undefined &&
+      panditCommissionPercent === undefined &&
+      panditCommissionThreshold === undefined &&
+      minRecommendationPriceForCommission === undefined &&
+      freeDeliveryThreshold === undefined
+    ) {
       return res.status(400).json({ message: "At least one value is required" });
     }
 
@@ -24,6 +36,20 @@ export const setBookingPrice = async (req, res) => {
       }
     }
 
+    if (minRecommendationPriceForCommission !== undefined) {
+      const recLimitValue = Number(minRecommendationPriceForCommission);
+      if (!Number.isFinite(recLimitValue) || recLimitValue < 0) {
+        return res.status(400).json({ message: "minRecommendationPriceForCommission must be a positive number" });
+      }
+    }
+
+    if (freeDeliveryThreshold !== undefined) {
+      const freeDelValue = Number(freeDeliveryThreshold);
+      if (!Number.isFinite(freeDelValue) || freeDelValue < 0) {
+        return res.status(400).json({ message: "freeDeliveryThreshold must be a positive number" });
+      }
+    }
+
     // Check existing pricing
     let pricing = await BookingPricing.findOne();
 
@@ -37,6 +63,12 @@ export const setBookingPrice = async (req, res) => {
       if (panditCommissionThreshold !== undefined) {
         pricing.panditCommissionThreshold = Number(panditCommissionThreshold);
       }
+      if (minRecommendationPriceForCommission !== undefined) {
+        pricing.minRecommendationPriceForCommission = Number(minRecommendationPriceForCommission);
+      }
+      if (freeDeliveryThreshold !== undefined) {
+        pricing.freeDeliveryThreshold = Number(freeDeliveryThreshold);
+      }
       await pricing.save();
     } else {
       if (price === undefined) {
@@ -46,6 +78,8 @@ export const setBookingPrice = async (req, res) => {
         price,
         panditCommissionPercent: Number(panditCommissionPercent || 0),
         panditCommissionThreshold: Number(panditCommissionThreshold || 500),
+        minRecommendationPriceForCommission: Number(minRecommendationPriceForCommission || 0),
+        freeDeliveryThreshold: Number(freeDeliveryThreshold || 0),
       });
     }
 
@@ -97,6 +131,8 @@ export const getBookingPrice = async (req, res) => {
         price: pricing.price,
         panditCommissionPercent: pricing.panditCommissionPercent || 0,
         panditCommissionThreshold: pricing.panditCommissionThreshold || 0,
+        minRecommendationPriceForCommission: pricing.minRecommendationPriceForCommission || 0,
+        freeDeliveryThreshold: pricing.freeDeliveryThreshold || 0,
         isActive: pricing.isActive,
       },
     });

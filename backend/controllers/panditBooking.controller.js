@@ -11,7 +11,7 @@ import BookingPricing from "../models/bookingPrice.js";
 import mongoose from "mongoose";
 import { notifyAdmins } from "../utils/notification.service.js";
 import { createMeeting } from "../utils/zoom.service.js";
-import { notifyPanditBookingStatusUpdate } from "../utils/booking.notifications.js";
+import { notifyPanditBookingStatusUpdate, notifyPanditBookingAction } from "../utils/booking.notifications.js";
 import Wallet from "../models/wallet.model.js";
 import WalletTransaction from "../models/walletTransaction.model.js";
 
@@ -1438,6 +1438,21 @@ export const confirmPanditBookingPayment = async (req, res) => {
       console.error("Error creating zoom meeting after payment-confirmation:", e.response?.data || e.message || e);
     }
 
+    // Send notification to pandit
+    try {
+      if (booking.pandit) {
+        await notifyPanditBookingAction(
+          booking.pandit,
+          booking._id,
+          "booking_requested",
+          { _id: req.user._id, name: req.user.name || req.user.phone || "User" },
+          booking.ritual?.name || "Ritual"
+        );
+      }
+    } catch (e) {
+      console.error("Error sending booking requested notification to pandit:", e.message || e);
+    }
+
     const responseBody = {
       success: true,
       message: "Payment successful and booking requested",
@@ -2050,6 +2065,21 @@ export const cancelPanditBookingByUser = async (req, res) => {
 
     await booking.save();
 
+    // Send notification to pandit
+    try {
+      if (booking.pandit) {
+        await notifyPanditBookingAction(
+          booking.pandit,
+          booking._id,
+          "user_cancelled",
+          { _id: req.user._id, name: req.user.name || req.user.phone || "User" },
+          booking.ritual?.name || "Ritual"
+        );
+      }
+    } catch (e) {
+      console.error("Error sending booking cancelled notification to pandit:", e.message || e);
+    }
+
     void notifyAdmins({
       title: "Pandit booking cancelled by user",
       body: `${req.user?.name || req.user?.phone || "A user"} cancelled booking ${String(booking._id).slice(-6)}`,
@@ -2557,6 +2587,34 @@ export const createPanditBookingWithWallet = async (req, res) => {
       `Pandit booking: ${createdBooking.ritual.name}`,
       { bookingId: createdBooking._id, panditId: selectedPandit._id }
     );
+
+    // create zoom meeting after payment-confirmation if not present
+    try {
+      if (createdBooking?.payment?.status === "paid") {
+        const zoom = await ensureZoomMeetingForBooking(createdBooking);
+        if (zoom) {
+          createdBooking.zoomMeeting = zoom;
+          await createdBooking.save();
+        }
+      }
+    } catch (e) {
+      console.error("Error creating zoom meeting after wallet booking:", e.message || e);
+    }
+
+    // Send notification to pandit
+    try {
+      if (createdBooking.pandit) {
+        await notifyPanditBookingAction(
+          createdBooking.pandit,
+          createdBooking._id,
+          "booking_requested",
+          { _id: req.user._id, name: req.user.name || req.user.phone || "User" },
+          createdBooking.ritual?.name || "Ritual"
+        );
+      }
+    } catch (e) {
+      console.error("Error sending booking requested notification to pandit:", e.message || e);
+    }
 
     const booking = await PanditBooking.findById(createdBooking._id)
       .populate("pandit", "fullName phone profileImage ratingAverage yearsOfExperience languagesSpoken")

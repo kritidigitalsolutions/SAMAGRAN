@@ -149,12 +149,23 @@ export const notifyUsersByIds = async ({ userIds = [], title, body, data = {} })
 
 export const notifyPandits = async ({ title, body, data = {} }) => {
   const pandits = await Pandit.find(queryWithToken).select("fcmToken").lean();
-  return sendPushNotifications({
+  const sendResult = await sendPushNotifications({
     tokens: collectTokens(pandits),
     title,
     body,
     data,
   });
+
+  await createNotificationRecord({
+    title,
+    body,
+    data,
+    audienceType: "pandit",
+    audienceIds: [],
+    sendResult,
+  });
+
+  return sendResult;
 };
 
 export const notifyPanditById = async ({ panditId, title, body, data = {} }) => {

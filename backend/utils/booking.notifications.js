@@ -58,12 +58,10 @@ export const notifyPanditBookingStatusUpdate = async (
         newStatus: status,
         ritual: ritualTitle,
       },
-      recipients: [
-        {
-          type: "user",
-          ids: [userId],
-        },
-      ],
+      audience: {
+        type: "user",
+        ids: [userId],
+      },
     });
 
     await notification.save();
@@ -141,6 +139,12 @@ export const notifyPanditBookingAction = async (
         body = `${user.name} cancelled the ${ritualTitle} booking with you.`;
         break;
 
+      case "booking_requested":
+      case "new_booking":
+        title = "New Booking Request! 📋";
+        body = `You have a new booking request for ${ritualTitle} from ${user.name}.`;
+        break;
+
       default:
         title = "Booking Update";
         body = `New update on your ${ritualTitle} booking.`;
@@ -158,12 +162,10 @@ export const notifyPanditBookingAction = async (
         action,
         ritual: ritualTitle,
       },
-      recipients: [
-        {
-          type: "pandit",
-          ids: [panditId],
-        },
-      ],
+      audience: {
+        type: "pandit",
+        ids: [panditId],
+      },
     });
 
     await notification.save();

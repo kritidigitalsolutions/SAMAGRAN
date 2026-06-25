@@ -19,6 +19,13 @@ const itemSchema = new mongoose.Schema(
       index: true,
     },
 
+    subCategoryId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "SubCategory",
+      default: null,
+      index: true,
+    },
+
     category: {
       name: String,
       subCategory: String,

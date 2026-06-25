@@ -30,6 +30,7 @@ const navSections = [
     items: [
       { label: "Products", path: "/dashboard/items", icon: "box", accessKey: "products" },
       { label: "Category", path: "/dashboard/category", icon: "box", accessKey: "category" },
+      { label: "Sub Category", path: "/dashboard/sub-category", icon: "box", accessKey: "category", role: "super-admin" },
       { label: "Brands", path: "/dashboard/brands", icon: "box", accessKey: "brands" },
       { label: "Kits", path: "/dashboard/kits", icon: "gift", accessKey: "kits" },
       { label: "Rituals", path: "/dashboard/rituals", icon: "rituals", accessKey: "rituals" },
@@ -45,7 +46,7 @@ const navSections = [
       { label: "Pandit Earnings", path: "/dashboard/pandit-earnings", icon: "earnings", accessKey: "pandit-bookings" },
       { label: "Pandit Payouts", path: "/dashboard/pandit-payouts", icon: "withdrawals", accessKey: "pandit-bookings" },
       {
-        label: "Booking Pricing",
+        label: "Manage Pricing",
         path: "/dashboard/booking-pricing",
         icon: "pricing",
         accessKey: "booking-pricing",

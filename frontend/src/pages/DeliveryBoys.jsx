@@ -3,6 +3,7 @@ import { FiEdit2, FiMoreVertical, FiPlus, FiSearch, FiTrash2, FiX } from "react-
 import API from "../api/axios";
 import TablePagination from "../components/TablePagination";
 import TableMenuPopover from "../components/TableMenuPopover";
+import { getAdminRole } from "../utils/auth";
 
 const initialForm = {
   fullName: "",
@@ -13,6 +14,7 @@ const initialForm = {
   address: "",
   aadhar: "",
   pan: "",
+  vendorId: "",
 };
 
 const statusBadgeClass = (status = "") => {
@@ -30,6 +32,10 @@ const formatDateTime = (value) => {
 };
 
 export default function DeliveryBoys() {
+  const isSuperAdmin = getAdminRole() === "super-admin";
+  const [vendors, setVendors] = useState([]);
+  const [selectedVendorFilter, setSelectedVendorFilter] = useState("all");
+
   const [deliveryBoys, setDeliveryBoys] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -62,7 +68,22 @@ export default function DeliveryBoys() {
     };
   }, [deliveryBoys]);
 
-  const fetchDeliveryBoys = useCallback(async (searchValue = "", statusValue = "all") => {
+  const loadVendors = async () => {
+    try {
+      const res = await API.get("/admin/vendors?limit=100");
+      setVendors(res.data?.data?.vendors || []);
+    } catch (err) {
+      console.error("Failed to load vendors:", err);
+    }
+  };
+
+  useEffect(() => {
+    if (isSuperAdmin) {
+      loadVendors();
+    }
+  }, [isSuperAdmin]);
+
+  const fetchDeliveryBoys = useCallback(async (searchValue = "", statusValue = "all", vendorFilterVal = "all") => {
     try {
       setLoading(true);
       setError("");
@@ -71,6 +92,7 @@ export default function DeliveryBoys() {
         params: {
           ...(searchValue.trim() ? { search: searchValue.trim() } : {}),
           status: statusValue,
+          ...(vendorFilterVal !== "all" ? { vendorId: vendorFilterVal } : {}),
         },
       });
 
@@ -84,11 +106,11 @@ export default function DeliveryBoys() {
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      fetchDeliveryBoys(searchTerm, statusFilter);
+      fetchDeliveryBoys(searchTerm, statusFilter, selectedVendorFilter);
     }, 350);
 
     return () => clearTimeout(timer);
-  }, [fetchDeliveryBoys, searchTerm, statusFilter]);
+  }, [fetchDeliveryBoys, searchTerm, statusFilter, selectedVendorFilter]);
 
   useEffect(() => {
     setPage(1);
@@ -133,6 +155,7 @@ export default function DeliveryBoys() {
       address: deliveryBoy?.address || "",
       aadhar: deliveryBoy?.aadhar || "",
       pan: deliveryBoy?.pan || "",
+      vendorId: deliveryBoy?.vendorId?._id || deliveryBoy?.vendorId || "",
     });
     setEditingId(deliveryBoy?._id || "");
     setShowForm(true);
@@ -179,6 +202,7 @@ export default function DeliveryBoys() {
         address: form.address.trim(),
         aadhar: form.aadhar.trim(),
         pan: form.pan.trim(),
+        ...(isSuperAdmin ? { vendorId: form.vendorId || null } : {}),
       };
 
       if (editingId) {
@@ -187,7 +211,7 @@ export default function DeliveryBoys() {
         await API.post("/admin/delivery-boys", payload);
       }
 
-      await fetchDeliveryBoys(searchTerm, statusFilter);
+      await fetchDeliveryBoys(searchTerm, statusFilter, selectedVendorFilter);
       setSuccess(editingId ? "Delivery boy updated successfully." : "Delivery boy created successfully.");
       closeForm();
     } catch (err) {
@@ -397,6 +421,25 @@ export default function DeliveryBoys() {
               </select>
             </div>
 
+            {isSuperAdmin && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Assign to Vendor</label>
+                <select
+                  name="vendorId"
+                  value={form.vendorId}
+                  onChange={handleChange}
+                  className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-[#16181d] dark:text-white text-black"
+                >
+                  <option value="">Global / Super Admin (No Vendor)</option>
+                  {vendors.map((v) => (
+                    <option key={v._id} value={v._id}>
+                      {v.businessName || v.name} ({v.email})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             <div className="space-y-2 md:col-span-2">
               <label className="text-sm font-medium">Notes</label>
               <textarea
@@ -454,6 +497,21 @@ export default function DeliveryBoys() {
               <option value="active">Active</option>
               <option value="inactive">Inactive</option>
             </select>
+
+            {isSuperAdmin && (
+              <select
+                value={selectedVendorFilter}
+                onChange={(event) => setSelectedVendorFilter(event.target.value)}
+                className="h-11 rounded-xl border border-[#d7c3a3] bg-white px-3 text-sm text-black outline-none dark:border-white/20 dark:bg-[#181c24] dark:text-white"
+              >
+                <option value="all">All Vendors</option>
+                {vendors.map((v) => (
+                  <option key={v._id} value={v._id}>
+                    {v.businessName || v.name}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
         </div>
 
@@ -490,10 +548,11 @@ export default function DeliveryBoys() {
                       />
                     </th>
                     <th className="px-4 py-3 font-semibold">S.No</th>
-                    <th className="px-4 py-3 font-semibold">Name</th>
-                    <th className="px-4 py-3 font-semibold">Phone</th>
-                    <th className="px-4 py-3 font-semibold">Email</th>
-                    <th className="px-4 py-3 font-semibold">Address</th>
+                     <th className="px-4 py-3 font-semibold font-medium text-[#7f5a4f] dark:text-[#e7c98b]">Name</th>
+                     {isSuperAdmin && <th className="px-4 py-3 font-semibold font-medium text-[#7f5a4f] dark:text-[#e7c98b]">Vendor</th>}
+                     <th className="px-4 py-3 font-semibold font-medium text-[#7f5a4f] dark:text-[#e7c98b]">Phone</th>
+                     <th className="px-4 py-3 font-semibold font-medium text-[#7f5a4f] dark:text-[#e7c98b]">Email</th>
+                     <th className="px-4 py-3 font-semibold font-medium text-[#7f5a4f] dark:text-[#e7c98b]">Address</th>
                     <th className="px-4 py-3 font-semibold">Aadhar / PAN</th>
                     <th className="px-4 py-3 font-semibold">Status</th>
                     <th className="px-4 py-3 font-semibold">Last Login</th>
@@ -518,6 +577,11 @@ export default function DeliveryBoys() {
                       <td className="px-4 py-3 font-semibold text-[#2f1618] dark:text-[#fff3dc]">
                         {deliveryBoy.fullName || "-"}
                       </td>
+                      {isSuperAdmin && (
+                        <td className="px-4 py-3 text-sm font-medium text-[#7b5a4b] dark:text-[#dbcdb8]/70">
+                          {deliveryBoy.vendorId?.businessName || deliveryBoy.vendorId?.name || "Global"}
+                        </td>
+                      )}
                       <td className="px-4 py-3 text-sm">{deliveryBoy.phone || "-"}</td>
                       <td className="px-4 py-3 text-sm">{deliveryBoy.email || "-"}</td>
                       <td className="px-4 py-3 text-xs max-w-[150px] truncate" title={deliveryBoy.address}>{deliveryBoy.address || "-"}</td>

@@ -35,6 +35,7 @@ const buildItemForm = () => ({
   discountStartsAt: "",
   discountExpiresAt: "",
   categoryId: "",
+  subCategoryId: "",
   subCategoryName: "",
   brandId: "",
   subBrand: "",
@@ -115,6 +116,17 @@ const normalizeItem = (item = {}, fallback = {}) => {
         ? String(rawCategoryId)
         : "";
 
+  // Resolve populated subCategoryId — may be an object (populated) or an ID string
+  const rawSubCategoryId = item.subCategoryId ?? fallback.subCategoryId ?? null;
+  const subCategoryIdObj =
+    rawSubCategoryId && typeof rawSubCategoryId === "object" ? rawSubCategoryId : null;
+  const subCategoryIdStr =
+    subCategoryIdObj?._id
+      ? String(subCategoryIdObj._id)
+      : rawSubCategoryId
+        ? String(rawSubCategoryId)
+        : "";
+
   // Resolve populated brandId — may be an object (populated) or an ID string
   const rawBrandId = item.brandId ?? fallback.brandId ?? null;
   const brandIdObj =
@@ -133,6 +145,7 @@ const normalizeItem = (item = {}, fallback = {}) => {
     fallback.category?.name ||
     "";
   const categorySubCategory =
+    subCategoryIdObj?.name ||
     categoryIdObj?.subCategory ||
     item.category?.subCategory ||
     fallback.category?.subCategory ||
@@ -163,6 +176,7 @@ const normalizeItem = (item = {}, fallback = {}) => {
     itemCode: item.itemCode || fallback.itemCode || "",
     // Expose populated ref objects for the form pre-population
     categoryId: categoryIdObj || (categoryIdStr ? { _id: categoryIdStr, name: categoryName, subCategory: categorySubCategory } : null),
+    subCategoryId: subCategoryIdObj || (subCategoryIdStr ? { _id: subCategoryIdStr, name: categorySubCategory } : null),
     brandId: brandIdObj || (brandIdStr ? { _id: brandIdStr, name: brandName, subBrand: brandSubBrand } : null),
     // Normalized display objects — always safe to read from
     category: {
@@ -279,6 +293,12 @@ const buildEditForm = (item = {}) => ({
       : item.categoryId
         ? String(item.categoryId)
         : "",
+  subCategoryId:
+    item.subCategoryId?._id
+      ? String(item.subCategoryId._id)
+      : item.subCategoryId
+        ? String(item.subCategoryId)
+        : "",
   subCategoryName: item.category?.subCategory || item.categoryId?.subCategory || "",
   brandId:
     item.brandId?._id
@@ -364,6 +384,7 @@ export default function Items() {
   const isSuperAdmin = adminRole === "super-admin";
   const [items, setItems] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [subCategories, setSubCategories] = useState([]);
   const [brands, setBrands] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -398,18 +419,20 @@ export default function Items() {
   const [editImages, setEditImages] = useState([]);
   const [editPreview, setEditPreview] = useState([]);
 
-  // Fetch categories and brands on mount
+  // Fetch categories, subcategories and brands on mount
   useEffect(() => {
     const fetchCategoriesAndBrands = async () => {
       try {
-        const [catRes, brandRes] = await Promise.all([
+        const [catRes, subCatRes, brandRes] = await Promise.all([
           API.get("/admin/categories", { params: { status: "all" } }),
+          API.get("/admin/sub-categories", { params: { status: "active" } }),
           API.get("/admin/brands", { params: { status: "all" } }),
         ]);
         setCategories(catRes.data?.data || []);
+        setSubCategories(subCatRes.data?.data || []);
         setBrands(brandRes.data?.data || []);
       } catch (err) {
-        console.error("Error fetching categories/brands:", err.message);
+        console.error("Error fetching categories/subcategories/brands:", err.message);
       }
     };
     fetchCategoriesAndBrands();
@@ -712,6 +735,7 @@ export default function Items() {
 
       formData.append("priceIncludesGst", String(editForm.priceIncludesGst));
       formData.append("categoryId", editForm.categoryId || "");
+      formData.append("subCategoryId", editForm.subCategoryId || "");
       formData.append("subCategoryName", editForm.subCategoryName || "");
       formData.append("brandId", editForm.brandId || "");
 
@@ -914,11 +938,11 @@ export default function Items() {
                 name="categoryId"
                 value={createForm.categoryId}
                 onChange={(e) => {
-                  const selectedCat = categories.find(c => c._id === e.target.value);
                   setCreateForm((prev) => ({
                     ...prev,
                     categoryId: e.target.value,
-                    subCategoryName: selectedCat?.subCategory || "",
+                    subCategoryId: "",
+                    subCategoryName: "",
                   }));
                 }}
                 className="h-11 rounded-xl border border-[#d7c3a3] bg-white px-3 text-sm text-black outline-none dark:border-white/20 dark:bg-[#181c24] dark:text-white"
@@ -932,13 +956,28 @@ export default function Items() {
 
             <div className="form-group">
               <label>Sub Category</label>
-              <input
-                name="subCategoryName"
-                value={createForm.subCategoryName}
-                onChange={handleCreateChange}
-                placeholder="Auto-filled from category"
+              <select
+                name="subCategoryId"
+                value={createForm.subCategoryId}
+                onChange={(e) => {
+                  const selectedSub = subCategories.find(s => s._id === e.target.value);
+                  setCreateForm((prev) => ({
+                    ...prev,
+                    subCategoryId: e.target.value,
+                    subCategoryName: selectedSub ? selectedSub.name : "",
+                  }));
+                }}
                 className="h-11 rounded-xl border border-[#d7c3a3] bg-white px-3 text-sm text-black outline-none dark:border-white/20 dark:bg-[#181c24] dark:text-white"
-              />
+              >
+                <option value="">Select Sub Category</option>
+                {subCategories
+                  .filter((sub) => (sub.categoryId?._id || sub.categoryId) === createForm.categoryId)
+                  .map((sub) => (
+                    <option key={sub._id} value={sub._id}>
+                      {sub.name}
+                    </option>
+                  ))}
+              </select>
             </div>
 
             <div className="form-group">
@@ -1992,11 +2031,11 @@ export default function Items() {
                   name="categoryId"
                   value={editForm.categoryId}
                   onChange={(e) => {
-                    const selectedCat = categories.find(c => c._id === e.target.value);
                     setEditForm((prev) => ({
                       ...prev,
                       categoryId: e.target.value,
-                      subCategoryName: selectedCat?.subCategory || prev.subCategoryName,
+                      subCategoryId: "",
+                      subCategoryName: "",
                     }));
                   }}
                   className="h-11 rounded-xl border border-[#d7c3a3] bg-white px-3 text-sm text-black outline-none dark:border-white/20 dark:bg-[#181c24] dark:text-white"
@@ -2010,13 +2049,28 @@ export default function Items() {
               
               <label>
                 Sub Category
-                <input
-                  name="subCategoryName"
-                  value={editForm.subCategoryName}
-                  onChange={handleEditChange}
-                  placeholder="Auto-filled from category"
+                <select
+                  name="subCategoryId"
+                  value={editForm.subCategoryId}
+                  onChange={(e) => {
+                    const selectedSub = subCategories.find(s => s._id === e.target.value);
+                    setEditForm((prev) => ({
+                      ...prev,
+                      subCategoryId: e.target.value,
+                      subCategoryName: selectedSub ? selectedSub.name : "",
+                    }));
+                  }}
                   className="h-11 rounded-xl border border-[#d7c3a3] bg-white px-3 text-sm text-black outline-none dark:border-white/20 dark:bg-[#181c24] dark:text-white"
-                />
+                >
+                  <option value="">Select Sub Category</option>
+                  {subCategories
+                    .filter((sub) => (sub.categoryId?._id || sub.categoryId) === editForm.categoryId)
+                    .map((sub) => (
+                      <option key={sub._id} value={sub._id}>
+                        {sub.name}
+                      </option>
+                    ))}
+                </select>
               </label>
 
               <label>

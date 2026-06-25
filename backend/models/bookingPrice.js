@@ -16,6 +16,16 @@ const bookingPricingSchema = new mongoose.Schema(
       default: 500,
       min: 0,
     },
+    minRecommendationPriceForCommission: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    freeDeliveryThreshold: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
     isActive: {
       type: Boolean,
       default: true,

@@ -111,11 +111,13 @@ import adminPanditPayoutRoutes from "./routes/admin/panditPayout.routes.js";
 import adminBrandRoutes from "./routes/admin/brand.routes.js";
 import adminCategoryRoutes from "./routes/admin/category.routes.js";
 import adminCategoryCommissionRoutes from "./routes/admin/categoryCommission.routes.js";
+import adminSubCategoryRoutes from "./routes/admin/subCategory.routes.js";
 
 import authRoutes from "./routes/user/auth.routes.js";
 import panditAuthRoutes from "./routes/pandit/pandit.auth.routes.js";
 import panditAvailabilityRoutes from "./routes/pandit/availability.routes.js";
 import panditWalletRoutes from "./routes/pandit/wallet.routes.js";
+import panditNotificationRoutes from "./routes/pandit/notification.routes.js";
 import deliveryAuthRoutes from "./routes/delivery/delivery.auth.routes.js";
 import deliveryRoutes from "./routes/delivery/delivery.routes.js";
 import vendorAuthRoutes from "./routes/vendor/vendor.auth.routes.js";
@@ -126,6 +128,7 @@ import deliveryPricingRoute from "./routes/vendor/vendorDeliveryPricing.routes.j
 // User Routs
 import userProductRoutes from "./routes/user/product.routes.js";
 import categories from "./routes/user/category.routes.js";
+import userSubCategoryRoutes from "./routes/user/subCategory.routes.js";
 import brand from "./routes/user/brand.routes.js";
 import panditBooking from "./routes/user/panditBooking.routes.js";
 import cartRoutes from "./routes/user/cart.routes.js";
@@ -235,6 +238,7 @@ app.use("/api/admin", vendorFinanceRoutes);
 app.use("/api/admin", adminPanditPayoutRoutes);
 app.use("/api/admin", adminBrandRoutes);
 app.use("/api/admin", adminCategoryRoutes);
+app.use("/api/admin/sub-categories", adminSubCategoryRoutes);
 app.use("/api/admin", adminCategoryCommissionRoutes);
 app.use("/api/admin/complaints", adminComplaintRoutes);
 app.use("/api/admin/support-settings", adminSupportSettingRoutes);
@@ -249,6 +253,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/pandit/auth", panditAuthRoutes);
 app.use("/api/pandit/availability", panditAvailabilityRoutes);
 app.use("/api/pandit/wallet", panditWalletRoutes);
+app.use("/api/pandit/notifications", panditNotificationRoutes);
 app.use("/api/delivery/auth", deliveryAuthRoutes);
 app.use("/api/delivery", deliveryRoutes);
 
@@ -282,6 +287,7 @@ app.use("/api/temples", userTemples);
 app.use("/api/banners", userBanners);
 
 app.use("/api/category", categories)
+app.use("/api/sub-categories", userSubCategoryRoutes);
 app.use("/api/brands", brand);
 app.use("/api/delivery-charge", deliveryPriceGet)
 

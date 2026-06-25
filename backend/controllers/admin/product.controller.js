@@ -2,6 +2,7 @@ import Item from "../../models/product.model.js";
 import { uploadFileToFirebase } from "../../utils/firebaseUpload.js";
 import { notifyAdmins, notifyVendorsByIds } from "../../utils/notification.service.js";
 import Category from "../../models/category.model.js";
+import SubCategory from "../../models/subCategory.model.js";
 import Brand from "../../models/brand.model.js";
 import { toTitleCase, normalizeCityList } from "../../utils/cityNormalizer.js";
 
@@ -133,8 +134,9 @@ const assignDetailsPayload = (item, body = {}) => {
   });
 };
 
-const resolveCategoryPayload = async ({ categoryId, categoryName, subCategoryName }) => {
+const resolveCategoryPayload = async ({ categoryId, categoryName, subCategoryId, subCategoryName }) => {
   let resolvedCategoryId = null;
+  let resolvedSubCategoryId = null;
   let resolvedCategoryName = String(categoryName || "").trim();
   let resolvedSubCategory = String(subCategoryName || "").trim();
 
@@ -147,11 +149,26 @@ const resolveCategoryPayload = async ({ categoryId, categoryName, subCategoryNam
     }
     resolvedCategoryId = category._id;
     resolvedCategoryName = category.name || resolvedCategoryName;
-    resolvedSubCategory = resolvedSubCategory || category.subCategory || "";
+  }
+
+  if (subCategoryId) {
+    const subCategory = await SubCategory.findById(subCategoryId);
+    if (subCategory) {
+      resolvedSubCategoryId = subCategory._id;
+      resolvedSubCategory = subCategory.name;
+      if (!resolvedCategoryId) {
+        resolvedCategoryId = subCategory.categoryId;
+        const parentCategory = await Category.findById(subCategory.categoryId);
+        if (parentCategory) {
+          resolvedCategoryName = parentCategory.name;
+        }
+      }
+    }
   }
 
   return {
     categoryId: resolvedCategoryId,
+    subCategoryId: resolvedSubCategoryId,
     category: {
       name: resolvedCategoryName,
       subCategory: resolvedSubCategory,
@@ -193,6 +210,7 @@ export const addProduct = async (req, res) => {
       priceIncludesGst,
       categoryId,
       categoryName,
+      subCategoryId,
       subCategoryName,
       description,
       city,
@@ -236,6 +254,7 @@ export const addProduct = async (req, res) => {
     const resolvedCategory = await resolveCategoryPayload({
       categoryId,
       categoryName,
+      subCategoryId,
       subCategoryName,
     });
     const resolvedBrand = await resolveBrandPayload({
@@ -253,6 +272,7 @@ export const addProduct = async (req, res) => {
       title,
       slug: generateSlug(title),
       categoryId: resolvedCategory.categoryId,
+      subCategoryId: resolvedCategory.subCategoryId,
       category: resolvedCategory.category,
       description: String(description || "").trim(),
       brandId: resolvedBrand.brandId,
@@ -429,6 +449,7 @@ export const getProducts = async (req, res) => {
 
     const items = await Item.find(query)
       .populate("categoryId", "name subCategory")
+      .populate("subCategoryId", "name code status")
       .populate("brandId", "name subBrand")
       .skip(skip)
       .limit(Number(limit))
@@ -445,7 +466,7 @@ export const getProducts = async (req, res) => {
 
       // Derive category/brand from populated ref, falling back to embedded fields
       const categoryName = item.categoryId?.name || item.category?.name || "";
-      const categorySubCategory = item.categoryId?.subCategory || item.category?.subCategory || "";
+      const categorySubCategory = item.subCategoryId?.name || item.categoryId?.subCategory || item.category?.subCategory || "";
       const brandName = item.brandId?.name || item.details?.brand || "";
       const brandSubBrand = item.brandId?.subBrand || item.details?.subBrand || "";
 
@@ -455,6 +476,7 @@ export const getProducts = async (req, res) => {
         title: item.title,
         slug: item.slug,
         categoryId: item.categoryId || null,
+        subCategoryId: item.subCategoryId || null,
         category: {
           name: categoryName,
           subCategory: categorySubCategory,
@@ -544,6 +566,7 @@ export const getSingleProduct = async (req, res) => {
       ...resolveVendorFilter(req),
     })
       .populate("categoryId", "name subCategory")
+      .populate("subCategoryId", "name code status")
       .populate("brandId", "name subBrand");
 
     if (!item) {
@@ -564,7 +587,7 @@ export const getSingleProduct = async (req, res) => {
 
     // Derive category/brand from populated ref, falling back to embedded fields
     const categoryName = item.categoryId?.name || item.category?.name || "";
-    const categorySubCategory = item.categoryId?.subCategory || item.category?.subCategory || "";
+    const categorySubCategory = item.subCategoryId?.name || item.categoryId?.subCategory || item.category?.subCategory || "";
     const brandName = item.brandId?.name || item.details?.brand || "";
     const brandSubBrand = item.brandId?.subBrand || item.details?.subBrand || "";
 
@@ -576,6 +599,7 @@ export const getSingleProduct = async (req, res) => {
         title: item.title,
         slug: item.slug,
         categoryId: item.categoryId || null,
+        subCategoryId: item.subCategoryId || null,
         category: {
           name: categoryName,
           subCategory: categorySubCategory,
@@ -664,6 +688,7 @@ export const updateProduct = async (req, res) => {
       priceIncludesGst,
       categoryId,
       categoryName,
+      subCategoryId,
       subCategoryName,
       description,
       city,
@@ -690,36 +715,29 @@ export const updateProduct = async (req, res) => {
       item.slug = title.toLowerCase().replace(/ /g, "-");
     }
 
-    if (categoryName !== undefined) {
-      item.category = item.category || {};
-      item.category.name = categoryName;
-    }
+    if (categoryId !== undefined || subCategoryId !== undefined) {
+      const finalCategoryId = categoryId !== undefined ? categoryId : item.categoryId;
+      const finalSubCategoryId = subCategoryId !== undefined ? subCategoryId : item.subCategoryId;
+      
+      const resolvedCategory = await resolveCategoryPayload({
+        categoryId: finalCategoryId,
+        categoryName: categoryName || item.category?.name,
+        subCategoryId: finalSubCategoryId,
+        subCategoryName: subCategoryName || item.category?.subCategory,
+      });
 
-    if (categoryId !== undefined) {
-      if (categoryId) {
-        const category = await Category.findById(categoryId);
-        if (!category) {
-          return res.status(400).json({
-            success: false,
-            message: "Category not found",
-          });
-        }
-        item.categoryId = category._id;
+      item.categoryId = resolvedCategory.categoryId;
+      item.subCategoryId = resolvedCategory.subCategoryId;
+      item.category = resolvedCategory.category;
+    } else {
+      if (categoryName !== undefined) {
         item.category = item.category || {};
-        // Sync embedded fields from Category collection for backward compat
-        item.category.name = category.name;
-        // Only override subCategory from category doc if not explicitly provided
-        if (subCategoryName === undefined) {
-          item.category.subCategory = category.subCategory || item.category.subCategory || "";
-        }
-      } else {
-        item.categoryId = null;
+        item.category.name = categoryName;
       }
-    }
-
-    if (subCategoryName !== undefined) {
-      item.category = item.category || {};
-      item.category.subCategory = subCategoryName;
+      if (subCategoryName !== undefined) {
+        item.category = item.category || {};
+        item.category.subCategory = subCategoryName;
+      }
     }
 
     if (brandId !== undefined) {

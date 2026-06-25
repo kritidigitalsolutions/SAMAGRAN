@@ -12,6 +12,7 @@ import Users from "./pages/Users";
 import Orders from "./pages/Orders";
 import Items from "./pages/Items";
 import Category from "./pages/Categories";
+import SubCategories from "./pages/SubCategories";
 import CategoryCommission from "./pages/CategoryCommission";
 import Brands from "./pages/Brands";
 import Pandits from "./pages/Pandits";
@@ -92,6 +93,7 @@ function App() {
         <Route path="invoices" element={<AccessRoute pageKey="orders"><Invoices /></AccessRoute>} />
         <Route path="items" element={<AccessRoute pageKey="products"><Items /></AccessRoute>} />
         <Route path="category" element={<AccessRoute pageKey="category"><Category /></AccessRoute>} />
+        <Route path="sub-category" element={<AccessRoute pageKey="category"><SubCategories /></AccessRoute>} />
         <Route path="category-commission" element={<AccessRoute pageKey="category-commission"><CategoryCommission /></AccessRoute>} />
         <Route path="brands" element={<AccessRoute pageKey="brands"><Brands /></AccessRoute>} />
         <Route path="kits" element={<AccessRoute pageKey="kits"><Kits /></AccessRoute>} />
