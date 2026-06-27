@@ -291,8 +291,37 @@ const getOrCreatePanditWallet = async (panditId) => {
   return wallet;
 };
 
-const applyPanditCommission = async ({ panditId, orderId, baseAmount }) => {
-  if (!panditId) {
+export const applyPanditCommission = async ({ panditId, orderId, baseAmount }) => {
+  let resolvedPanditId = panditId;
+  let finalAmount = baseAmount;
+
+  // Auto-resolve panditId and baseAmount from order if not passed
+  let order = null;
+  if (orderId) {
+    order = await Order.findById(orderId).lean();
+    if (order) {
+      if (!resolvedPanditId) {
+        resolvedPanditId = order.pandit?._id || order.pandit;
+      }
+      if (!finalAmount) {
+        finalAmount = order.amountBreakup?.itemTotal || order.totalAmount || 0;
+      }
+    }
+  }
+
+  if (!resolvedPanditId) {
+    console.log("[Pandit Commission] Skipped: no panditId provided or resolved");
+    return null;
+  }
+
+  // ── Idempotency: prevent double-crediting for the same order ──────────────
+  const existingTx = await PanditWalletTransaction.findOne({
+    pandit: resolvedPanditId,
+    reference: String(orderId),
+    source: "pandit-commission",
+  }).lean();
+  if (existingTx) {
+    console.log(`[Pandit Commission] Skipped: already credited for order ${orderId}`);
     return null;
   }
 
@@ -300,60 +329,25 @@ const applyPanditCommission = async ({ panditId, orderId, baseAmount }) => {
   const commissionPercent = Number(pricing?.panditCommissionPercent || 0);
 
   if (!Number.isFinite(commissionPercent) || commissionPercent <= 0) {
+    console.log(`[Pandit Commission] Skipped: invalid commission percent (${commissionPercent})`);
     return null;
-  }
-
-  const minRecommendationPrice = Number(pricing?.minRecommendationPriceForCommission || 0);
-
-  if (minRecommendationPrice > 0) {
-    const order = await Order.findById(orderId).lean();
-    if (order) {
-      let recommendedProductPrice = 0;
-
-      // 1. Check order items for a FestivalKit
-      const kitItem = order.items?.find((item) => item.productType === "FestivalKit");
-      if (kitItem) {
-        recommendedProductPrice = kitItem.price || 0;
-      }
-
-      // 2. Fall back to booking history
-      if (recommendedProductPrice === 0) {
-        const booking = await PanditBooking.findOne({
-          user: order.user,
-          pandit: panditId,
-          recommendedKit: { $ne: null }
-        })
-        .sort({ createdAt: -1 })
-        .populate("recommendedKit")
-        .lean();
-
-        if (booking && booking.recommendedKit) {
-          recommendedProductPrice = booking.recommendedKit.kitPrice || booking.recommendedKit.totalPrice || 0;
-        }
-      }
-
-      // 3. Reject if below the required limit
-      if (recommendedProductPrice < minRecommendationPrice) {
-        console.log(`[Pandit Commission] Skipped: recommended product price (${recommendedProductPrice}) is below threshold (${minRecommendationPrice})`);
-        return null;
-      }
-    }
   }
 
   const commissionAmount = toMoney(
-    (toMoney(baseAmount) * commissionPercent) / 100,
+    (toMoney(finalAmount) * commissionPercent) / 100,
   );
 
   if (commissionAmount <= 0) {
+    console.log(`[Pandit Commission] Skipped: commission amount is <= 0`);
     return null;
   }
 
-  const wallet = await getOrCreatePanditWallet(panditId);
+  const wallet = await getOrCreatePanditWallet(resolvedPanditId);
   const nextBalance = toMoney(wallet.balance + commissionAmount);
   const threshold = Number(pricing?.panditCommissionThreshold || 0);
 
   wallet.balance = nextBalance;
-  wallet.totalEarned = toMoney(wallet.totalEarned + commissionAmount);
+  wallet.totalEarned = toMoney((wallet.totalEarned || 0) + commissionAmount);
   wallet.isPayable =
     Number.isFinite(threshold) && threshold > 0 && nextBalance >= threshold;
   wallet.payableBalance = wallet.isPayable ? nextBalance : 0;
@@ -361,7 +355,7 @@ const applyPanditCommission = async ({ panditId, orderId, baseAmount }) => {
 
   await PanditWalletTransaction.create({
     wallet: wallet._id,
-    pandit: panditId,
+    pandit: resolvedPanditId,
     type: "credit",
     source: "pandit-commission",
     amount: commissionAmount,
@@ -370,9 +364,11 @@ const applyPanditCommission = async ({ panditId, orderId, baseAmount }) => {
     meta: {
       orderId: String(orderId),
       commissionPercent,
+      orderAmount: finalAmount,
     },
   });
 
+  console.log(`[Pandit Commission] ✅ Credited ₹${commissionAmount} to pandit ${resolvedPanditId} for order ${orderId}. New balance: ₹${nextBalance}`);
   return { commissionAmount, balanceAfter: nextBalance };
 };
 
@@ -855,6 +851,7 @@ export const createRazorpayOrder = async (req, res) => {
       walletAmount,
       addressId,
       address,
+      pandit_id,
     } = req.body;
 
     const { orderItems, itemTotal, vendorId } = await resolveCheckoutItems({
@@ -938,6 +935,7 @@ export const createRazorpayOrder = async (req, res) => {
         userId: String(userId),
         itemCount: String(orderItems.length),
         vendorId: vendorId ? String(vendorId) : "",
+        panditId: pandit_id ? String(pandit_id) : "",
         couponCode: coupon?.code || "",
         offerId: offer?._id ? String(offer._id) : "",
         couponDiscount: String(couponDiscount),
@@ -1082,6 +1080,10 @@ export const placeOrder = async (req, res) => {
           payableAmount = toMoney(rpOrder.notes.payableAmount);
           discountTotal = toMoney(couponDiscount + offerDiscount);
           welcomeCouponCode = rpOrder.notes.welcomeCouponCode || "";
+          // Restore panditId from Razorpay notes if not provided in req.body
+          if (!resolvedPanditId && rpOrder.notes.panditId && mongoose.Types.ObjectId.isValid(rpOrder.notes.panditId)) {
+            resolvedPanditId = rpOrder.notes.panditId;
+          }
           fetchedFromRazorpay = true;
         }
       } catch (fetchErr) {
@@ -1294,14 +1296,6 @@ export const placeOrder = async (req, res) => {
     }
 
     if (paymentStatus === "Paid") {
-      if (resolvedPanditId) {
-        await applyPanditCommission({
-          panditId: resolvedPanditId,
-          orderId: order._id,
-          baseAmount: itemTotal,
-        });
-      }
-
       void sendOrderNotificationToUser({
         userId,
         orderId: order._id,

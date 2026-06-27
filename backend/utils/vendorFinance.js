@@ -4,6 +4,7 @@ import Order from "../models/order.model.js";
 import Item from "../models/product.model.js";
 import VendorWithdrawal from "../models/vendorWithdrawal.model.js";
 import CategoryCommission from "../models/categoryCommission.model.js";
+import BookingPricing from "../models/bookingPrice.js";
 
 const DELIVERED = "delivered";
 const CANCELLED = "cancelled";
@@ -54,7 +55,13 @@ export const buildCommissionLines = async (orders = []) => {
   // Fetch all active category commissions
   const categoryCommissions = await CategoryCommission.find({ status: "active" }).lean();
 
+  // Load active booking pricing to get pandit commission percentage
+  const pricing = await BookingPricing.findOne({ isActive: true }).lean();
+  const panditCommissionPercent = Number(pricing?.panditCommissionPercent || 0);
+
   return orders.map((order) => {
+    const hasPandit = !!(order.pandit?._id || order.pandit);
+
     const lines = (order.items || []).map((item) => {
       const productDoc = item.product && typeof item.product === "object" ? item.product : productCategoryMap.get(String(item.product || ""));
       const categoryId = productDoc?.categoryId ? String(productDoc.categoryId) : "";
@@ -64,37 +71,48 @@ export const buildCommissionLines = async (orders = []) => {
 
       // Find customized category commission
       const itemSubCategory = String(productDoc?.category?.subCategory || category?.subCategory || "").trim();
-      
-      let commissionRule = categoryCommissions.find(
-        (c) => String(c.categoryId) === String(categoryId) && c.subCategory.toLowerCase() === itemSubCategory.toLowerCase()
-      );
-      if (!commissionRule) {
-        // Fallback to "All" subcategories for this category
-        commissionRule = categoryCommissions.find(
-          (c) => String(c.categoryId) === String(categoryId) && c.subCategory.toLowerCase() === "all"
-        );
-      }
 
       let commissionPercent = 0;
       let superAdminCommission = 0;
       let vendorNetEarning = grossAmount;
 
-      if (commissionRule) {
-        if (commissionRule.commissionType === "Percentage (%)") {
-          commissionPercent = Number(commissionRule.superAdminSharePercent || 0);
+      if (hasPandit) {
+        // If order has pandit ID:
+        // Pandit gets commission (grossAmount * panditCommissionPercent / 100)
+        // Super Admin gets the rest of the amount (superAdminCommission = grossAmount - panditCommission)
+        // Vendor gets 0 (vendorNetEarning = 0)
+        const panditCommissionForItem = toMoney((grossAmount * panditCommissionPercent) / 100);
+        superAdminCommission = toMoney(grossAmount - panditCommissionForItem);
+        vendorNetEarning = 0;
+        commissionPercent = grossAmount > 0 ? toMoney((superAdminCommission / grossAmount) * 100) : 0;
+      } else {
+        let commissionRule = categoryCommissions.find(
+          (c) => String(c.categoryId) === String(categoryId) && c.subCategory.toLowerCase() === itemSubCategory.toLowerCase()
+        );
+        if (!commissionRule) {
+          // Fallback to "All" subcategories for this category
+          commissionRule = categoryCommissions.find(
+            (c) => String(c.categoryId) === String(categoryId) && c.subCategory.toLowerCase() === "all"
+          );
+        }
+
+        if (commissionRule) {
+          if (commissionRule.commissionType === "Percentage (%)") {
+            commissionPercent = Number(commissionRule.superAdminSharePercent || 0);
+            superAdminCommission = toMoney((grossAmount * commissionPercent) / 100);
+            vendorNetEarning = toMoney(Math.max(grossAmount - superAdminCommission, 0));
+          } else {
+            // Flat Amount (₹)
+            const flatAmt = Number(commissionRule.superAdminShareFlat || 0) * quantity;
+            superAdminCommission = toMoney(flatAmt);
+            vendorNetEarning = toMoney(Math.max(grossAmount - superAdminCommission, 0));
+            commissionPercent = grossAmount > 0 ? toMoney((superAdminCommission / grossAmount) * 100) : 0;
+          }
+        } else {
+          commissionPercent = Number(category?.superAdminCommissionPercent || 0);
           superAdminCommission = toMoney((grossAmount * commissionPercent) / 100);
           vendorNetEarning = toMoney(Math.max(grossAmount - superAdminCommission, 0));
-        } else {
-          // Flat Amount (₹)
-          const flatAmt = Number(commissionRule.superAdminShareFlat || 0) * quantity;
-          superAdminCommission = toMoney(flatAmt);
-          vendorNetEarning = toMoney(Math.max(grossAmount - superAdminCommission, 0));
-          commissionPercent = grossAmount > 0 ? toMoney((superAdminCommission / grossAmount) * 100) : 0;
         }
-      } else {
-        commissionPercent = Number(category?.superAdminCommissionPercent || 0);
-        superAdminCommission = toMoney((grossAmount * commissionPercent) / 100);
-        vendorNetEarning = toMoney(Math.max(grossAmount - superAdminCommission, 0));
       }
 
       return {

@@ -1,18 +1,17 @@
 import PanditBooking from "../../models/panditBooking.model.js";
 import Pandit from "../../models/pandit.model.js";
 import mongoose from "mongoose";
+import BookingPricing from "../../models/bookingPrice.js";
 
-// Default commission split: admin takes 20%, pandit gets 80%
-// This can later be made configurable via bookingPricing
-const ADMIN_COMMISSION_PERCENT = 20;
-
-/**
- * GET /admin/pandit-earnings
- * Returns earnings summary for all pandits (super admin) or specific pandit
- */
 export const getPanditEarningsSummary = async (req, res) => {
   try {
     const { panditId, status = "all" } = req.query;
+
+    // Load active booking pricing to get the commission percentage dynamically
+    const pricing = await BookingPricing.findOne({ isActive: true }).lean();
+    const commissionPercent = pricing && typeof pricing.panditCommissionPercent === "number"
+      ? pricing.panditCommissionPercent
+      : 20; // Fallback to 20% if not found or set
 
     // If vendor scope, restrict to pandits under them (future scope)
     const filter = {};
@@ -37,7 +36,7 @@ export const getPanditEarningsSummary = async (req, res) => {
     for (const booking of allBookings) {
       const pid = String(booking.pandit?._id || "unknown");
       const bookingAmount = Number(booking.bookingAmount || booking.dakshinaAmount || booking.price || 0);
-      const adminShare = Math.round((bookingAmount * ADMIN_COMMISSION_PERCENT) / 100 * 100) / 100;
+      const adminShare = Math.round((bookingAmount * commissionPercent) / 100 * 100) / 100;
       const panditShare = Math.round((bookingAmount - adminShare) * 100) / 100;
       const isPaid = booking.payoutPaid === true;
 
@@ -92,7 +91,7 @@ export const getPanditEarningsSummary = async (req, res) => {
       totalPanditEarnings: rows.reduce((s, r) => s + r.panditEarnings, 0),
       totalPaid: rows.reduce((s, r) => s + r.paidAmount, 0),
       totalPending: rows.reduce((s, r) => s + r.pendingAmount, 0),
-      adminCommissionPercent: ADMIN_COMMISSION_PERCENT,
+      adminCommissionPercent: commissionPercent,
     };
 
     return res.json({ success: true, data: { summary, pandits: rows } });

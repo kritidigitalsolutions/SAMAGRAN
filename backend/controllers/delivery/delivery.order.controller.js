@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import Order from "../../models/order.model.js";
 import { notifyUsersByIds } from "../../utils/notification.service.js";
+import { applyPanditCommission } from "../order.controller.js";
 
 const DELIVERY_STATUSES = [
   "Placed",
@@ -98,7 +99,23 @@ export const updateDeliveryOrderStatus = async (req, res) => {
     }
 
     order.orderStatus = nextStatus;
+    if (nextStatus === "Delivered") {
+      order.paymentStatus = "Paid";
+    }
     await order.save();
+
+    // Credit Pandit commission when order is delivered
+    if (nextStatus === "Delivered") {
+      try {
+        await applyPanditCommission({
+          panditId: order.pandit?._id || order.pandit || null,
+          orderId: order._id,
+          baseAmount: order.amountBreakup?.itemTotal || order.totalAmount || 0,
+        });
+      } catch (commErr) {
+        console.error("Error applying pandit commission on delivery:", commErr.message);
+      }
+    }
 
     // Notify User about status update by delivery boy
     const shortId = String(order._id).slice(-6).toUpperCase();

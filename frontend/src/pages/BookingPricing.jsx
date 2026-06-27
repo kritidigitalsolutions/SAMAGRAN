@@ -147,7 +147,7 @@ export default function BookingPricing() {
               </label>
 
               <label className="space-y-2 text-sm font-semibold text-[var(--admin-text)]">
-                Pandit  Min Recommendation Price for Commission (INR)
+                Pandit  Min Recommendation Price for Commission (INR) 
                 <input
                   type="number"
                   min="0"

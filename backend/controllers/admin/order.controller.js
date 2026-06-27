@@ -5,6 +5,7 @@ import Item from "../../models/product.model.js";
 import DeliveryBoy from "../../models/deliveryBoy.model.js";
 import { notifyUsersByIds, notifyVendorsByIds } from "../../utils/notification.service.js";
 import { toTitleCase, normalizeCityList } from "../../utils/cityNormalizer.js";
+import { applyPanditCommission } from "../order.controller.js";
 
 const TRACKING_STEPS = ["Placed", "Confirmed", "Preparing", "Accepted", "Out for Delivery", "Delivered"];
 const SUPPORTED_PRODUCT_TYPES = ["Item", "FestivalKit", "DefaultKit"];
@@ -475,14 +476,15 @@ export const updateOrderByAdmin = async (req, res) => {
     const previousPaymentStatus = order.paymentStatus;
 
     if (user !== undefined) {
-      if (!mongoose.Types.ObjectId.isValid(user)) {
+      const userIdToSave = user && typeof user === "object" ? (user._id || user.id) : user;
+      if (!mongoose.Types.ObjectId.isValid(userIdToSave)) {
         return res.status(400).json({
           success: false,
           message: "Invalid user id",
         });
       }
 
-      const userExists = await User.exists({ _id: user });
+      const userExists = await User.exists({ _id: userIdToSave });
       if (!userExists) {
         return res.status(404).json({
           success: false,
@@ -490,7 +492,7 @@ export const updateOrderByAdmin = async (req, res) => {
         });
       }
 
-      order.user = user;
+      order.user = userIdToSave;
     }
 
     if (Array.isArray(items)) {
@@ -553,8 +555,8 @@ export const updateOrderByAdmin = async (req, res) => {
 
     const nextOrderStatus = order.orderStatus;
     const nextPaymentStatus = order.paymentStatus;
-    const effectiveUserId = String(order.user);
-    const effectiveVendorId = order.vendorId ? String(order.vendorId) : null;
+    const effectiveUserId = String(order.user?._id || order.user);
+    const effectiveVendorId = order.vendorId ? String(order.vendorId?._id || order.vendorId) : null;
 
     if (nextOrderStatus !== previousOrderStatus) {
       void sendAdminOrderNotificationToUser({
@@ -566,6 +568,19 @@ export const updateOrderByAdmin = async (req, res) => {
           orderStatus: nextOrderStatus,
         },
       });
+
+      // Credit Pandit commission when order is delivered
+      if (nextOrderStatus === "Delivered") {
+        try {
+          await applyPanditCommission({
+            panditId: order.pandit?._id || order.pandit || null,
+            orderId: order._id,
+            baseAmount: order.amountBreakup?.itemTotal || order.totalAmount || 0,
+          });
+        } catch (commErr) {
+          console.error("Error applying pandit commission on admin order update:", commErr.message);
+        }
+      }
     }
 
     if (nextPaymentStatus !== previousPaymentStatus && nextPaymentStatus === "Paid") {
@@ -651,8 +666,21 @@ export const updateOrderTrackingByAdmin = async (req, res) => {
     order.orderStatus = nextStatus;
     await order.save();
 
-    const effectiveUserId = String(order.user);
-    const effectiveVendorId = order.vendorId ? String(order.vendorId) : null;
+    const effectiveUserId = String(order.user?._id || order.user);
+    const effectiveVendorId = order.vendorId ? String(order.vendorId?._id || order.vendorId) : null;
+
+    // Credit Pandit commission when order is delivered
+    if (nextStatus === "Delivered") {
+      try {
+        await applyPanditCommission({
+          panditId: order.pandit?._id || order.pandit || null,
+          orderId: order._id,
+          baseAmount: order.amountBreakup?.itemTotal || order.totalAmount || 0,
+        });
+      } catch (commErr) {
+        console.error("Error applying pandit commission on admin order status tracking update:", commErr.message);
+      }
+    }
 
     void sendAdminOrderNotificationToUser({
       userId: effectiveUserId,
