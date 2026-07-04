@@ -3,6 +3,7 @@ import { FiEdit2, FiEye, FiMoreVertical, FiSearch, FiTrash2, FiX } from "react-i
 import API from "../api/axios";
 import { normalizeCities } from "../utils/normalizeCity";
 import TablePagination from "../components/TablePagination";
+import { getStoredAdmin } from "../utils/auth";
 import TableMenuPopover from "../components/TableMenuPopover";
 
 const apiOrigin = (API.defaults.baseURL || "http://localhost:8000/api").replace(/\/api\/?$/, "");
@@ -47,7 +48,7 @@ const buildEmptyOrderForm = () => ({
 const ORDER_STATUSES = [
   "Placed",
   "Confirmed",
-  "Preparing",
+  // "Preparing",
   "Accepted",
   "Out for Delivery",
   "Delivered",
@@ -140,6 +141,7 @@ const buildOrderAddress = (order) =>
     .join(", ");
 
 export default function Orders() {
+  const isSuperAdmin = useMemo(() => getStoredAdmin()?.role === "super", []);
   const [orders, setOrders] = useState([]);
   const [pagination, setPagination] = useState({
     total: 0,
@@ -1331,6 +1333,7 @@ useEffect(() => {
                       <th className="px-4 py-3 font-semibold">S.No</th>
                       <th className="px-4 py-3 font-semibold">Order ID</th>
                       <th className="px-4 py-3 font-semibold">Customer</th>
+                      {isSuperAdmin && <th className="px-4 py-3 font-semibold">Vendor Details</th>}
                       <th className="px-4 py-3 font-semibold">Items</th>
                       <th className="px-4 py-3 font-semibold">Amount</th>
                       <th className="px-4 py-3 font-semibold">Status</th>
@@ -1370,6 +1373,25 @@ useEffect(() => {
                             {order?.user?.phone || "-"}
                           </p>
                         </td>
+                        {isSuperAdmin && (
+                          <td className="px-4 py-3">
+                            {order.vendorId ? (
+                              <>
+                                <p className="font-semibold text-[#2f1618] dark:text-[#fff3dc]">
+                                  {order.vendorId.businessName || order.vendorId.name || "N/A"}
+                                </p>
+                                <p className="text-xs text-[#7c5b4b] dark:text-[#dbcdb8]/70 font-medium">
+                                  ID: {String(order.vendorId._id || "").slice(-6).toUpperCase()}
+                                </p>
+                                <p className="text-[10px] text-[#7c5b4b] dark:text-[#dbcdb8]/70">
+                                  {[order.vendorId.address?.city, order.vendorId.address?.state].filter(Boolean).join(", ")}
+                                </p>
+                              </>
+                            ) : (
+                              <span className="text-xs text-[#7c5b4b] dark:text-[#dbcdb8]/70">Super Admin / System</span>
+                            )}
+                          </td>
+                        )}
                         <td className="px-4 py-3 text-sm">{Number(order.itemCount || order.items?.length || 0)}</td>
                         <td className="px-4 py-3 font-semibold">Rs {Number(order.totalAmount || 0).toFixed(2)}</td>
                         <td className="px-4 py-3">

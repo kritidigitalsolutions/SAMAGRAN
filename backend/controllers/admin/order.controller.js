@@ -7,7 +7,8 @@ import { notifyUsersByIds, notifyVendorsByIds } from "../../utils/notification.s
 import { toTitleCase, normalizeCityList } from "../../utils/cityNormalizer.js";
 import { applyPanditCommission } from "../order.controller.js";
 
-const TRACKING_STEPS = ["Placed", "Confirmed", "Preparing", "Accepted", "Out for Delivery", "Delivered"];
+// const TRACKING_STEPS = ["Placed", "Confirmed", "Preparing", "Accepted", "Out for Delivery", "Delivered"];
+const TRACKING_STEPS = ["Placed", "Confirmed", "Accepted", "Out for Delivery", "Delivered"];
 const SUPPORTED_PRODUCT_TYPES = ["Item", "FestivalKit", "DefaultKit"];
 const ADDRESS_TYPES = ["home", "work", "others"];
 const ORDER_ITEMS_POPULATE = {
@@ -59,7 +60,7 @@ const normalizeOrderStatus = (value = "Placed") => {
 
   if (normalized === "placed") return "Placed";
   if (normalized === "confirmed") return "Confirmed";
-  if (normalized === "preparing") return "Preparing";
+  // if (normalized === "preparing") return "Preparing";
   if (normalized === "accepted") return "Accepted";
   if (normalized === "out for delivery" || normalized === "out_for_delivery") {
     return "Out for Delivery";
@@ -179,11 +180,11 @@ const getOrderStatusNotification = (status, orderId) => {
         title: "Order Confirmed! ✅",
         body: `Your order #${shortId} has been confirmed.`,
       };
-    case "Preparing":
-      return {
-        title: "Preparing Order! 🍳",
-        body: `We are preparing your order #${shortId}.`,
-      };
+    // case "Preparing":
+    //   return {
+    //     title: "Preparing Order! 🍳",
+    //     body: `We are preparing your order #${shortId}.`,
+    //   };
     case "Accepted":
       return {
         title: "Order Accepted! 👍",
@@ -300,6 +301,7 @@ const populateOrders = async (orders) => {
   return Order.populate(orders, [
     { path: "user", select: "name email phone" },
     { path: "deliveryBoy", select: "fullName phone status" },
+    { path: "vendorId", select: "name businessName email phone address" },
     ORDER_ITEMS_POPULATE,
   ]);
 };

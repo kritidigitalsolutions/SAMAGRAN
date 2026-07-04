@@ -1538,12 +1538,13 @@ export default function Items() {
                   <th className="px-2 py-3 font-semibold">S.No</th>
                   <th className="px-4 py-3 font-semibold">Image</th>
                   <th className="px-4 py-3 font-semibold">Name</th>
+                  {isSuperAdmin && <th className="px-4 py-3 font-semibold">Vendor Details</th>}
                   <th className="px-4 py-3 font-semibold">Item Code</th>
                   {/* <th className="px-4 py-3 font-semibold">Product</th> */}
                   <th className="px-4 py-3 font-semibold">Category</th>
                   <th className="px-4 py-3 font-semibold">Subcategory</th>
                   <th className="px-4 py-3 font-semibold">Brand</th>
-                  <th className="px-4 py-3 font-semibold">Sub Brand</th>
+                  {/* <th className="px-4 py-3 font-semibold">Sub Brand</th> */}
                   <th className="px-4 py-3 font-semibold">MRP</th>
                   {/* <th className="px-4 py-3 font-semibold">Base</th> */}
                   <th className="px-4 py-3 font-semibold">GST %</th>
@@ -1607,6 +1608,25 @@ export default function Items() {
                         </p>
                       </div>
                     </td>
+                    {isSuperAdmin && (
+                      <td className="px-4 py-3">
+                        {item.vendorId ? (
+                          <>
+                            <p className="font-semibold text-[#2f1618] dark:text-[#fff3dc] text-sm">
+                              {item.vendorId.businessName || item.vendorId.name || "N/A"}
+                            </p>
+                            <p className="text-xs text-[#7c5b4b] dark:text-[#dbcdb8]/70 font-medium">
+                              ID: {String(item.vendorId._id || "").slice(-6).toUpperCase()}
+                            </p>
+                            <p className="text-[10px] text-[#7c5b4b] dark:text-[#dbcdb8]/70">
+                              {[item.vendorId.address?.city, item.vendorId.address?.state].filter(Boolean).join(", ")}
+                            </p>
+                          </>
+                        ) : (
+                          <span className="text-xs text-[#7c5b4b] dark:text-[#dbcdb8]/70">Super Admin / System</span>
+                        )}
+                      </td>
+                    )}
                     {/* <td className="px-4 py-3 flex-row flex gap-2">
                     </td> */}
                     <td className="px-4 py-3 font-mono text-xs text-[#6f3945] dark:text-[#f7e3c0]">
@@ -1636,9 +1656,9 @@ export default function Items() {
                     <td className="px-4 py-3">
                       {item.brand?.name || "-"}
                     </td>
-                    <td className="px-4 py-3">
+                    {/* <td className="px-4 py-3">
                       {item.brand?.subBrand || "-"}
-                    </td>
+                    </td> */}
                     <td className="px-4 py-3">
                       {formatCurrency(item.pricing?.mrp)}
                     </td>

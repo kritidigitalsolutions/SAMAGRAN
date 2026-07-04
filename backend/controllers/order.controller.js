@@ -28,7 +28,7 @@ const SUPPORTED_PRODUCT_TYPES = ["Item", "FestivalKit", "DefaultKit"];
 const TRACKING_STEPS = [
   "Placed",
   "Confirmed",
-  "Preparing",
+  // "Preparing",
   "Out for Delivery",
   "Delivered",
 ];
@@ -205,7 +205,7 @@ const normalizeOrderStatus = (value = "Placed") => {
 
   if (normalized === "placed") return "Placed";
   if (normalized === "confirmed") return "Confirmed";
-  if (normalized === "preparing") return "Preparing";
+  // if (normalized === "preparing") return "Preparing";
   if (normalized === "out for delivery" || normalized === "out_for_delivery") {
     return "Out for Delivery";
   }

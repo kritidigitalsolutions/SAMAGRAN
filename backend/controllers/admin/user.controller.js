@@ -60,7 +60,7 @@ const normalizeOrderStatus = (value = "Placed") => {
 
   if (normalized === "placed") return "Placed";
   if (normalized === "confirmed") return "Confirmed";
-  if (normalized === "preparing") return "Preparing";
+  // if (normalized === "preparing") return "Preparing";
   if (normalized === "out for delivery" || normalized === "out_for_delivery") {
     return "Out for Delivery";
   }
@@ -70,7 +70,8 @@ const normalizeOrderStatus = (value = "Placed") => {
   return "Placed";
 };
 
-const TRACKING_STEPS = ["Placed", "Confirmed", "Preparing", "Out for Delivery", "Delivered"];
+// const TRACKING_STEPS = ["Placed", "Confirmed", "Preparing", "Out for Delivery", "Delivered"];
+const TRACKING_STEPS = ["Placed", "Confirmed", "Out for Delivery", "Delivered"];
 
 const buildTrackingPayload = (order) => {
   const currentStatus = normalizeOrderStatus(order?.orderStatus);

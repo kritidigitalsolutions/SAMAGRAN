@@ -451,6 +451,7 @@ export const getProducts = async (req, res) => {
       .populate("categoryId", "name subCategory")
       .populate("subCategoryId", "name code status")
       .populate("brandId", "name subBrand")
+      .populate("vendorId", "name businessName email phone address")
       .skip(skip)
       .limit(Number(limit))
       .sort({ createdAt: -1 });
@@ -524,6 +525,7 @@ export const getProducts = async (req, res) => {
         },
         status: item.status,
         tags: item.tags || [],
+        vendorId: item.vendorId || null,
         flags: {
           isRecommended: item.flags.isRecommended,
           isMostPoojaEssentials: item.flags.isMostPoojaEssentials,
@@ -567,7 +569,8 @@ export const getSingleProduct = async (req, res) => {
     })
       .populate("categoryId", "name subCategory")
       .populate("subCategoryId", "name code status")
-      .populate("brandId", "name subBrand");
+      .populate("brandId", "name subBrand")
+      .populate("vendorId", "name businessName email phone address");
 
     if (!item) {
       return res.status(404).json({
@@ -646,6 +649,7 @@ export const getSingleProduct = async (req, res) => {
           quantity: item.stock.quantity,
         },
         tags: item.tags || [],
+        vendorId: item.vendorId || null,
         flags: {
           isRecommended: item.flags.isRecommended,
           isMostPoojaEssentials: item.flags.isMostPoojaEssentials,

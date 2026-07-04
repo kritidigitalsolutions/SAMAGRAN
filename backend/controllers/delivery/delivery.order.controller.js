@@ -6,7 +6,7 @@ import { applyPanditCommission } from "../order.controller.js";
 const DELIVERY_STATUSES = [
   "Placed",
   "Confirmed",
-  "Preparing",
+  // "Preparing",
   "Accepted",
   "Out for Delivery",
   "Delivered",
@@ -26,7 +26,7 @@ const normalizeStatus = (value = "Placed") => {
   const normalized = String(value || "Placed").trim().toLowerCase();
   if (normalized === "placed") return "Placed";
   if (normalized === "confirmed") return "Confirmed";
-  if (normalized === "preparing") return "Preparing";
+  // if (normalized === "preparing") return "Preparing";
   if (normalized === "accepted") return "Accepted";
   if (normalized === "out for delivery" || normalized === "out_for_delivery") return "Out for Delivery";
   if (normalized === "delivered") return "Delivered";
@@ -43,7 +43,8 @@ const isAllowedDeliveryTransition = (currentStatus, nextStatus) => {
   }
 
   if (nextStatus === "Accepted") {
-    return ["Placed", "Confirmed", "Preparing"].includes(currentStatus);
+    // return ["Placed", "Confirmed", "Preparing"].includes(currentStatus);
+    return ["Placed", "Confirmed"].includes(currentStatus);
   }
 
   if (nextStatus === "Out for Delivery") {

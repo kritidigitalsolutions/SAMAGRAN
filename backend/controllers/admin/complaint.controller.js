@@ -122,7 +122,26 @@ export const getComplaints = async (req, res) => {
   try {
     const complaints = await Complaint.find({})
       .populate("user", "name email phone")
-      .populate("order", "totalAmount orderStatus paymentStatus payableAmount walletUsed createdAt")
+      .populate({
+        path: "order",
+        select: "totalAmount orderStatus paymentStatus payableAmount walletUsed vendorId createdAt",
+        populate: {
+          path: "vendorId",
+          select: "name businessName email phone address",
+        }
+      })
+      .populate({
+        path: "booking",
+        select: "bookingAmount dakshinaAmount bookingStatus payment notes ritual pandit createdAt",
+        populate: {
+          path: "pandit",
+          select: "fullName phone vendorId",
+          populate: {
+            path: "vendorId",
+            select: "name businessName email phone address"
+          }
+        }
+      })
       .sort({ createdAt: -1 })
       .lean();
 
@@ -158,7 +177,7 @@ export const respondToComplaint = async (req, res) => {
       });
     }
 
-    const complaint = await Complaint.findById(complaintId).populate("order");
+    const complaint = await Complaint.findById(complaintId).populate("order").populate("booking");
     if (!complaint) {
       return res.status(404).json({
         success: false,
@@ -172,14 +191,35 @@ export const respondToComplaint = async (req, res) => {
 
     await complaint.populate([
       { path: "user", select: "name email phone" },
-      { path: "order" }
+      {
+        path: "order",
+        populate: {
+          path: "vendorId",
+          select: "name businessName email phone address"
+        }
+      },
+      {
+        path: "booking",
+        select: "bookingAmount dakshinaAmount bookingStatus payment notes ritual pandit createdAt",
+        populate: {
+          path: "pandit",
+          select: "fullName phone vendorId",
+          populate: {
+            path: "vendorId",
+            select: "name businessName email phone address"
+          }
+        }
+      }
     ]);
 
     // Notify the user about the response/resolution
+    const identifierType = complaint.booking ? "Booking" : "Order";
+    const identifierId = String(complaint.booking?._id || complaint.order?._id || "").slice(-6).toUpperCase();
+
     void notifyUsersByIds({
       userIds: [complaint.user?._id || complaint.user],
       title: `Complaint ${status}`,
-      body: `Your complaint for Order #${String(complaint.order?._id || '').slice(-6).toUpperCase()} has been ${status.toLowerCase()}.${adminResponse ? ` Admin Response: "${adminResponse}"` : ""}`,
+      body: `Your complaint for ${identifierType} #${identifierId} has been ${status.toLowerCase()}.${adminResponse ? ` Admin Response: "${adminResponse}"` : ""}`,
       data: {
         eventType: "complaint.status_changed",
         complaintId: String(complaint._id),

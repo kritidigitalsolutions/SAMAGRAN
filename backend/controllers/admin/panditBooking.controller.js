@@ -36,7 +36,14 @@ export const getAllPanditBookingsForAdmin = async (req, res) => {
 
     const [bookings, rawCities, pincodes] = await Promise.all([
       PanditBooking.find(filter)
-        .populate("pandit", "fullName phone status profileImage address yearsOfExperience templeAssociated")
+        .populate({
+          path: "pandit",
+          select: "fullName phone status profileImage address yearsOfExperience templeAssociated vendorId",
+          populate: {
+            path: "vendorId",
+            select: "name businessName email phone address"
+          }
+        })
         .populate("user", "name phone email")
         .populate("temple")
         .populate("recommendedKit")

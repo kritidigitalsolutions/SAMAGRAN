@@ -21,6 +21,12 @@ const festivalKitSchema = new mongoose.Schema(
       default: null,
       index: true,
     },
+    ritual: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Ritual",
+      default: null,
+      index: true,
+    },
     kitType: {
       type: String,
       enum: ["Customize", "Samagran kit", "default", "special"],

@@ -1,6 +1,7 @@
 import FestivalKit from "../../models/festivalKit.model.js";
 import Item from "../../models/product.model.js";
 import { uploadFileToFirebase } from "../../utils/firebaseUpload.js";
+import mongoose from "mongoose";
 
 const SAMAGRAN_KIT_TYPE = "Samagran kit";
 const SAMAGRAN_KIT_TYPES = [SAMAGRAN_KIT_TYPE, "special"];
@@ -91,6 +92,7 @@ export const createKit = async (req, res) => {
       isMostPopularKit,
       isMostUserUse,
       isPanditApproved,
+      ritual,
     } = req.body;
     const image = req.file
       ? await uploadFileToFirebase(req.file, { folder: "festival-kits" })
@@ -123,7 +125,8 @@ export const createKit = async (req, res) => {
       kitPrice,
       savings,
       festivalType,
-      status
+      status,
+      ritual: ritual && mongoose.Types.ObjectId.isValid(ritual) ? ritual : null,
     });
 
     return res.status(201).json({
@@ -160,7 +163,7 @@ export const getAllKits = async (req, res) => {
       filter.status = status;
     }
 
-    const kits = await FestivalKit.find(filter).sort({ createdAt: -1 });
+    const kits = await FestivalKit.find(filter).populate("ritual", "title").populate("vendorId", "name businessName email phone address").sort({ createdAt: -1 });
 
     res.json({
       success: true,
@@ -183,8 +186,8 @@ export const getSingleKit = async (req, res) => {
       kitType: { $in: SAMAGRAN_KIT_TYPES },
       ...resolveVendorFilter(req),
     })
-      .populate("items.product", "title pricing media");
-      // .populate("items.product", "title pricing media category");
+      .populate("items.product", "title pricing media")
+      .populate("ritual", "title");
 
     if (!kit) {
       return res.status(404).json({
@@ -219,7 +222,8 @@ export const getSingleKit = async (req, res) => {
         totalPrice: kit.totalPrice,
         kitPrice: kit.kitPrice,
         savings: kit.savings,
-        festivalType: kit.festivalType
+        festivalType: kit.festivalType,
+        ritual: kit.ritual ? { _id: kit.ritual._id, title: kit.ritual.title } : null,
       }
     });
 
@@ -284,6 +288,7 @@ export const updateKit = async (req, res) => {
       isMostPopularKit = kit.isMostPopularKit,
       isMostUserUse = kit.isMostUserUse,
       isPanditApproved = kit.isPanditApproved,
+      ritual = kit.ritual,
     } = req.body;
     const items = req.body.items ? parseKitItems(req.body.items) : null;
 
@@ -321,6 +326,7 @@ export const updateKit = async (req, res) => {
     kit.items = nextItems;
     kit.totalPrice = nextTotalPrice;
     kit.savings = nextTotalPrice - resolvedKitPrice;
+    kit.ritual = ritual === "" || ritual === "null" || !ritual ? null : ritual;
 
     if (req.file) {
       kit.image = await uploadFileToFirebase(req.file, { folder: "festival-kits" });

@@ -979,6 +979,7 @@ import { FiEdit2, FiEye, FiMoreVertical, FiPlus, FiSearch, FiX, FiTrash2 } from 
 import { MdDelete } from "react-icons/md";
 import TablePagination from "../components/TablePagination";
 import TableMenuPopover from "../components/TableMenuPopover";
+import { getStoredAdmin } from "../utils/auth";
 
 const formatAddress = (pandit) => {
   const parts = [
@@ -1026,6 +1027,7 @@ const initialForm = {
 };
 
 export default function Pandits() {
+  const isSuperAdmin = useMemo(() => getStoredAdmin()?.role === "super", []);
   const [pandits, setPandits] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -1649,6 +1651,7 @@ export default function Pandits() {
                     <th className="px-4 py-3 font-semibold">S.No</th>
                     <th className="px-4 py-3 font-semibold">Image</th>
                     <th className="px-4 py-3 font-semibold">Name</th>
+                    {isSuperAdmin && <th className="px-4 py-3 font-semibold">Vendor Details</th>}
                     <th className="px-4 py-3 font-semibold">Phone</th>
                     <th className="px-4 py-3 font-semibold">Experience</th>
                     <th className="px-4 py-3 font-semibold">City</th>
@@ -1657,7 +1660,7 @@ export default function Pandits() {
                     <th className="px-4 py-3 font-semibold text-right">Actions</th>
                   </tr>
                 </thead>
-
+ 
                 <tbody>
                   {pagedPandits.map((pandit, index) => (
                     <tr key={pandit._id} className="border-b border-[#f0e3d1] align-top last:border-none dark:border-white/10">
@@ -1680,6 +1683,25 @@ export default function Pandits() {
                         )}
                       </td>
                       <td className="px-4 py-3 text-[#2f1618] dark:text-[#fff3dc]">{pandit.fullName || "N/A"}</td>
+                      {isSuperAdmin && (
+                        <td className="px-4 py-3">
+                          {pandit.vendorId ? (
+                            <>
+                              <p className="font-semibold text-[#2f1618] dark:text-[#fff3dc]">
+                                {pandit.vendorId.businessName || pandit.vendorId.name || "N/A"}
+                              </p>
+                              <p className="text-xs text-[#7c5b4b] dark:text-[#dbcdb8]/70 font-medium">
+                                ID: {String(pandit.vendorId._id || "").slice(-6).toUpperCase()}
+                              </p>
+                              <p className="text-[10px] text-[#7c5b4b] dark:text-[#dbcdb8]/70">
+                                {[pandit.vendorId.address?.city, pandit.vendorId.address?.state].filter(Boolean).join(", ")}
+                              </p>
+                            </>
+                          ) : (
+                            <span className="text-xs text-[#7c5b4b] dark:text-[#dbcdb8]/70">Super Admin / System</span>
+                          )}
+                        </td>
+                      )}
                       <td className="px-4 py-3">{pandit.phone || "-"}</td>
                       <td className="px-4 py-3">{pandit.yearsOfExperience || 0} yrs</td>
                       <td className="px-4 py-3">{pandit.address?.city || "-"}</td>

@@ -14,6 +14,7 @@ import { createMeeting } from "../utils/zoom.service.js";
 import { notifyPanditBookingStatusUpdate, notifyPanditBookingAction } from "../utils/booking.notifications.js";
 import Wallet from "../models/wallet.model.js";
 import WalletTransaction from "../models/walletTransaction.model.js";
+import Complaint from "../models/complaint.model.js";
 
 // Shared helper: ensure a Zoom meeting exists for a booking (accepts booking doc or id)
 export const ensureZoomMeetingForBooking = async (bookingDocOrId) => {
@@ -2063,6 +2064,55 @@ export const cancelPanditBookingByUser = async (req, res) => {
       requestedAt: new Date(),
     });
 
+    // 2. Refund money to user's wallet if paid
+    let refundCredited = false;
+    let refundAmount = 0;
+    if (booking.payment?.status === "paid" && (booking.bookingAmount > 0 || booking.dakshinaAmount > 0)) {
+      const userId = booking.user;
+      
+      let wallet = await Wallet.findOne({ user: userId });
+      if (!wallet) {
+        wallet = await Wallet.create({ user: userId, balance: 0 });
+      }
+
+      refundAmount = Number(booking.bookingAmount || booking.dakshinaAmount || 0);
+      wallet.balance = Number((wallet.balance + refundAmount).toFixed(2));
+      await wallet.save();
+
+      await WalletTransaction.create({
+        wallet: wallet._id,
+        user: userId,
+        type: "credit",
+        source: "refund",
+        amount: refundAmount,
+        balanceAfter: wallet.balance,
+        reference: `REFUND_${booking._id}`,
+        notes: `Refund for cancelled Pandit booking: ${booking.ritual?.name || "Ritual"}`,
+        meta: {
+          bookingId: booking._id,
+          reason: "user_cancelled",
+        },
+      });
+
+      try {
+        await Complaint.create({
+          user: userId,
+          booking: booking._id,
+          issue: "Pandit Booking Cancellation Refund",
+          details: `Refund of ₹${refundAmount} credited to user wallet for cancelled Pandit booking. Ritual: "${booking.ritual?.name || "Ritual"}".`,
+          status: "Resolved",
+          adminResponse: `Refunded ₹${refundAmount} directly to user's wallet upon cancellation.`,
+        });
+      } catch (complaintErr) {
+        console.error("Error logging user cancellation refund complaint:", complaintErr.message || complaintErr);
+      }
+
+      if (booking.payment) {
+        booking.payment.status = "refunded";
+      }
+      refundCredited = true;
+    }
+
     await booking.save();
 
     // Send notification to pandit
@@ -2093,8 +2143,8 @@ export const cancelPanditBookingByUser = async (req, res) => {
 
     return res.json({
       success: true,
-      message: "Booking cancelled successfully",
-      note: "Your money will be refunded to your wallet within 48 hours.",
+      message: refundCredited ? `Booking cancelled and ₹${refundAmount} refunded to your wallet` : "Booking cancelled successfully",
+      note: refundCredited ? "Your money has been refunded to your wallet." : "Your money will be refunded to your wallet within 48 hours.",
       data: booking,
     });
   } catch (err) {
@@ -2716,6 +2766,19 @@ export const autoCancelExpiredBookings = async () => {
               reason: "auto_cancellation_expired",
             },
           });
+
+          try {
+            await Complaint.create({
+              user: userId,
+              booking: booking._id,
+              issue: "Pandit Booking Expired Refund",
+              details: `Refund of ₹${refundAmount} credited to user wallet for expired Pandit booking. Ritual: "${booking.ritual?.name || "Ritual"}".`,
+              status: "Resolved",
+              adminResponse: `Refunded ₹${refundAmount} directly to user's wallet due to booking expiration.`,
+            });
+          } catch (complaintErr) {
+            console.error("Error logging auto cancellation refund complaint:", complaintErr.message || complaintErr);
+          }
 
           // 3. Send notification to user
           const title = "Booking Cancelled & Refunded";

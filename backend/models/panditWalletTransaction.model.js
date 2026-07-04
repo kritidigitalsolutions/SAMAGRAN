@@ -42,6 +42,19 @@ const panditWalletTransactionSchema = new mongoose.Schema(
       type: Object,
       default: null,
     },
+    payoutPaid: {
+      type: Boolean,
+      default: false,
+    },
+    payoutPaidAt: {
+      type: Date,
+      default: null,
+    },
+    payoutPaidBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Admin",
+      default: null,
+    },
   },
   { timestamps: true }
 );

@@ -25,6 +25,7 @@ export default function Notifications() {
   const [selectedUser, setSelectedUser] = useState(null);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const isSuperAdmin = useMemo(() => getStoredAdmin()?.role === "super", []);
   const adminId = getStoredAdmin()?._id || "";
 
   const fetchUsers = useCallback(async (search = "") => {
@@ -391,10 +392,25 @@ export default function Notifications() {
                           </button>
                         </div>
                       </div>
-                      <div className="mt-3 flex flex-wrap gap-2 text-xs text-[var(--admin-muted)]">
+                      <div className="mt-3 flex flex-wrap gap-2 text-xs text-[var(--admin-muted)] items-center">
                         <span>Sent {entry.sentCount || 0}</span>
+                        <span className="w-1.5 h-1.5 rounded-full bg-[var(--admin-border)]"></span>
                         <span>Failed {entry.failedCount || 0}</span>
-                        <span>{entry.createdBy?.name || entry.createdBy?.email || "Admin"}</span>
+                        <span className="w-1.5 h-1.5 rounded-full bg-[var(--admin-border)]"></span>
+                        <span>By {entry.createdBy?.name || entry.createdBy?.email || "Admin"}</span>
+                        <span className="w-1.5 h-1.5 rounded-full bg-[var(--admin-border)]"></span>
+                        {isSuperAdmin && (
+                          <>
+                            {entry.vendorId ? (
+                              <span className="text-[var(--admin-primary)] font-semibold">
+                                Vendor: {entry.vendorId.businessName || entry.vendorId.name} (ID: {String(entry.vendorId._id || "").slice(-6).toUpperCase()})
+                              </span>
+                            ) : (
+                              <span>Super Admin / System</span>
+                            )}
+                            <span className="w-1.5 h-1.5 rounded-full bg-[var(--admin-border)]"></span>
+                          </>
+                        )}
                         <span>{entry.createdAt ? new Date(entry.createdAt).toLocaleString() : ""}</span>
                       </div>
                     </article>
@@ -450,10 +466,15 @@ export default function Notifications() {
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <h4 className="font-semibold text-[var(--admin-text)]">{entry.title}</h4>
-                          <p className="mt-1 text-sm text-[var(--admin-muted)]">{entry.body}</p>
-                          <p className="mt-2 text-xs text-[var(--admin-muted)]">
-                            {entry.createdAt ? new Date(entry.createdAt).toLocaleString() : ""}
-                          </p>
+                           <p className="mt-1 text-sm text-[var(--admin-muted)]">{entry.body}</p>
+                           {isSuperAdmin && entry.vendorId && (
+                             <p className="mt-2 text-xs text-[var(--admin-primary)] font-semibold">
+                               Vendor: {entry.vendorId.businessName || entry.vendorId.name} (ID: {String(entry.vendorId._id || "").slice(-6).toUpperCase()})
+                             </p>
+                           )}
+                           <p className="mt-2 text-xs text-[var(--admin-muted)]">
+                             {entry.createdAt ? new Date(entry.createdAt).toLocaleString() : ""}
+                           </p>
                         </div>
                         <div className="flex items-center gap-2">
                           {!entry.isRead && (

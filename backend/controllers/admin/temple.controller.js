@@ -164,7 +164,7 @@ export const getAlltemplesForAdmin = async (req, res) => {
     }
 
     const [temples, rawCities, rawPinCodes] = await Promise.all([
-      temple.find(filter).sort({ createdAt: -1 }),
+      temple.find(filter).populate("vendorId", "name businessName email phone address").sort({ createdAt: -1 }),
       temple.distinct("address.city", vendorFilter),
       temple.distinct("address.pinCode", vendorFilter)
     ]);

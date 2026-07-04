@@ -65,7 +65,8 @@ export const getSingleKitUser = async (req, res) => {
       kitType: { $in: SAMAGRAN_KIT_TYPES },
     })
       // .populate("items.product", "title slug pricing media category");
-      .populate("items.product", "title slug pricing media");
+      .populate("items.product", "title slug pricing media")
+      .populate("ritual", "title");
 
     if (!kit) {
       return res.status(404).json({
@@ -101,7 +102,8 @@ export const getSingleKitUser = async (req, res) => {
         totalPrice: kit.totalPrice,
         kitPrice: kit.kitPrice,
         savings: kit.savings,
-        festivalType: kit.festivalType
+        festivalType: kit.festivalType,
+        ritual: kit.ritual ? { _id: kit.ritual._id, title: kit.ritual.title } : null,
       }
     });
 

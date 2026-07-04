@@ -4,6 +4,7 @@ import API from "../api/axios";
 import { FiEdit2, FiEye, FiMoreVertical, FiPlus, FiRefreshCw, FiSearch, FiTrash2, FiX } from "react-icons/fi";
 import TablePagination from "../components/TablePagination";
 import TableMenuPopover from "../components/TableMenuPopover";
+import { getStoredAdmin } from "../utils/auth";
 
 const apiOrigin = (API.defaults.baseURL || "http://localhost:8000/api").replace(/\/api\/?$/, "");
 const CUSTOMIZE_KIT_TYPE = "Customize";
@@ -19,6 +20,7 @@ const buildForm = () => ({
   kitPrice: "",
   status: "active",
   festivalType: "",
+  ritual: "",
 });
 
 const formatImageUrl = (path) => {
@@ -46,7 +48,9 @@ const getAdminKitEndpointBase = (kitType) =>
 const getKitTypeLabel = (kitType) => normalizeKitType(kitType);
 
 export default function Kits() {
+  const isSuperAdmin = useMemo(() => getStoredAdmin()?.role === "super", []);
   const [kits, setKits] = useState([]);
+  const [rituals, setRituals] = useState([]);
   const [products, setProducts] = useState([]);
   const [form, setForm] = useState(buildForm());
   const [selectedItems, setSelectedItems] = useState({});
@@ -173,10 +177,20 @@ export default function Kits() {
     }
   }, []);
 
+  const fetchRituals = useCallback(async () => {
+    try {
+      const res = await API.get("/admin/rituals");
+      setRituals(res.data?.data || []);
+    } catch (err) {
+      console.error("Unable to load rituals:", err.response?.data?.message || err.message);
+    }
+  }, []);
+
   useEffect(() => {
     fetchProducts();
     fetchKits();
-  }, [fetchProducts, fetchKits]);
+    fetchRituals();
+  }, [fetchProducts, fetchKits, fetchRituals]);
 
   useEffect(() => {
     setSelectedKitIds((current) =>
@@ -261,6 +275,7 @@ export default function Kits() {
         kitPrice: detail.kitPrice ?? "",
         status: detail.status || "active",
         festivalType: detail.festivalType || "",
+        ritual: detail.ritual?._id || detail.ritual || "",
       });
 
       const mapped = {};
@@ -395,6 +410,7 @@ export default function Kits() {
       formData.append("kitPrice", Number(form.kitPrice));
       formData.append("status", form.status);
       formData.append("items", JSON.stringify(selectedList));
+      formData.append("ritual", form.ritual || "");
       if (normalizeKitType(form.kitType) === SAMAGRAN_KIT_TYPE) {
         formData.append("festivalType", form.festivalType.trim());
       }
@@ -504,6 +520,23 @@ export default function Kits() {
             <div className="space-y-2">
               <label className="text-sm font-medium">Kit Name</label>
               <input name="name" value={form.name} onChange={handleFormChange} className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-[#16181d] dark:text-white text-black" required />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Associated Ritual (Optional)</label>
+              <select
+                name="ritual"
+                value={form.ritual || ""}
+                onChange={handleFormChange}
+                className="w-full rounded-xl border border-[#d9c3a2] bg-white text-black px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-[#1d2026] dark:text-white"
+              >
+                <option value="">-- None / Select Ritual --</option>
+                {rituals.map((r) => (
+                  <option key={r._id} value={r._id}>
+                    {r.title}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div className="space-y-2">
@@ -665,6 +698,12 @@ export default function Kits() {
                 <p className="text-xs uppercase tracking-[0.18em] text-[#8b6b5b]">Festival Type</p>
                 <p className="font-semibold">{viewKit.festivalType || "-"}</p>
               </div>
+              {viewKit.ritual && (
+                <div className="rounded-xl border border-[#e8d7bf] bg-[#fff7ea] px-3 py-2 dark:border-white/10 dark:bg-white/5 md:col-span-2">
+                  <p className="text-xs uppercase tracking-[0.18em] text-[#8b6b5b]">Associated Ritual</p>
+                  <p className="font-semibold">{viewKit.ritual.title || "-"}</p>
+                </div>
+              )}
             </div>
 
             <div className="mt-4 rounded-2xl border border-[#e8d7bf] bg-[#fff7ea] p-4 text-sm dark:border-white/10 dark:bg-white/5">
@@ -844,6 +883,7 @@ export default function Kits() {
                   <th className="px-4 py-3 font-semibold">Image</th>
                   <th className="px-4 py-3 font-semibold">Kit Code</th>
                   <th className="px-4 py-3 font-semibold">Kit</th>
+                  {isSuperAdmin && <th className="px-4 py-3 font-semibold">Vendor Details</th>}
                   <th className="px-4 py-3 font-semibold">Category</th>
                   <th className="px-4 py-3 font-semibold">Type</th>
                   <th className="px-4 py-3 font-semibold">Festival Type</th>
@@ -880,6 +920,25 @@ export default function Kits() {
                         <p className="line-clamp-1 max-w-[260px] text-xs text-[#7a5a4c] dark:text-[#f7e3c0]/70">{kit.description || "No description"}</p>
                       </div>
                     </td>
+                    {isSuperAdmin && (
+                      <td className="px-4 py-3">
+                        {kit.vendorId ? (
+                          <>
+                            <p className="font-semibold text-[#2f1618] dark:text-[#fff3dc]">
+                              {kit.vendorId.businessName || kit.vendorId.name || "N/A"}
+                            </p>
+                            <p className="text-xs text-[#7c5b4b] dark:text-[#dbcdb8]/70 font-medium">
+                              ID: {String(kit.vendorId._id || "").slice(-6).toUpperCase()}
+                            </p>
+                            <p className="text-[10px] text-[#7c5b4b] dark:text-[#dbcdb8]/70">
+                              {[kit.vendorId.address?.city, kit.vendorId.address?.state].filter(Boolean).join(", ")}
+                            </p>
+                          </>
+                        ) : (
+                          <span className="text-xs text-[#7c5b4b] dark:text-[#dbcdb8]/70">Super Admin / System</span>
+                        )}
+                      </td>
+                    )}
                     <td className="px-4 py-3 text-sm text-[#6f3945] dark:text-[#f7e3c0]">{kit.category || "-"}</td>
                     <td className="px-4 py-3">
                       <span className={`rounded-full px-2.5 py-1 text-xs font-semibold uppercase ${isCustomizeKit(kit.kitType) ? "bg-blue-100 text-blue-700" : "bg-violet-100 text-violet-700"}`}>

@@ -143,6 +143,7 @@ export const getAllRitualsForAdmin = async (req, res) => {
 
     const rituals = await Ritual.find(filter)
       .populate("panditId", "fullName phone")
+      .populate("vendorId", "name businessName email phone address")
       .sort({ createdAt: -1 });
 
     return res.json({

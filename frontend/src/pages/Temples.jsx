@@ -4,6 +4,7 @@ import API from "../api/axios";
 import { normalizeCities } from "../utils/normalizeCity";
 import TablePagination from "../components/TablePagination";
 import TableMenuPopover from "../components/TableMenuPopover";
+import { getStoredAdmin } from "../utils/auth";
 
 const initialForm = {
   name: "",
@@ -25,6 +26,7 @@ const initialForm = {
 };
 
 export default function Temples() {
+  const isSuperAdmin = useMemo(() => getStoredAdmin()?.role === "super", []);
   const [temples, settemples] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -648,6 +650,7 @@ export default function Temples() {
                   <th className="px-3 py-3">Images</th>
                   <th className="px-3 py-3">Temple Code</th>
                   <th className="px-3 py-3">Name</th>
+                  {isSuperAdmin && <th className="px-3 py-3">Vendor Details</th>}
                   <th className="px-3 py-3">City</th>
                   <th className="px-3 py-3">Phone</th>
                   <th className="px-3 py-3">Status</th>
@@ -674,6 +677,25 @@ export default function Temples() {
                       <p className="font-semibold">{temple.name}</p>
                       <p className="text-xs text-[#6e4b40] dark:text-[#f7e3c0]/80">{temple.address?.line1 || temple.address?.landmark || "-"}</p>
                     </td>
+                    {isSuperAdmin && (
+                      <td className="px-3 py-4">
+                        {temple.vendorId ? (
+                          <>
+                            <p className="font-semibold text-[#2f1618] dark:text-[#fff3dc]">
+                              {temple.vendorId.businessName || temple.vendorId.name || "N/A"}
+                            </p>
+                            <p className="text-xs text-[#7c5b4b] dark:text-[#dbcdb8]/70 font-medium">
+                              ID: {String(temple.vendorId._id || "").slice(-6).toUpperCase()}
+                            </p>
+                            <p className="text-[10px] text-[#7c5b4b] dark:text-[#dbcdb8]/70">
+                              {[temple.vendorId.address?.city, temple.vendorId.address?.state].filter(Boolean).join(", ")}
+                            </p>
+                          </>
+                        ) : (
+                          <span className="text-xs text-[#7c5b4b] dark:text-[#dbcdb8]/70">Super Admin / System</span>
+                        )}
+                      </td>
+                    )}
                     <td className="px-3 py-4">{temple.address?.city || "-"}</td>
                     <td className="px-3 py-4">{temple.contactPhone || "-"}</td>
                     <td className="px-3 py-4">

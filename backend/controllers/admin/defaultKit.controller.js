@@ -1,6 +1,7 @@
 import FestivalKit from "../../models/festivalKit.model.js";
 import Item from "../../models/product.model.js";
 import { uploadFileToFirebase } from "../../utils/firebaseUpload.js";
+import mongoose from "mongoose";
 
 const CUSTOMIZE_KIT_TYPE = "Customize";
 const CUSTOMIZE_KIT_TYPES = [CUSTOMIZE_KIT_TYPE, "default"];
@@ -110,6 +111,7 @@ export const createDefaultKit = async (req, res) => {
       isMostPopularKit,
       isMostUserUse,
       isPanditApproved,
+      ritual,
     } = req.body;
     const items = parseItems(req.body.items);
 
@@ -142,6 +144,7 @@ export const createDefaultKit = async (req, res) => {
       kitPrice: normalizedKitPrice,
       savings: Math.max(totalPrice - normalizedKitPrice, 0),
       status,
+      ritual: ritual && mongoose.Types.ObjectId.isValid(ritual) ? ritual : null,
     });
 
     res.status(201).json({
@@ -176,6 +179,8 @@ export const getAdminDefaultKits = async (req, res) => {
     const kits = await FestivalKit.find(filter)
       // .populate("items.product", "title pricing media category")
       .populate("items.product", "title pricing media")
+      .populate("ritual", "title")
+      .populate("vendorId", "name businessName email phone address")
       .sort({ createdAt: -1 });
 
     res.json({
@@ -198,7 +203,8 @@ export const getAdminDefaultKitById = async (req, res) => {
       kitType: { $in: CUSTOMIZE_KIT_TYPES },
       ...resolveVendorFilter(req),
     // }).populate("items.product", "title pricing media category");
-    }).populate("items.product", "title pricing media");
+    }).populate("items.product", "title pricing media")
+      .populate("ritual", "title");
 
     if (!kit) {
       return res.status(404).json({
@@ -243,6 +249,7 @@ export const updateDefaultKit = async (req, res) => {
       isMostPopularKit = kit.isMostPopularKit,
       isMostUserUse = kit.isMostUserUse,
       isPanditApproved = kit.isPanditApproved,
+      ritual = kit.ritual,
     } = req.body;
 
     const parsedItems = req.body.items ? parseItems(req.body.items) : null;
@@ -270,6 +277,7 @@ export const updateDefaultKit = async (req, res) => {
     kit.items = nextItems;
     kit.totalPrice = nextTotalPrice;
     kit.savings = Math.max(nextTotalPrice - normalizedKitPrice, 0);
+    kit.ritual = ritual === "" || ritual === "null" || !ritual ? null : ritual;
 
     if (req.file) {
       kit.image = await uploadFileToFirebase(req.file, { folder: "default-kits" });

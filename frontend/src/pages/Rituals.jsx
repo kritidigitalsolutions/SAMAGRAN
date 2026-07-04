@@ -3,6 +3,7 @@ import { FiEdit2, FiEye, FiMoreVertical, FiTrash2, FiX, FiCheck } from "react-ic
 import API from "../api/axios";
 import TablePagination from "../components/TablePagination";
 import TableMenuPopover from "../components/TableMenuPopover";
+import { getStoredAdmin } from "../utils/auth";
 
 const initialForm = {
   title: "",
@@ -11,6 +12,7 @@ const initialForm = {
 };
 
 export default function Rituals() {
+  const isSuperAdmin = useMemo(() => getStoredAdmin()?.role === "super", []);
   const [rituals, setRituals] = useState([]);
   const [activeTab, setActiveTab] = useState("approved"); // "approved" or "pending"
   const [loading, setLoading] = useState(true);
@@ -519,6 +521,7 @@ export default function Rituals() {
                     <th className="px-3 py-3">Image</th>
                     <th className="px-3 py-3">Ritual Code</th>
                     <th className="px-3 py-3">Title</th>
+                    {isSuperAdmin && <th className="px-3 py-3">Vendor Details</th>}
                     {activeTab === "pending" && <th className="px-3 py-3">Requested By</th>}
                     <th className="px-3 py-3">Description</th>
                     <th className="px-3 py-3">Status</th>
@@ -565,6 +568,25 @@ export default function Rituals() {
                       <td className="px-3 py-4 font-semibold">
                         {ritual.title}
                       </td>
+                      {isSuperAdmin && (
+                        <td className="px-3 py-4">
+                          {ritual.vendorId ? (
+                            <>
+                              <p className="font-semibold text-[#2f1618] dark:text-[#fff3dc]">
+                                {ritual.vendorId.businessName || ritual.vendorId.name || "N/A"}
+                              </p>
+                              <p className="text-xs text-[#7c5b4b] dark:text-[#dbcdb8]/70 font-medium">
+                                ID: {String(ritual.vendorId._id || "").slice(-6).toUpperCase()}
+                              </p>
+                              <p className="text-[10px] text-[#7c5b4b] dark:text-[#dbcdb8]/70">
+                                {[ritual.vendorId.address?.city, ritual.vendorId.address?.state].filter(Boolean).join(", ")}
+                              </p>
+                            </>
+                          ) : (
+                            <span className="text-xs text-[#7c5b4b] dark:text-[#dbcdb8]/70">Super Admin / System</span>
+                          )}
+                        </td>
+                      )}
                       {activeTab === "pending" && (
                         <td className="px-3 py-4">
                           {ritual.panditId ? (

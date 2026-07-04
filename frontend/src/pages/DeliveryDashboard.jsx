@@ -84,7 +84,8 @@ export default function DeliveryDashboard() {
     }
   };
 
-  const canAccept = (status) => ["Placed", "Confirmed", "Preparing"].includes(status);
+  // const canAccept = (status) => ["Placed", "Confirmed", "Preparing"].includes(status);
+  const canAccept = (status) => ["Placed", "Confirmed"].includes(status);
   const canOut = (status) => status === "Accepted";
   const canDeliver = (status) => status === "Out for Delivery";
 

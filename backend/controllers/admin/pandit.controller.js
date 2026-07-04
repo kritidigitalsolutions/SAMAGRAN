@@ -61,7 +61,7 @@ export const getAllPanditsForAdmin = async (req, res) => {
       : {};
 
     const [pandits, rawCities, rawPinCodes] = await Promise.all([
-      Pandit.find(filter).sort({ createdAt: -1 }),
+      Pandit.find(filter).populate("vendorId", "name businessName email phone address").sort({ createdAt: -1 }),
       Pandit.distinct("address.city", distinctFilter),
       Pandit.distinct("address.pinCode", distinctFilter)
     ]);

@@ -28,6 +28,7 @@ export const getNotificationHistory = async (req, res) => {
       .sort({ createdAt: -1 })
       .limit(100)
       .populate("createdBy", "name email")  
+      .populate("vendorId", "name businessName email phone address")
       .lean();
 
     return res.json({

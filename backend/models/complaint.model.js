@@ -10,7 +10,12 @@ const complaintSchema = new mongoose.Schema(
     order: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Order",
-      required: true,
+      required: false,
+    },
+    booking: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "PanditBooking",
+      required: false,
     },
     issue: {
       type: String,

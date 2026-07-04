@@ -4,6 +4,7 @@ import { normalizeCities } from "../utils/normalizeCity";
 import { FiEye, FiMoreVertical, FiSearch, FiTrash2, FiX } from "react-icons/fi";
 import TablePagination from "../components/TablePagination";
 import TableMenuPopover from "../components/TableMenuPopover";
+import { getStoredAdmin } from "../utils/auth";
 
 const statusBadgeClass = (status) => {
   if (status === "confirmed") {
@@ -47,6 +48,7 @@ const formatAddress = (booking) => {
 };
 
 export default function PanditBookings() {
+  const isSuperAdmin = useMemo(() => getStoredAdmin()?.role === "super", []);
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -474,6 +476,7 @@ export default function PanditBookings() {
                     <th className="px-4 py-3 font-semibold">Ritual</th>
                     <th className="px-4 py-3 font-semibold">User</th>
                     <th className="px-4 py-3 font-semibold">Pandit</th>
+                    {isSuperAdmin && <th className="px-4 py-3 font-semibold">Vendor Details</th>}
                     <th className="px-4 py-3 font-semibold">Date & Slot</th>
                     <th className="px-4 py-3 font-semibold">Amount</th>
                     <th className="px-4 py-3 font-semibold">Status</th>
@@ -515,6 +518,25 @@ export default function PanditBookings() {
                       <td className="px-4 py-3">
                         {booking.pandit?.fullName || "-"}
                       </td>
+                      {isSuperAdmin && (
+                        <td className="px-4 py-3">
+                          {booking.pandit?.vendorId ? (
+                            <>
+                              <p className="font-semibold text-[#2f1618] dark:text-[#fff3dc]">
+                                {booking.pandit.vendorId.businessName || booking.pandit.vendorId.name || "N/A"}
+                              </p>
+                              <p className="text-xs text-[#7c5b4b] dark:text-[#dbcdb8]/70 font-medium">
+                                ID: {String(booking.pandit.vendorId._id || "").slice(-6).toUpperCase()}
+                              </p>
+                              <p className="text-[10px] text-[#7c5b4b] dark:text-[#dbcdb8]/70">
+                                {[booking.pandit.vendorId.address?.city, booking.pandit.vendorId.address?.state].filter(Boolean).join(", ")}
+                              </p>
+                            </>
+                          ) : (
+                            <span className="text-xs text-[#7c5b4b] dark:text-[#dbcdb8]/70">Super Admin / System</span>
+                          )}
+                        </td>
+                      )}
                       <td className="px-4 py-3">
                         {booking.bookingDate} | {booking.timeSlot?.label || "-"}
                       </td>

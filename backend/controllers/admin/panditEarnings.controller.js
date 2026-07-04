@@ -2,6 +2,7 @@ import PanditBooking from "../../models/panditBooking.model.js";
 import Pandit from "../../models/pandit.model.js";
 import mongoose from "mongoose";
 import BookingPricing from "../../models/bookingPrice.js";
+import PanditWalletTransaction from "../../models/panditWalletTransaction.model.js";
 
 export const getPanditEarningsSummary = async (req, res) => {
   try {
@@ -13,36 +14,37 @@ export const getPanditEarningsSummary = async (req, res) => {
       ? pricing.panditCommissionPercent
       : 20; // Fallback to 20% if not found or set
 
-    // If vendor scope, restrict to pandits under them (future scope)
-    const filter = {};
-    if (panditId && mongoose.Types.ObjectId.isValid(panditId)) {
-      filter.pandit = new mongoose.Types.ObjectId(panditId);
-    }
-
-    // Fetch all completed (paid) bookings
-    const completedFilter = {
-      ...filter,
-      bookingStatus: "completed",
-      "payment.status": "paid",
+    // Build filter for PanditWalletTransaction recommendation commissions
+    const txFilter = {
+      type: "credit",
+      source: "pandit-commission",
     };
 
-    const allBookings = await PanditBooking.find(completedFilter)
+    if (panditId && mongoose.Types.ObjectId.isValid(panditId)) {
+      txFilter.pandit = new mongoose.Types.ObjectId(panditId);
+    }
+
+    // Fetch transactions and populate Pandit details
+    const transactions = await PanditWalletTransaction.find(txFilter)
       .populate("pandit", "fullName phone profileImage address")
+      .sort({ createdAt: -1 })
       .lean();
 
     // Group by pandit
     const panditMap = new Map();
 
-    for (const booking of allBookings) {
-      const pid = String(booking.pandit?._id || "unknown");
-      const bookingAmount = Number(booking.bookingAmount || booking.dakshinaAmount || booking.price || 0);
-      const adminShare = Math.round((bookingAmount * commissionPercent) / 100 * 100) / 100;
-      const panditShare = Math.round((bookingAmount - adminShare) * 100) / 100;
-      const isPaid = booking.payoutPaid === true;
+    for (const tx of transactions) {
+      const pid = String(tx.pandit?._id || "unknown");
+      
+      // bookingAmount represents the recommended order/kit's total amount
+      const bookingAmount = Number(tx.meta?.orderAmount || tx.amount || 0);
+      const panditShare = Number(tx.amount || 0); // commission credited to pandit
+      const adminShare = Math.max(bookingAmount - panditShare, 0); // rest of the kit/product price goes to admin
+      const isPaid = tx.payoutPaid === true;
 
       if (!panditMap.has(pid)) {
         panditMap.set(pid, {
-          pandit: booking.pandit,
+          pandit: tx.pandit,
           totalBookings: 0,
           totalBookingAmount: 0,
           adminCommission: 0,
@@ -58,21 +60,23 @@ export const getPanditEarningsSummary = async (req, res) => {
       row.totalBookingAmount += bookingAmount;
       row.adminCommission += adminShare;
       row.panditEarnings += panditShare;
+      
       if (isPaid) {
         row.paidAmount += panditShare;
       } else {
         row.pendingAmount += panditShare;
       }
+
       row.bookings.push({
-        _id: booking._id,
-        ritualName: booking.ritual?.name || "",
-        bookingDate: booking.bookingDate,
+        _id: tx._id,
+        ritualName: `Recommendation (Order #${tx.reference ? String(tx.reference).slice(-6).toUpperCase() : "N/A"})`,
+        bookingDate: tx.createdAt,
         bookingAmount,
         adminShare,
         panditShare,
         payoutPaid: isPaid,
-        payoutPaidAt: booking.payoutPaidAt || null,
-        createdAt: booking.createdAt,
+        payoutPaidAt: tx.payoutPaidAt || null,
+        createdAt: tx.createdAt,
       });
     }
 
@@ -102,7 +106,7 @@ export const getPanditEarningsSummary = async (req, res) => {
 
 /**
  * PATCH /admin/pandit-bookings/:id/mark-payout-paid
- * Marks a specific pandit booking's payout as paid
+ * Marks a specific pandit wallet transaction's payout as paid
  */
 export const markPanditPayoutPaid = async (req, res) => {
   try {
@@ -112,24 +116,24 @@ export const markPanditPayoutPaid = async (req, res) => {
 
     const { id } = req.params;
     if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ success: false, message: "Invalid booking ID" });
+      return res.status(400).json({ success: false, message: "Invalid transaction ID" });
     }
 
-    const booking = await PanditBooking.findById(id);
-    if (!booking) {
-      return res.status(404).json({ success: false, message: "Booking not found" });
+    const transaction = await PanditWalletTransaction.findById(id);
+    if (!transaction) {
+      return res.status(404).json({ success: false, message: "Recommendation transaction not found" });
     }
 
-    if (booking.payoutPaid) {
+    if (transaction.payoutPaid) {
       return res.status(400).json({ success: false, message: "Payout already marked as paid" });
     }
 
-    booking.payoutPaid = true;
-    booking.payoutPaidAt = new Date();
-    booking.payoutPaidBy = req.admin?._id || null;
-    await booking.save();
+    transaction.payoutPaid = true;
+    transaction.payoutPaidAt = new Date();
+    transaction.payoutPaidBy = req.admin?._id || null;
+    await transaction.save();
 
-    return res.json({ success: true, message: "Payout marked as paid", data: { booking } });
+    return res.json({ success: true, message: "Payout marked as paid", data: { transaction } });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message || "Unable to mark payout" });
   }
@@ -137,7 +141,7 @@ export const markPanditPayoutPaid = async (req, res) => {
 
 /**
  * PATCH /admin/pandits/mark-all-payout-paid/:panditId
- * Mark all pending payouts for a specific pandit as paid
+ * Mark all pending recommendation payouts for a specific pandit as paid
  */
 export const markAllPanditPayoutsPaid = async (req, res) => {
   try {
@@ -150,11 +154,11 @@ export const markAllPanditPayoutsPaid = async (req, res) => {
       return res.status(400).json({ success: false, message: "Invalid pandit ID" });
     }
 
-    const result = await PanditBooking.updateMany(
+    const result = await PanditWalletTransaction.updateMany(
       {
         pandit: panditId,
-        bookingStatus: "completed",
-        "payment.status": "paid",
+        type: "credit",
+        source: "pandit-commission",
         payoutPaid: { $ne: true },
       },
       {

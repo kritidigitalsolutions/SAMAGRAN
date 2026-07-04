@@ -2,10 +2,12 @@ import { useEffect, useMemo, useState } from "react";
 import API from "../api/axios";
 import TablePagination from "../components/TablePagination";
 import { toast } from "react-toastify";
+import { getStoredAdmin } from "../utils/auth";
 
 const formatMoney = (value) => `₹${Number(value || 0).toFixed(2)}`;
 
 export default function Refunds() {
+  const isSuperAdmin = useMemo(() => getStoredAdmin()?.role === "super", []);
   const [activeTab, setActiveTab] = useState("complaints"); // "complaints" or "settings"
   
   // Complaints State
@@ -76,11 +78,13 @@ export default function Refunds() {
       
       const userField = typeof c.user === "object" && c.user !== null ? c.user : {};
       const orderField = c.order || {};
+      const bookingField = c.booking || {};
       
       const matchesSearch =
         String(userField.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
         String(userField.phone || "").includes(searchQuery) ||
         String(orderField._id || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+        String(bookingField._id || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
         String(c.issue || "").toLowerCase().includes(searchQuery.toLowerCase());
         
       return matchesStatus && matchesSearch;
@@ -239,6 +243,7 @@ export default function Refunds() {
                   <tr>
                     <th className="px-6 py-4">User Details</th>
                     <th className="px-6 py-4">Order ID & Amount</th>
+                    {isSuperAdmin && <th className="px-6 py-4">Vendor Details</th>}
                     <th className="px-6 py-4">Issue Details</th>
                     <th className="px-6 py-4">Status</th>
                     <th className="px-6 py-4">Raised Date</th>
@@ -248,14 +253,15 @@ export default function Refunds() {
                 <tbody className="divide-y divide-[var(--admin-border)]">
                   {pagedComplaints.length === 0 ? (
                     <tr>
-                      <td colSpan="6" className="px-6 py-12 text-center text-[var(--admin-text-muted)]">
+                      <td colSpan={isSuperAdmin ? "7" : "6"} className="px-6 py-12 text-center text-[var(--admin-text-muted)]">
                         No complaints found.
                       </td>
                     </tr>
                   ) : (
                     pagedComplaints.map((c) => {
                       const user = typeof c.user === "object" && c.user !== null ? c.user : {};
-                      const order = c.order || {};
+                      const order = c.order;
+                      const booking = c.booking;
                       const formattedDate = c.createdAt ? new Date(c.createdAt).toLocaleDateString() : "-";
                       
                       return (
@@ -269,13 +275,48 @@ export default function Refunds() {
                             </div>
                           </td>
                           <td className="px-6 py-4">
-                            <div className="font-mono text-xs text-[var(--admin-text-strong)]">
-                              #{String(order._id || "").slice(-8).toUpperCase()}
-                            </div>
-                            <div className="text-xs text-[var(--admin-text-muted)] mt-0.5 font-medium">
-                              {formatMoney(order.totalAmount || 0)} ({order.paymentStatus || "N/A"})
-                            </div>
+                            {booking ? (
+                              <>
+                                <div className="font-mono text-xs text-[var(--admin-text-strong)] font-semibold">
+                                  Booking #{String(booking._id || "").slice(-8).toUpperCase()}
+                                </div>
+                                <div className="text-xs text-[var(--admin-text-muted)] mt-0.5 font-medium">
+                                  {formatMoney(booking.bookingAmount || booking.dakshinaAmount || 0)} ({booking.payment?.status || "N/A"})
+                                </div>
+                              </>
+                            ) : (
+                              <>
+                                <div className="font-mono text-xs text-[var(--admin-text-strong)] font-semibold">
+                                  Order #{String(order?._id || "").slice(-8).toUpperCase()}
+                                </div>
+                                <div className="text-xs text-[var(--admin-text-muted)] mt-0.5 font-medium">
+                                  {formatMoney(order?.totalAmount || 0)} ({order?.paymentStatus || "N/A"})
+                                </div>
+                              </>
+                            )}
                           </td>
+                          {isSuperAdmin && (
+                            <td className="px-6 py-4">
+                              {(() => {
+                                const vendor = booking?.pandit?.vendorId || order?.vendorId;
+                                return vendor ? (
+                                  <>
+                                    <div className="font-semibold text-[var(--admin-text-strong)]">
+                                      {vendor.businessName || vendor.name || "N/A"}
+                                    </div>
+                                    <div className="text-xs text-[var(--admin-text-muted)] mt-0.5 font-medium">
+                                      ID: {String(vendor._id || "").slice(-6).toUpperCase()}
+                                    </div>
+                                    <div className="text-[10px] text-[var(--admin-text-muted)] mt-0.5">
+                                      {[vendor.address?.city, vendor.address?.state].filter(Boolean).join(", ")}
+                                    </div>
+                                  </>
+                                ) : (
+                                  <span className="text-xs text-[var(--admin-text-muted)]">Super Admin / System</span>
+                                );
+                              })()}
+                            </td>
+                          )}
                           <td className="px-6 py-4 max-w-xs">
                             <div className="font-semibold text-sm text-[var(--admin-text-strong)]">
                               {c.issue}
@@ -450,10 +491,10 @@ export default function Refunds() {
             <div className="flex items-start justify-between border-b border-[var(--admin-border)] pb-4">
               <div>
                 <h3 className="text-xl font-bold text-[var(--admin-text-strong)]">
-                  Complaint Resolution
+                  Complaint/Refund Resolution
                 </h3>
                 <p className="mt-1 text-xs text-[var(--admin-text-muted)]">
-                  Order ID: #{String(selectedComplaint.order?._id || '').slice(-8).toUpperCase()}
+                  {selectedComplaint.booking ? "Booking ID" : "Order ID"}: #{String(selectedComplaint.booking?._id || selectedComplaint.order?._id || '').slice(-8).toUpperCase()}
                 </p>
               </div>
               <button
@@ -499,6 +540,19 @@ export default function Refunds() {
                   {selectedComplaint.details}
                 </div>
               </div>
+
+              {selectedComplaint.booking && (
+                <div>
+                  <span className="text-xs font-semibold uppercase tracking-wider text-[var(--admin-text-muted)]">
+                    Paid Amount Details
+                  </span>
+                  <div className="text-sm mt-1">
+                    <div>Total Amount: {formatMoney(selectedComplaint.booking.bookingAmount || selectedComplaint.booking.dakshinaAmount || 0)}</div>
+                    <div>Payment Method: {selectedComplaint.booking.payment?.method || "N/A"}</div>
+                    <div>Payment Status: {selectedComplaint.booking.payment?.status || "N/A"}</div>
+                  </div>
+                </div>
+              )}
 
               {selectedComplaint.order?.payableAmount !== undefined && (
                 <div>

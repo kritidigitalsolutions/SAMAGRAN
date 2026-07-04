@@ -3,6 +3,7 @@ import API from "../api/axios";
 // import Pagination from "../components/common/Pagination";
 import TablePagination from "../components/TablePagination";
 import { toast } from "react-toastify";
+import { getStoredAdmin } from "../utils/auth";
 
 const formatMoney = (value) => `INR ${Number(value || 0).toFixed(2)}`;
 
@@ -27,6 +28,7 @@ const statusBadgeClass = (status = "") => {
 };
 
 export default function Transactions() {
+  const isSuperAdmin = useMemo(() => getStoredAdmin()?.role === "super", []);
   const [transactions, setTransactions] = useState([]);
   const [pageSize, setPageSize] = useState(10);
 
@@ -162,8 +164,9 @@ export default function Transactions() {
                   />
                 </th>
                 <th className="px-4 py-3 font-semibold">Date</th>
-                <th className="px-4 py-3 font-semibold">Type</th>
-                <th className="px-4 py-3 font-semibold">Amount</th>
+                 <th className="px-4 py-3 font-semibold">Type</th>
+                 {isSuperAdmin && <th className="px-4 py-3 font-semibold">Vendor Details</th>}
+                 <th className="px-4 py-3 font-semibold">Amount</th>
                 <th className="px-4 py-3 font-semibold">Gross</th>
                 <th className="px-4 py-3 font-semibold">Commission</th>
                 <th className="px-4 py-3 font-semibold">Status</th>
@@ -174,7 +177,7 @@ export default function Transactions() {
               {transactions.length === 0 ? (
                 <tr>
                   <td
-                    colSpan="8"
+                    colSpan={isSuperAdmin ? "9" : "8"}
                     className="px-4 py-6 text-center text-[var(--admin-text-muted)]"
                   >
                     No transactions found.
@@ -210,6 +213,25 @@ export default function Transactions() {
                       <td className="px-4 py-3 capitalize font-semibold">
                         {item.type}
                       </td>
+                      {isSuperAdmin && (
+                        <td className="px-4 py-3">
+                          {item.vendorId ? (
+                            <>
+                              <p className="font-semibold text-[#2f1618] dark:text-[#fff3dc]">
+                                {item.vendorId.businessName || item.vendorId.name || "N/A"}
+                              </p>
+                              <p className="text-xs text-[#7c5b4b] dark:text-[#dbcdb8]/70 font-medium">
+                                ID: {String(item.vendorId._id || "").slice(-6).toUpperCase()}
+                              </p>
+                              <p className="text-[10px] text-[#7c5b4b] dark:text-[#dbcdb8]/70">
+                                {[item.vendorId.address?.city, item.vendorId.address?.state].filter(Boolean).join(", ")}
+                              </p>
+                            </>
+                          ) : (
+                            <span className="text-xs text-[#7c5b4b] dark:text-[#dbcdb8]/70">Super Admin / System</span>
+                          )}
+                        </td>
+                      )}
                       <td className="px-4 py-3 font-semibold text-emerald-700 dark:text-emerald-200">
                         {formatMoney(item.amount)}
                       </td>

@@ -197,7 +197,12 @@ export const getVendorTransactions = async (req, res) => {
       (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
 
-    return res.json({ success: true, data: { transactions } });
+    const populatedTransactions = await Vendor.populate(transactions, {
+      path: "vendorId",
+      select: "name businessName email phone address"
+    });
+
+    return res.json({ success: true, data: { transactions: populatedTransactions } });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message || "Unable to fetch transactions" });
   }
