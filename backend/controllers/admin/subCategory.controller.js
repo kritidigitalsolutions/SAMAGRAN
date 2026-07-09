@@ -4,20 +4,37 @@ import { uploadFileToFirebase } from "../../utils/firebaseUpload.js";
 
 const normalizeName = (value = "") => String(value || "").trim();
 
-const ensureSuperAdmin = (req, res) => {
-  if (req.admin?.role !== "super") {
-    res.status(403).json({
-      success: false,
-      message: "Only super admin can manage sub-categories",
-    });
-    return false;
+const vendorPopulateSelect = "name businessName email phone address";
+const subCategoryPopulate = [
+  { path: "vendorId", select: vendorPopulateSelect },
+  {
+    path: "categoryId",
+    select: "name code vendorId",
+    populate: { path: "vendorId", select: vendorPopulateSelect },
+  },
+];
+
+const resolveSubCategoryVendorId = (category) => category?.vendorId || null;
+
+const ensureCanManageSubCategories = (req, res) => {
+  if (req.admin?.role === "super") {
+    return true;
   }
-  return true;
+  if (req.admin?.role === "vendor") {
+    if (req.vendor?.pageAccess?.includes("sub-category")) {
+      return true;
+    }
+  }
+  res.status(403).json({
+    success: false,
+    message: "Only super admin can manage sub-categories",
+  });
+  return false;
 };
 
 export const createSubCategory = async (req, res) => {
   try {
-    if (!ensureSuperAdmin(req, res)) return;
+    if (!ensureCanManageSubCategories(req, res)) return;
 
     const name = normalizeName(req.body?.name);
     const description = normalizeName(req.body?.description);
@@ -47,6 +64,16 @@ export const createSubCategory = async (req, res) => {
       });
     }
 
+    // Ownership check: vendor can only link to their own categories
+    if (req.admin.role === "vendor") {
+      if (!categoryExists.vendorId || categoryExists.vendorId.toString() !== req.vendor._id.toString()) {
+        return res.status(403).json({
+          success: false,
+          message: "You do not have permission to add sub-categories to this category",
+        });
+      }
+    }
+
     // Duplicate check: same name under same parent category (case-insensitive) is not allowed
     const existing = await SubCategory.findOne({
       name: { $regex: `^${name}$`, $options: "i" },
@@ -66,12 +93,15 @@ export const createSubCategory = async (req, res) => {
 
     // code is auto-generated in pre-save hook
     const subCategory = await SubCategory.create({
+      vendorId: resolveSubCategoryVendorId(categoryExists),
       categoryId,
       name,
       description,
       image: uploadedImage || normalizeName(req.body?.image),
       status,
     });
+
+    await subCategory.populate(subCategoryPopulate);
 
     return res.status(201).json({
       success: true,
@@ -96,7 +126,25 @@ export const getAllSubCategories = async (req, res) => {
     }
 
     if (categoryId) {
+      if (req.admin.role === "vendor") {
+        const accessibleCategories = await Category.find({
+          vendorId: req.vendor._id,
+        }).select("_id");
+        const categoryIds = accessibleCategories.map((c) => c._id.toString());
+        if (!categoryIds.includes(categoryId.toString())) {
+          return res.status(403).json({
+            success: false,
+            message: "Access denied to this category's sub-categories",
+          });
+        }
+      }
       filter.categoryId = categoryId;
+    } else if (req.admin.role === "vendor") {
+      const accessibleCategories = await Category.find({
+        vendorId: req.vendor._id,
+      }).select("_id");
+      const categoryIds = accessibleCategories.map((c) => c._id);
+      filter.categoryId = { $in: categoryIds };
     }
 
     if (search.trim()) {
@@ -108,7 +156,7 @@ export const getAllSubCategories = async (req, res) => {
     }
 
     const subCategories = await SubCategory.find(filter)
-      .populate("categoryId", "name code")
+      .populate(subCategoryPopulate)
       .sort({ createdAt: -1 });
 
     return res.json({
@@ -126,16 +174,23 @@ export const getAllSubCategories = async (req, res) => {
 
 export const getSubCategoryById = async (req, res) => {
   try {
-    const subCategory = await SubCategory.findById(req.params.id).populate(
-      "categoryId",
-      "name code"
-    );
+    const subCategory = await SubCategory.findById(req.params.id).populate(subCategoryPopulate);
 
     if (!subCategory) {
       return res.status(404).json({
         success: false,
         message: "Sub-category not found",
       });
+    }
+
+    if (req.admin.role === "vendor") {
+      const parentCategory = subCategory.categoryId;
+      if (parentCategory && parentCategory.vendorId && parentCategory.vendorId.toString() !== req.vendor._id.toString()) {
+        return res.status(403).json({
+          success: false,
+          message: "Access denied",
+        });
+      }
     }
 
     return res.json({
@@ -152,7 +207,7 @@ export const getSubCategoryById = async (req, res) => {
 
 export const updateSubCategory = async (req, res) => {
   try {
-    if (!ensureSuperAdmin(req, res)) return;
+    if (!ensureCanManageSubCategories(req, res)) return;
 
     const subCategory = await SubCategory.findById(req.params.id);
 
@@ -171,6 +226,22 @@ export const updateSubCategory = async (req, res) => {
     const finalName = name || subCategory.name;
     const finalCategoryId = categoryId || subCategory.categoryId;
 
+    if (req.admin.role === "vendor") {
+      const parentCategory = await Category.findById(subCategory.categoryId);
+      if (parentCategory && parentCategory.vendorId && parentCategory.vendorId.toString() !== req.vendor._id.toString()) {
+        return res.status(403).json({
+          success: false,
+          message: "You do not have permission to manage this sub-category",
+        });
+      }
+      if (parentCategory && !parentCategory.vendorId) {
+        return res.status(403).json({
+          success: false,
+          message: "You cannot modify global sub-categories",
+        });
+      }
+    }
+
     // Verify parent category exists if it is being updated
     if (categoryId) {
       const categoryExists = await Category.findById(categoryId);
@@ -179,6 +250,14 @@ export const updateSubCategory = async (req, res) => {
           success: false,
           message: "Parent Category not found",
         });
+      }
+      if (req.admin.role === "vendor") {
+        if (!categoryExists.vendorId || categoryExists.vendorId.toString() !== req.vendor._id.toString()) {
+          return res.status(403).json({
+            success: false,
+            message: "You do not have permission to move sub-categories to this category",
+          });
+        }
       }
     }
 
@@ -205,7 +284,9 @@ export const updateSubCategory = async (req, res) => {
     }
 
     if (categoryId) {
+      const nextCategory = await Category.findById(categoryId).select("vendorId");
       subCategory.categoryId = categoryId;
+      subCategory.vendorId = resolveSubCategoryVendorId(nextCategory);
     }
 
     if (status === "active" || status === "inactive") {
@@ -223,6 +304,7 @@ export const updateSubCategory = async (req, res) => {
     }
 
     await subCategory.save();
+    await subCategory.populate(subCategoryPopulate);
 
     return res.json({
       success: true,
@@ -239,7 +321,7 @@ export const updateSubCategory = async (req, res) => {
 
 export const deleteSubCategory = async (req, res) => {
   try {
-    if (!ensureSuperAdmin(req, res)) return;
+    if (!ensureCanManageSubCategories(req, res)) return;
 
     const subCategory = await SubCategory.findById(req.params.id);
 
@@ -248,6 +330,22 @@ export const deleteSubCategory = async (req, res) => {
         success: false,
         message: "Sub-category not found",
       });
+    }
+
+    if (req.admin.role === "vendor") {
+      const parentCategory = await Category.findById(subCategory.categoryId);
+      if (parentCategory && parentCategory.vendorId && parentCategory.vendorId.toString() !== req.vendor._id.toString()) {
+        return res.status(403).json({
+          success: false,
+          message: "You do not have permission to manage this sub-category",
+        });
+      }
+      if (parentCategory && !parentCategory.vendorId) {
+        return res.status(403).json({
+          success: false,
+          message: "You cannot delete global sub-categories",
+        });
+      }
     }
 
     await SubCategory.findByIdAndDelete(req.params.id);
@@ -263,3 +361,5 @@ export const deleteSubCategory = async (req, res) => {
     });
   }
 };
+
+

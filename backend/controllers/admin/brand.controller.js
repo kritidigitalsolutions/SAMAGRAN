@@ -92,7 +92,9 @@ export const getAllBrands = async (req, res) => {
       Object.assign(filter, searchFilter);
     }
 
-    const brands = await Brand.find(filter).sort({ createdAt: -1 });
+    const brands = await Brand.find(filter)
+      .populate("vendorId", "name businessName email phone address")
+      .sort({ createdAt: -1 });
 
     return res.json({
       success: true,
@@ -109,7 +111,7 @@ export const getAllBrands = async (req, res) => {
 
 export const getBrandById = async (req, res) => {
   try {
-    const brand = await Brand.findById(req.params.id);
+    const brand = await Brand.findById(req.params.id).populate("vendorId", "name businessName email phone address");
 
     if (!brand) {
       return res.status(404).json({
@@ -139,7 +141,7 @@ export const getBrandById = async (req, res) => {
 
 export const updateBrand = async (req, res) => {
   try {
-    const brand = await Brand.findById(req.params.id);
+    const brand = await Brand.findById(req.params.id).populate("vendorId", "name businessName email phone address");
 
     if (!brand) {
       return res.status(404).json({
@@ -214,6 +216,7 @@ export const updateBrand = async (req, res) => {
     }
 
     await brand.save();
+    await brand.populate("vendorId", "name businessName email phone address");
 
     return res.json({
       success: true,
@@ -230,7 +233,7 @@ export const updateBrand = async (req, res) => {
 
 export const deleteBrand = async (req, res) => {
   try {
-    const brand = await Brand.findById(req.params.id);
+    const brand = await Brand.findById(req.params.id).populate("vendorId", "name businessName email phone address");
 
     if (!brand) {
       return res.status(404).json({
@@ -259,3 +262,4 @@ export const deleteBrand = async (req, res) => {
     });
   }
 };
+

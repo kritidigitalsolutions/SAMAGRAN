@@ -9,12 +9,14 @@ import {
   getSuperAdminCommissionReport,
   deleteVendorTransaction,
   markWithdrawalPaid,
+  getPanditTransactions,
 } from "../../controllers/admin/vendorFinance.controller.js";
 
 const router = express.Router();
 
 router.get("/vendor/earnings/summary", protectAdmin, getVendorEarningsSummary);
 router.get("/vendor/transactions", protectAdmin, getVendorTransactions);
+router.get("/pandit/transactions", protectAdmin, getPanditTransactions);
 router.get("/vendor/withdrawals", protectAdmin, getVendorWithdrawals);
 router.post("/vendor/withdrawals", protectAdmin, createVendorWithdrawal);
 router.get("/vendor/refunds", protectAdmin, getVendorRefunds);

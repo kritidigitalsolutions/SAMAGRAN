@@ -22,52 +22,29 @@ export const getAllCategoriesUser = async (req, res) => {
     const city = resolveCity(req);
     const { search = "" } = req.query;
 
-    let categories;
-
-    if (city) {
-      // City provided: filter to categories with products in this city
-      const vendorFilter = await buildVendorCityFilter(city);
-      const cityProducts = await Item.find(
-        { status: "active", ...vendorFilter },
-        { categoryId: 1 }
-      ).lean();
-
-      const categoryIdSet = new Set(
-        cityProducts
-          .map((p) => p.categoryId?.toString())
-          .filter(Boolean)
-      );
-
-      if (categoryIdSet.size === 0) {
-        categories = [];
-      } else {
-        const filter = {
-          status: "active",
-          _id: { $in: [...categoryIdSet] },
-        };
-
-        if (search.trim()) {
-          const regex = { $regex: search.trim(), $options: "i" };
-          filter.$or = [{ name: regex }, { code: regex }];
-        }
-
-        categories = await Category.find(filter).sort({ createdAt: -1 });
-      }
-    } else {
-      // No city: return all active categories
-      const filter = { status: "active" };
-
-      if (search.trim()) {
-        const regex = { $regex: search.trim(), $options: "i" };
-        filter.$or = [{ name: regex }, { code: regex }];
-      }
-
-      categories = await Category.find(filter).sort({ createdAt: -1 });
+    if (!city) {
+      return sendCityRequired(res);
     }
+
+    const vendorFilter = await buildVendorCityFilter(city);
+
+    const filter = {
+      status: "active",
+      ...vendorFilter,
+    };
+
+    if (search.trim()) {
+      const regex = { $regex: search.trim(), $options: "i" };
+      filter.$or = [{ name: regex }, { code: regex }];
+    }
+
+    const categories = await Category.find(filter)
+      .populate("vendorId", "name businessName email phone address")
+      .sort({ createdAt: -1 });
 
     return res.json({
       success: true,
-      ...(city ? { city } : {}),
+      city,
       count: categories.length,
       data: categories,
     });

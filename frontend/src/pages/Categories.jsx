@@ -3,6 +3,7 @@ import { FiEdit2, FiMoreVertical, FiPlus, FiRefreshCw, FiSearch, FiTrash2, FiX }
 import API from "../api/axios";
 import TablePagination from "../components/TablePagination";
 import TableMenuPopover from "../components/TableMenuPopover";
+import { getAdminRole } from "../utils/auth";
 
 const apiOrigin = (API.defaults.baseURL || "http://localhost:8000/api").replace(/\/api\/?$/, "");
 
@@ -20,6 +21,7 @@ const formatImageUrl = (path) => {
 };
 
 export default function Categories() {
+  const isSuperAdmin = getAdminRole() === "super-admin";
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -361,6 +363,7 @@ export default function Categories() {
                     <th className="px-4 py-3 font-semibold">S.No</th>
                     <th className="px-4 py-3 font-semibold">Image</th>
                     <th className="px-4 py-3 font-semibold">Name</th>
+                    {isSuperAdmin && <th className="px-4 py-3 font-semibold">Vendor Details</th>}
                     <th className="px-4 py-3 font-semibold">Code</th>
                     <th className="px-4 py-3 font-semibold">Description</th>
                     <th className="px-4 py-3 font-semibold">Status</th>
@@ -371,12 +374,14 @@ export default function Categories() {
                   {pagedCategories.map((category, index) => (
                     <tr key={category._id} className="border-b border-[#f0e3d1] align-top last:border-none dark:border-white/10">
                       <td className="text-center px-4 py-3">
-                        <input
-                          type="checkbox"
-                          checked={selectedIds.includes(category._id)}
-                          onChange={(event) => toggleSelection(category._id, event.target.checked)}
-                          className="h-4 w-4 rounded-[4px] border border-[#d7c3a3]"
-                        />
+                        {(getAdminRole() !== "vendor-admin" || category.vendorId) && (
+                          <input
+                            type="checkbox"
+                            checked={selectedIds.includes(category._id)}
+                            onChange={(event) => toggleSelection(category._id, event.target.checked)}
+                            className="h-4 w-4 rounded-[4px] border border-[#d7c3a3]"
+                          />
+                        )}
                       </td>
                       <td className="px-4 py-3 text-sm text-[#6f3945] dark:text-[#f7e3c0]">{(page - 1) * pageSize + index + 1}</td>
                       <td className="px-4 py-3">
@@ -387,6 +392,22 @@ export default function Categories() {
                         )}
                       </td>
                       <td className="px-4 py-3 font-semibold text-[#2f1618] dark:text-[#fff3dc]">{category.name}</td>
+                      {isSuperAdmin && (
+                        <td className="px-4 py-3">
+                          {category.vendorId ? (
+                            <>
+                              <p className="font-semibold text-[#2f1618] dark:text-[#fff3dc] text-sm">
+                                {category.vendorId.businessName || category.vendorId.name || "N/A"}
+                              </p>
+                              <p className="text-xs text-[#7c5b4b] dark:text-[#dbcdb8]/70 font-medium">
+                                ID: {String(category.vendorId._id || "").slice(-6).toUpperCase()}
+                              </p>
+                            </>
+                          ) : (
+                            <span className="text-xs text-[#7c5b4b] dark:text-[#dbcdb8]/70 font-medium">Global / Admin</span>
+                          )}
+                        </td>
+                      )}
                       <td className="px-4 py-3 text-sm text-[#6f3945] dark:text-[#f7e3c0]">{category.code || "-"}</td>
                       <td className="px-4 py-3 text-sm text-[#6f3945] dark:text-[#f7e3c0] max-w-[300px]"><span className="line-clamp-2" title={category.description}>{category.description || "-"}</span></td>
                       <td className="px-4 py-3">
@@ -395,61 +416,65 @@ export default function Categories() {
                         </span>
                       </td>
                       <td className="px-4 py-3 text-right" data-category-menu>
-                        <div className="relative inline-flex">
-                          <button
-                            type="button"
-                            onClick={(event) => {
-                              const nextId = openMenuId === category._id ? "" : category._id;
-                              setOpenMenuId(nextId);
-                              setMenuAnchorRect(nextId ? event.currentTarget.getBoundingClientRect() : null);
-                            }}
-                            className="grid h-9 w-9 place-items-center rounded-lg border border-[#d7bf9b] text-[#6f3945] hover:bg-[#8B1E3F]/10 dark:border-white/20 dark:text-[#f7e3c0]"
-                          >
-                            <FiMoreVertical />
-                          </button>
-                          {openMenuId === category._id && (
-                            <TableMenuPopover
-                              open
-                              anchorRect={menuAnchorRect}
-                              preferUp={index >= pagedCategories.length - 3}
-                              onClose={() => setOpenMenuId("")}
-                              className="w-44 overflow-hidden rounded-xl border border-[#d9c3a2] bg-white text-sm shadow-lg dark:border-white/10 dark:bg-[#1b1f27]"
+                        {(getAdminRole() !== "vendor-admin" || category.vendorId) ? (
+                          <div className="relative inline-flex">
+                            <button
+                              type="button"
+                              onClick={(event) => {
+                                const nextId = openMenuId === category._id ? "" : category._id;
+                                setOpenMenuId(nextId);
+                                setMenuAnchorRect(nextId ? event.currentTarget.getBoundingClientRect() : null);
+                              }}
+                              className="grid h-9 w-9 place-items-center rounded-lg border border-[#d7bf9b] text-[#6f3945] hover:bg-[#8B1E3F]/10 dark:border-white/20 dark:text-[#f7e3c0]"
                             >
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setOpenMenuId("");
-                                  openEdit(category);
-                                }}
-                                className="flex w-full items-center gap-2 px-4 py-2 text-left hover:bg-[#8B1E3F]/10"
+                              <FiMoreVertical />
+                            </button>
+                            {openMenuId === category._id && (
+                              <TableMenuPopover
+                                open
+                                anchorRect={menuAnchorRect}
+                                preferUp={index >= pagedCategories.length - 3}
+                                onClose={() => setOpenMenuId("")}
+                                className="w-44 overflow-hidden rounded-xl border border-[#d9c3a2] bg-white text-sm shadow-lg dark:border-white/10 dark:bg-[#1b1f27]"
                               >
-                                <FiEdit2 className="text-[#6f3945]" /> Edit
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setOpenMenuId("");
-                                  handleToggleStatus(category);
-                                }}
-                                className="flex w-full items-center gap-2 px-4 py-2 text-left hover:bg-[#8B1E3F]/10"
-                              >
-                                <span className="text-[#6f3945]">
-                                  {category.status === "inactive" ? "Mark Active" : "Mark Inactive"}
-                                </span>
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setOpenMenuId("");
-                                  handleDelete(category);
-                                }}
-                                className="flex w-full items-center gap-2 px-4 py-2 text-left text-red-700 hover:bg-red-50 dark:text-red-200 dark:hover:bg-red-500/10"
-                              >
-                                <FiTrash2 className="text-red-600" /> Delete
-                              </button>
-                            </TableMenuPopover>
-                          )}
-                        </div>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setOpenMenuId("");
+                                    openEdit(category);
+                                  }}
+                                  className="flex w-full items-center gap-2 px-4 py-2 text-left hover:bg-[#8B1E3F]/10"
+                                >
+                                  <FiEdit2 className="text-[#6f3945]" /> Edit
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setOpenMenuId("");
+                                    handleToggleStatus(category);
+                                  }}
+                                  className="flex w-full items-center gap-2 px-4 py-2 text-left hover:bg-[#8B1E3F]/10"
+                                >
+                                  <span className="text-[#6f3945]">
+                                    {category.status === "inactive" ? "Mark Active" : "Mark Inactive"}
+                                  </span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setOpenMenuId("");
+                                    handleDelete(category);
+                                  }}
+                                  className="flex w-full items-center gap-2 px-4 py-2 text-left text-red-700 hover:bg-red-50 dark:text-red-200 dark:hover:bg-red-500/10"
+                                >
+                                  <FiTrash2 className="text-red-600" /> Delete
+                                </button>
+                              </TableMenuPopover>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-[#7f5a4f] dark:text-[#e7c98b] font-medium">View Only</span>
+                        )}
                       </td>
                     </tr>
                   ))}

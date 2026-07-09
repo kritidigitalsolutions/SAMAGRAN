@@ -2,6 +2,8 @@ import VendorWithdrawal from "../../models/vendorWithdrawal.model.js";
 import Vendor from "../../models/vendor.model.js";
 import Order from "../../models/order.model.js";
 import { buildVendorFinance, toMoney, normalizeOrderStatus } from "../../utils/vendorFinance.js";
+import PanditBooking from "../../models/panditBooking.model.js";
+import Pandit from "../../models/pandit.model.js";
 
 const resolveVendorScope = (req) => {
   if (req.admin?.role === "vendor") {
@@ -193,7 +195,44 @@ export const getVendorTransactions = async (req, res) => {
       createdAt: withdrawal.createdAt || withdrawal.requestedAt,
     }));
 
-    const transactions = [...earningTransactions, ...commissionTransactions, ...refundTransactions, ...withdrawalTransactions].sort(
+    let bookingQuery = {
+      "payment.status": "paid",
+    };
+
+    if (vendorId) {
+      const pandits = await Pandit.find({ vendorId }).select("_id");
+      const panditIds = pandits.map((p) => p._id);
+      bookingQuery.pandit = { $in: panditIds };
+    }
+
+    const bookings = await PanditBooking.find(bookingQuery)
+      .populate("pandit", "fullName phone vendorId")
+      .lean();
+
+    const panditBookingTransactions = bookings.map((booking) => {
+      const bookingAmount = Number(booking.bookingAmount || booking.dakshinaAmount || 0);
+      return {
+        id: String(booking._id),
+        type: "pandit-booking",
+        status: "completed",
+        amount: 0,
+        grossAmount: bookingAmount,
+        superAdminCommission: bookingAmount,
+        reference: booking.payment?.transactionId || booking.payment?.razorpayPaymentId || String(booking._id),
+        orderId: null,
+        bookingId: booking._id,
+        vendorId: booking.pandit?.vendorId || null,
+        createdAt: booking.payment?.paidAt || booking.createdAt,
+      };
+    });
+
+    const transactions = [
+      ...earningTransactions,
+      ...commissionTransactions,
+      ...refundTransactions,
+      ...withdrawalTransactions,
+      ...panditBookingTransactions,
+    ].sort(
       (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
 
@@ -358,6 +397,52 @@ export const markWithdrawalPaid = async (req, res) => {
     });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message || "Unable to mark withdrawal as paid" });
+  }
+};
+
+export const getPanditTransactions = async (req, res) => {
+  try {
+    const bookings = await PanditBooking.find({})
+      .populate("user", "name phone email")
+      .populate({
+        path: "pandit",
+        select: "fullName phone profileImage address vendorId",
+        populate: {
+          path: "vendorId",
+          select: "name businessName email phone address"
+        }
+      })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const transactions = bookings.map((booking) => {
+      const payment = booking.payment || {};
+      return {
+        id: String(booking._id),
+        createdAt: payment.paidAt || booking.createdAt,
+        type: "pandit-booking",
+        ritualName: booking.ritual?.name || "Ritual Booking",
+        user: {
+          name: booking.user?.name || "N/A",
+          phone: booking.user?.phone || "N/A",
+        },
+        pandit: {
+          fullName: booking.pandit?.fullName || "N/A",
+          phone: booking.pandit?.phone || "N/A",
+        },
+        vendor: booking.pandit?.vendorId || null,
+        amount: booking.bookingAmount || booking.dakshinaAmount || 0,
+        status: payment.status || "pending",
+        method: payment.method || "UPI",
+        reference: payment.transactionId || payment.razorpayPaymentId || "-",
+        payoutPaid: booking.payoutPaid === true,
+        payoutPaidAt: booking.payoutPaidAt || null,
+      };
+    });
+
+    return res.json({ success: true, data: { transactions } });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message || "Unable to fetch pandit transactions" });
   }
 };
 

@@ -125,6 +125,41 @@ export const getProductsUser = async (req, res) => {
 
     let query = { status: "active", ...vendorFilter };
 
+    const { categoryId, subCategoryId, brandId, search, isRecommended, isMostPoojaEssentials, isMostUsed, isEveryDayRitual, isRitualItems } = req.query;
+
+    if (categoryId) {
+      query.categoryId = categoryId;
+    }
+    if (subCategoryId) {
+      query.subCategoryId = subCategoryId;
+    }
+    if (brandId) {
+      query.brandId = brandId;
+    }
+    if (search && String(search).trim()) {
+      const searchRegex = new RegExp(escapeRegex(String(search).trim()), "i");
+      query.$or = [
+        { title: searchRegex },
+        { description: searchRegex },
+        { tags: searchRegex },
+      ];
+    }
+    if (isRecommended === "true" || isRecommended === true) {
+      query["flags.isRecommended"] = true;
+    }
+    if (isMostPoojaEssentials === "true" || isMostPoojaEssentials === true) {
+      query["flags.isMostPoojaEssentials"] = true;
+    }
+    if (isMostUsed === "true" || isMostUsed === true) {
+      query["flags.isMostUsed"] = true;
+    }
+    if (isEveryDayRitual === "true" || isEveryDayRitual === true) {
+      query["flags.isEveryDayRitual"] = true;
+    }
+    if (isRitualItems === "true" || isRitualItems === true) {
+      query["flags.isRitualItems"] = true;
+    }
+
     const totalProducts = await Item.countDocuments(query);
 
     const items = await Item.find(query)

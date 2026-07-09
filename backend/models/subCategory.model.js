@@ -2,6 +2,12 @@ import mongoose from "mongoose";
 
 const subCategorySchema = new mongoose.Schema(
   {
+    vendorId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Vendor",
+      default: null,
+      index: true,
+    },
     categoryId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Category",
@@ -37,3 +43,4 @@ subCategorySchema.pre("save", async function generateSubCategoryCode() {
 });
 
 export default mongoose.model("SubCategory", subCategorySchema);
+

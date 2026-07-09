@@ -3,6 +3,7 @@ import { FiEdit2, FiMoreVertical, FiPlus, FiRefreshCw, FiSearch, FiTrash2, FiX }
 import API from "../api/axios";
 import TablePagination from "../components/TablePagination";
 import TableMenuPopover from "../components/TableMenuPopover";
+import { getAdminRole } from "../utils/auth";
 
 const apiOrigin = (API.defaults.baseURL || "http://localhost:8000/api").replace(/\/api\/?$/, "");
 
@@ -20,6 +21,7 @@ const formatImageUrl = (path) => {
 };
 
 export default function Brands() {
+  const isSuperAdmin = getAdminRole() === "super-admin";
   const [brands, setBrands] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -366,6 +368,7 @@ export default function Brands() {
                     <th className="px-4 py-3 font-semibold">S.No</th>
                     <th className="px-4 py-3 font-semibold">Image</th>
                     <th className="px-4 py-3 font-semibold">Name</th>
+                    {isSuperAdmin && <th className="px-4 py-3 font-semibold">Vendor Details</th>}
                     <th className="px-4 py-3 font-semibold">Code</th>
                     <th className="px-4 py-3 font-semibold">Description</th>
                     <th className="px-4 py-3 font-semibold">Sub Brand</th>
@@ -393,6 +396,22 @@ export default function Brands() {
                         )}
                       </td>
                       <td className="px-4 py-3 font-semibold text-[#2f1618] dark:text-[#fff3dc] line-">{brand.name}</td>
+                      {isSuperAdmin && (
+                        <td className="px-4 py-3">
+                          {brand.vendorId ? (
+                            <>
+                              <p className="font-semibold text-[#2f1618] dark:text-[#fff3dc] text-sm">
+                                {brand.vendorId.businessName || brand.vendorId.name || "N/A"}
+                              </p>
+                              <p className="text-xs text-[#7c5b4b] dark:text-[#dbcdb8]/70 font-medium">
+                                ID: {String(brand.vendorId._id || "").slice(-6).toUpperCase()}
+                              </p>
+                            </>
+                          ) : (
+                            <span className="text-xs text-[#7c5b4b] dark:text-[#dbcdb8]/70 font-medium">Global / Admin</span>
+                          )}
+                        </td>
+                      )}
                       <td className="px-4 py-3 text-sm text-[#6f3945] dark:text-[#f7e3c0] line-">{brand.code || "-"}</td>
                       <td className="px-4 py-3 text-sm text-[#6f3945] dark:text-[#f7e3c0] max-w-[300px]" title={brand.description}><span className="line-clamp-2">{brand.description || "-"}</span></td>
                       <td className="px-4 py-3 text-sm text-[#6f3945] dark:text-[#f7e3c0] line-">{brand.subBrand || "-"}</td>

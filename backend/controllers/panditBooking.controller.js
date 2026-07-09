@@ -1501,7 +1501,6 @@ export const getMyPanditBookings = async (req, res) => {
 
     const bookings = await PanditBooking.find({
       user: req.user._id,
-      "payment.status": "paid",
     })
       .populate(
         "pandit",
@@ -1557,7 +1556,6 @@ export const getPanditBookingById = async (req, res) => {
     const booking = await PanditBooking.findOne({
       _id: req.params.bookingId,
       user: req.user._id,
-      "payment.status": "paid",
     })
       .populate("pandit", "fullName phone profileImage ratingAverage yearsOfExperience languagesSpoken templeAssociated")
       .populate("temple", "name image description address contactPhone contactPerson")

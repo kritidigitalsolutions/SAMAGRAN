@@ -5,7 +5,7 @@ import { toast } from "react-toastify";
 const TABS = ["Basic Info", "Address", "KYC & Bank", "Page Access"];
 
 const availablePages = [
-  "dashboard", "orders", "products", "items", "kits",
+  "dashboard", "orders", "products", "category", "sub-category", "items", "kits",
   "pandits", "rituals", "temples", "pandit-bookings",
   "banners", "coupons", "offers", "legal", "custom-samagri",
   "notifications", "delivery-boys", "settings",

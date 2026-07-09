@@ -22,52 +22,29 @@ export const getAllBrandsUser = async (req, res) => {
     const city = resolveCity(req);
     const { search = "" } = req.query;
 
-    let brands;
-
-    if (city) {
-      // City provided: filter to brands with products in this city
-      const vendorFilter = await buildVendorCityFilter(city);
-      const cityProducts = await Item.find(
-        { status: "active", ...vendorFilter },
-        { brandId: 1 }
-      ).lean();
-
-      const brandIdSet = new Set(
-        cityProducts
-          .map((p) => p.brandId?.toString())
-          .filter(Boolean)
-      );
-
-      if (brandIdSet.size === 0) {
-        brands = [];
-      } else {
-        const filter = {
-          status: "active",
-          _id: { $in: [...brandIdSet] },
-        };
-
-        if (search.trim()) {
-          const regex = { $regex: search.trim(), $options: "i" };
-          filter.$or = [{ name: regex }, { code: regex }];
-        }
-
-        brands = await Brand.find(filter).sort({ createdAt: -1 });
-      }
-    } else {
-      // No city: return all active brands
-      const filter = { status: "active" };
-
-      if (search.trim()) {
-        const regex = { $regex: search.trim(), $options: "i" };
-        filter.$or = [{ name: regex }, { code: regex }];
-      }
-
-      brands = await Brand.find(filter).sort({ createdAt: -1 });
+    if (!city) {
+      return sendCityRequired(res);
     }
+
+    const vendorFilter = await buildVendorCityFilter(city);
+
+    const filter = {
+      status: "active",
+      ...vendorFilter,
+    };
+
+    if (search.trim()) {
+      const regex = { $regex: search.trim(), $options: "i" };
+      filter.$or = [{ name: regex }, { code: regex }];
+    }
+
+    const brands = await Brand.find(filter)
+      .populate("vendorId", "name businessName email phone address")
+      .sort({ createdAt: -1 });
 
     return res.json({
       success: true,
-      ...(city ? { city } : {}),
+      city,
       count: brands.length,
       data: brands,
     });

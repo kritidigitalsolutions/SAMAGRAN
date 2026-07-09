@@ -102,6 +102,7 @@ const toOfferingFromRitual = ({ ritual, existingOffering = null }) => ({
     : Boolean(ritual.customSamagri),
   customSamagriNotes: sanitizeCustomSamagriNotes(existingOffering?.customSamagriNotes || []),
   customSamagriItems: sanitizeCustomSamagriItems(existingOffering?.customSamagriItems || []),
+  kitId: existingOffering?.kitId ? existingOffering.kitId : null,
 });
 
 const buildRitualPayload = ({ ritual, linkedOffering }) => ({
@@ -119,6 +120,7 @@ const buildRitualPayload = ({ ritual, linkedOffering }) => ({
     : Boolean(ritual.customSamagri),
   customSamagriNotes: sanitizeCustomSamagriNotes(linkedOffering?.customSamagriNotes || []),
   customSamagriItems: sanitizeCustomSamagriItems(linkedOffering?.customSamagriItems || []),
+  kitId: linkedOffering?.kitId ? linkedOffering.kitId : null,
 });
 
 const getRitualAndPanditOfferingContext = async ({ panditId, ritualId }) => {
@@ -305,6 +307,7 @@ export const addRitualForPandit = async (req, res) => {
       customSamagriItems = [],
       customSamagriNotes = [],
       isSelected = true,
+      kitId = undefined,
     } = req.body;
 
     let pandit = null;
@@ -426,6 +429,10 @@ export const addRitualForPandit = async (req, res) => {
             (existingIndex >= 0 && pandit.poojaOfferings[existingIndex]?.customSamagriItems) ||
             []
           ),
+      kitId:
+        kitId !== undefined
+          ? (kitId && mongoose.Types.ObjectId.isValid(kitId) ? kitId : null)
+          : (existingIndex >= 0 ? pandit.poojaOfferings[existingIndex]?.kitId : null),
     };
 
     if (existingIndex >= 0) {

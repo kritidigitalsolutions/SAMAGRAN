@@ -9,20 +9,25 @@ const parseCommissionPercent = (value, fallback = 0) => {
   return Math.min(Math.max(parsed, 0), 100);
 };
 
-const ensureSuperAdmin = (req, res) => {
-  if (req.admin?.role !== "super") {
-    res.status(403).json({
-      success: false,
-      message: "Only super admin can manage categories",
-    });
-    return false;
+const ensureCanManageCategories = (req, res) => {
+  if (req.admin?.role === "super") {
+    return true;
   }
-  return true;
+  if (req.admin?.role === "vendor") {
+    if (req.vendor?.pageAccess?.includes("category")) {
+      return true;
+    }
+  }
+  res.status(403).json({
+    success: false,
+    message: "Only super admin can manage categories",
+  });
+  return false;
 };
 
 export const createCategory = async (req, res) => {
   try {
-    if (!ensureSuperAdmin(req, res)) return;
+    if (!ensureCanManageCategories(req, res)) return;
 
     const name = normalizeName(req.body?.name);
     const description = normalizeName(req.body?.description);
@@ -40,11 +45,13 @@ export const createCategory = async (req, res) => {
       });
     }
 
+    const targetVendorId = req.admin.role === "vendor" ? req.vendor._id : null;
+
     // Duplicate check: same name + same subCategory (case-insensitive) is not allowed
     const existingFilter = {
       name: { $regex: `^${name}$`, $options: "i" },
       subCategory: { $regex: `^${subCategory}$`, $options: "i" },
-      vendorId: null,
+      vendorId: targetVendorId === null ? null : { $in: [targetVendorId, null] },
     };
 
     const existing = await Category.findOne(existingFilter);
@@ -64,7 +71,7 @@ export const createCategory = async (req, res) => {
 
     // code is intentionally omitted — pre-save hook auto-generates it
     const category = await Category.create({
-      vendorId: null,
+      vendorId: targetVendorId,
       name,
       description,
       image: uploadedImage || normalizeName(req.body?.image),
@@ -96,7 +103,7 @@ export const getAllCategories = async (req, res) => {
     }
 
     const vendorFilter = req.admin.role === "vendor"
-      ? { $or: [{ vendorId: req.vendor._id }, { vendorId: null }] }
+      ? { vendorId: req.vendor._id }
       : {};
 
     const searchFilter = search.trim() 
@@ -111,7 +118,9 @@ export const getAllCategories = async (req, res) => {
       Object.assign(filter, searchFilter);
     }
 
-    const categories = await Category.find(filter).sort({ createdAt: -1 });
+    const categories = await Category.find(filter)
+      .populate("vendorId", "name businessName email phone address")
+      .sort({ createdAt: -1 });
 
     return res.json({
       success: true,
@@ -128,7 +137,7 @@ export const getAllCategories = async (req, res) => {
 
 export const getCategoryById = async (req, res) => {
   try {
-    const category = await Category.findById(req.params.id);
+    const category = await Category.findById(req.params.id).populate("vendorId", "name businessName email phone address");
 
     if (!category) {
       return res.status(404).json({
@@ -158,15 +167,24 @@ export const getCategoryById = async (req, res) => {
 
 export const updateCategory = async (req, res) => {
   try {
-    if (!ensureSuperAdmin(req, res)) return;
+    if (!ensureCanManageCategories(req, res)) return;
 
-    const category = await Category.findById(req.params.id);
+    const category = await Category.findById(req.params.id).populate("vendorId", "name businessName email phone address");
 
     if (!category) {
       return res.status(404).json({
         success: false,
         message: "Category not found",
       });
+    }
+
+    if (req.admin.role === "vendor") {
+      if (!category.vendorId || category.vendorId.toString() !== req.vendor._id.toString()) {
+        return res.status(403).json({
+          success: false,
+          message: "You can only update your own categories",
+        });
+      }
     }
 
     const name = normalizeName(req.body?.name);
@@ -180,11 +198,12 @@ export const updateCategory = async (req, res) => {
     const finalSubCategory = subCategory !== undefined ? subCategory : (category.subCategory || "");
 
     // Duplicate check: same name + same subCategory combo (case-insensitive), excluding self
+    const targetVendorId = req.admin.role === "vendor" ? req.vendor._id : null;
     const existingFilter = {
       _id: { $ne: category._id },
       name: { $regex: `^${finalName}$`, $options: "i" },
       subCategory: { $regex: `^${finalSubCategory}$`, $options: "i" },
-      vendorId: null,
+      vendorId: targetVendorId === null ? null : { $in: [targetVendorId, null] },
     };
 
     const duplicate = await Category.findOne(existingFilter);
@@ -232,6 +251,7 @@ export const updateCategory = async (req, res) => {
     }
 
     await category.save();
+    await category.populate("vendorId", "name businessName email phone address");
 
     return res.json({
       success: true,
@@ -248,15 +268,24 @@ export const updateCategory = async (req, res) => {
 
 export const deleteCategory = async (req, res) => {
   try {
-    if (!ensureSuperAdmin(req, res)) return;
+    if (!ensureCanManageCategories(req, res)) return;
 
-    const category = await Category.findById(req.params.id);
+    const category = await Category.findById(req.params.id).populate("vendorId", "name businessName email phone address");
 
     if (!category) {
       return res.status(404).json({
         success: false,
         message: "Category not found",
       });
+    }
+
+    if (req.admin.role === "vendor") {
+      if (!category.vendorId || category.vendorId.toString() !== req.vendor._id.toString()) {
+        return res.status(403).json({
+          success: false,
+          message: "You can only delete your own categories",
+        });
+      }
     }
 
     await Category.findByIdAndDelete(req.params.id);
@@ -272,3 +301,5 @@ export const deleteCategory = async (req, res) => {
     });
   }
 };
+
+

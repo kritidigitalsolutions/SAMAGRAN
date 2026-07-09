@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import Pandit from "../models/pandit.model.js";
 import PanditAvailability from "../models/panditAvailability.model.js";
 
 const VALID_STATUSES = new Set(["available", "booked", "not_available"]);
@@ -141,6 +142,33 @@ export const upsertPanditAvailability = async (req, res) => {
       payload,
       { new: true, upsert: true, setDefaultsOnInsert: true }
     );
+
+    // Update Pandit profile with the new availability data
+    const pandit = await Pandit.findById(resolvedPanditId);
+    if (pandit) {
+      if (!Array.isArray(pandit.availability)) {
+        pandit.availability = [];
+      }
+      
+      const existingIndex = pandit.availability.findIndex(
+        (item) => item.month === resolvedMonth && item.year === resolvedYear
+      );
+
+      const availabilityData = {
+        month: resolvedMonth,
+        year: resolvedYear,
+        availability: data,
+      };
+
+      if (existingIndex > -1) {
+        pandit.availability[existingIndex] = availabilityData;
+      } else {
+        pandit.availability.push(availabilityData);
+      }
+
+      pandit.markModified("availability");
+      await pandit.save();
+    }
 
     return res.json({
       success: true,

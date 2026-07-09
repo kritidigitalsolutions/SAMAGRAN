@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import jwt from "jsonwebtoken";
 import Pandit from "../../models/pandit.model.js";
 import PanditOTP from "../../models/panditOtp.model.js";
@@ -126,6 +127,7 @@ const normalizePoojaOfferingEntry = (entry) => {
     travelForSpecialPooja: Boolean(entry?.travelForSpecialPooja),
     standardSamagri: Boolean(entry?.standardSamagri),
     customSamagri: Boolean(entry?.customSamagri),
+    kitId: entry?.kitId && mongoose.Types.ObjectId.isValid(entry.kitId) ? entry.kitId : null,
     ...(hasNotes
       ? { customSamagriNotes: sanitizeCustomSamagriNotes(normalizeNotesInput(entry.customSamagriNotes)) }
       : {}),
@@ -173,6 +175,7 @@ const normalizePoojaOfferingsInput = (body) => {
       travelForSpecialPooja: String(entry?.travelForSpecialPooja || "").toLowerCase() === "true",
       standardSamagri: String(entry?.standardSamagri || "").toLowerCase() === "true",
       customSamagri: String(entry?.customSamagri || "").toLowerCase() === "true",
+      kitId: entry?.kitId && mongoose.Types.ObjectId.isValid(entry.kitId) ? entry.kitId : null,
     }))
     .filter((entry) => entry.name);
 

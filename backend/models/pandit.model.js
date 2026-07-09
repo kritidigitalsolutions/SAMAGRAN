@@ -86,6 +86,52 @@ const poojaOfferingSchema = new mongoose.Schema(
       type: [customSamagriItemSchema],
       default: [],
     },
+    kitId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "FestivalKit",
+      default: null,
+    },
+  },
+  { _id: false }
+);
+
+const availabilityTimeSlotSchema = new mongoose.Schema(
+  {
+    time: { type: String, required: true, trim: true },
+    status: {
+      type: String,
+      required: true,
+      trim: true,
+      default: "available",
+    },
+  },
+  { _id: false }
+);
+
+const availabilityDaySchema = new mongoose.Schema(
+  {
+    date: { type: String, required: true, trim: true },
+    status: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    slots: {
+      type: [availabilityTimeSlotSchema],
+      default: [],
+    },
+  },
+  { _id: false }
+);
+
+const monthlyAvailabilitySchema = new mongoose.Schema(
+  {
+    month: { type: Number, required: true },
+    year: { type: Number, required: true },
+    availability: {
+      type: [availabilityDaySchema],
+      default: [],
+    },
   },
   { _id: false }
 );
@@ -194,6 +240,11 @@ const panditSchema = new mongoose.Schema(
 
     poojaOfferings: {
       type: [poojaOfferingSchema],
+      default: [],
+    },
+
+    availability: {
+      type: [monthlyAvailabilitySchema],
       default: [],
     },
 
