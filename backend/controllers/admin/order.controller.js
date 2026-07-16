@@ -860,6 +860,7 @@ export const updateOrderInvoiceDetails = async (req, res) => {
       companyEmail: String(invoiceDetails?.companyEmail || "").trim(),
       companyPhone: String(invoiceDetails?.companyPhone || "").trim(),
       authorizedSignatory: String(invoiceDetails?.authorizedSignatory || "").trim(),
+      hideCompanyDetails: Boolean(invoiceDetails?.hideCompanyDetails),
     };
 
     await order.save();

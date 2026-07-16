@@ -44,6 +44,7 @@ function formatCurrency(value) {
 export default function CategoryCommissionPage() {
   const [commissions, setCommissions] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [subCategoriesForForm, setSubCategoriesForForm] = useState([]);
   const [stats, setStats] = useState({
     totalCategories: 0,
     totalSubCategories: 0,
@@ -139,16 +140,35 @@ export default function CategoryCommissionPage() {
     return ["All", ...Array.from(subs)];
   }, [commissions]);
 
+  // Fetch subcategories for selected category in form
+  useEffect(() => {
+    if (!form.categoryId) {
+      setSubCategoriesForForm([]);
+      return;
+    }
+    const fetchSubCategories = async () => {
+      try {
+        const res = await API.get("/admin/sub-categories", {
+          params: { categoryId: form.categoryId, status: "active" },
+        });
+        setSubCategoriesForForm(res.data?.data || []);
+      } catch (err) {
+        console.error("Failed to load subcategories for category in form", err);
+      }
+    };
+    fetchSubCategories();
+  }, [form.categoryId]);
+
   // Subcategories available for selected category in form
   const formSubCategoryOptions = useMemo(() => {
-    if (!form.categoryId) return ["All Sub Categories"];
-    const matchedCategory = categories.find((c) => c._id === form.categoryId);
     const options = ["All Sub Categories"];
-    if (matchedCategory?.subCategory && matchedCategory.subCategory.trim()) {
-      options.push(matchedCategory.subCategory.trim());
-    }
+    subCategoriesForForm.forEach((sub) => {
+      if (sub.name && sub.name.trim()) {
+        options.push(sub.name.trim());
+      }
+    });
     return options;
-  }, [form.categoryId, categories]);
+  }, [subCategoriesForForm]);
 
   // Handle Form changes & auto calculations
   const handleFormChange = (e) => {

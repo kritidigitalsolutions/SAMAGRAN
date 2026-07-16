@@ -17,12 +17,12 @@ const startServer = async () => {
           console.error("Startup auto-cancellation check error:", err.message || err);
         });
 
-        // Set up recurring check every hour
+        // Set up recurring check every 5 minutes
         setInterval(() => {
           autoCancelExpiredBookings().catch((err) => {
-            console.error("Hourly auto-cancellation check error:", err.message || err);
+            console.error("Recurring auto-cancellation check error:", err.message || err);
           });
-        }, 60 * 60 * 1000);
+        }, 5 * 60 * 1000);
       })
       .catch((err) => {
         console.error("Failed to import auto-cancellation helper on startup:", err.message || err);

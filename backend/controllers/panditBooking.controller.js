@@ -11,6 +11,7 @@ import BookingPricing from "../models/bookingPrice.js";
 import mongoose from "mongoose";
 import { notifyAdmins } from "../utils/notification.service.js";
 import { createMeeting } from "../utils/zoom.service.js";
+import { sendPushNotification } from "../utils/fcm.service.js";
 import { notifyPanditBookingStatusUpdate, notifyPanditBookingAction } from "../utils/booking.notifications.js";
 import Wallet from "../models/wallet.model.js";
 import WalletTransaction from "../models/walletTransaction.model.js";
@@ -29,6 +30,12 @@ export const ensureZoomMeetingForBooking = async (bookingDocOrId) => {
     }
 
     if (!bookingDoc) return null;
+
+    if (bookingDoc.bookingMode !== "onlinePooja") {
+      console.log(`Booking ${String(bookingDoc._id)} mode is '${bookingDoc.bookingMode}'; skipping Zoom creation`);
+      return null;
+    }
+
     if (bookingDoc.zoomMeeting && bookingDoc.zoomMeeting.join_url) return bookingDoc.zoomMeeting;
 
     const slotRows = Array.isArray(bookingDoc?.dateAndTime?.dateAndTime)
@@ -193,21 +200,29 @@ export const ensureZoomMeetingForBooking = async (bookingDocOrId) => {
         const panditDoc = await PanditModel.findById(bookingDoc.pandit).lean();
 
         if (userDoc?.fcmToken) {
-          const message = {
-            notification: { title, body },
-            data: { bookingId: String(bookingDoc._id), zoomLink: bookingDoc.zoomMeeting.join_url || "" },
+          const result = await sendPushNotification({
             token: userDoc.fcmToken,
-          };
-          await admin.messaging().send(message);
+            title,
+            body,
+            data: {
+              bookingId: String(bookingDoc._id),
+              zoomLink: bookingDoc.zoomMeeting.join_url || "",
+            },
+          });
+          console.log(`Zoom FCM send result for user ${bookingDoc.user}:`, result);
         }
 
         if (panditDoc?.fcmToken) {
-          const message = {
-            notification: { title, body },
-            data: { bookingId: String(bookingDoc._id), zoomLink: bookingDoc.zoomMeeting.join_url || "" },
+          const result = await sendPushNotification({
             token: panditDoc.fcmToken,
-          };
-          await admin.messaging().send(message);
+            title,
+            body,
+            data: {
+              bookingId: String(bookingDoc._id),
+              zoomLink: bookingDoc.zoomMeeting.join_url || "",
+            },
+          });
+          console.log(`Zoom FCM send result for pandit ${bookingDoc.pandit}:`, result);
         }
       } catch (fcmErr) {
         console.log("Zoom notification FCM error:", fcmErr.message || fcmErr);
@@ -1439,19 +1454,28 @@ export const confirmPanditBookingPayment = async (req, res) => {
       console.error("Error creating zoom meeting after payment-confirmation:", e.response?.data || e.message || e);
     }
 
-    // Send notification to pandit
+    // Send notifications to pandit and user
     try {
       if (booking.pandit) {
         await notifyPanditBookingAction(
-          booking.pandit,
+          booking.pandit._id,
           booking._id,
           "booking_requested",
           { _id: req.user._id, name: req.user.name || req.user.phone || "User" },
           booking.ritual?.name || "Ritual"
         );
+
+        const panditName = booking.pandit.fullName || booking.pandit.name || "Pandit";
+        await notifyPanditBookingStatusUpdate(
+          booking.user,
+          booking._id,
+          "requested",
+          { _id: booking.pandit._id, name: panditName },
+          booking.ritual?.name || "Ritual"
+        );
       }
     } catch (e) {
-      console.error("Error sending booking requested notification to pandit:", e.message || e);
+      console.error("Error sending booking notifications:", e.message || e);
     }
 
     const responseBody = {
@@ -2649,7 +2673,7 @@ export const createPanditBookingWithWallet = async (req, res) => {
       console.error("Error creating zoom meeting after wallet booking:", e.message || e);
     }
 
-    // Send notification to pandit
+    // Send notifications to pandit and user
     try {
       if (createdBooking.pandit) {
         await notifyPanditBookingAction(
@@ -2659,9 +2683,18 @@ export const createPanditBookingWithWallet = async (req, res) => {
           { _id: req.user._id, name: req.user.name || req.user.phone || "User" },
           createdBooking.ritual?.name || "Ritual"
         );
+
+        const panditName = selectedPandit.fullName || selectedPandit.name || "Pandit";
+        await notifyPanditBookingStatusUpdate(
+          createdBooking.user,
+          createdBooking._id,
+          "requested",
+          { _id: selectedPandit._id, name: panditName },
+          createdBooking.ritual?.name || "Ritual"
+        );
       }
     } catch (e) {
-      console.error("Error sending booking requested notification to pandit:", e.message || e);
+      console.error("Error sending booking notifications:", e.message || e);
     }
 
     const booking = await PanditBooking.findById(createdBooking._id)
@@ -2703,17 +2736,25 @@ const getIndianDateString = () => {
 
 export const autoCancelExpiredBookings = async () => {
   try {
+    const pricing = await BookingPricing.findOne({ isActive: true }).lean();
+    const durationHours = pricing?.autoCancelDurationHours || 1;
+    const cutoffTime = new Date(Date.now() - durationHours * 60 * 60 * 1000);
     const today = getIndianDateString();
     
-    // Find all requested bookings whose bookingDate is strictly in the past
+    // Find all requested bookings that either:
+    // a) bookingDate is strictly in the past, or
+    // b) createdAt is older than cutoffTime
     const expiredBookings = await PanditBooking.find({
       bookingStatus: "requested",
-      bookingDate: { $lt: today, $ne: "" },
+      $or: [
+        { bookingDate: { $lt: today, $ne: "" } },
+        { createdAt: { $lt: cutoffTime } },
+      ],
     });
 
     if (expiredBookings.length === 0) return;
 
-    console.log(`[Auto-Cancel] Found ${expiredBookings.length} expired bookings.`);
+    console.log(`[Auto-Cancel] Found ${expiredBookings.length} expired bookings (duration threshold: ${durationHours}h).`);
 
     const Notification = (await import("../models/notification.model.js")).default;
     const admin = (await import("firebase-admin")).default;

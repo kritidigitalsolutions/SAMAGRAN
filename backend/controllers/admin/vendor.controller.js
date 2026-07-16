@@ -186,13 +186,20 @@ export const createVendor = async (req, res) => {
       email: String(email).trim(),
       phone: String(phone).trim(),
       status: status === "inactive" ? "inactive" : status === "pending" ? "pending" : "active",
-      address: {
-        line1: String(address?.line1 || "").trim(),
-        line2: String(address?.line2 || "").trim(),
-        city: String(address?.city || "").trim(),
-        state: String(address?.state || "").trim(),
-        pincode: String(address?.pincode || "").trim(),
-      },
+      address: (() => {
+        const pincodeStr = String(address?.pincode || "").trim();
+        const pincodesArr = pincodeStr
+          ? pincodeStr.split(",").map((p) => p.trim()).filter(Boolean)
+          : [];
+        return {
+          line1: String(address?.line1 || "").trim(),
+          line2: String(address?.line2 || "").trim(),
+          city: String(address?.city || "").trim(),
+          state: String(address?.state || "").trim(),
+          pincode: pincodeStr,
+          pincodes: pincodesArr,
+        };
+      })(),
       kyc: {
         pan: String(kyc?.pan || "").trim(),
         panVerified: Boolean(kyc?.panVerified),
@@ -260,12 +267,17 @@ export const updateVendor = async (req, res) => {
     }
 
     if (payload.address !== undefined) {
+      const pincodeStr = String(payload.address?.pincode || "").trim();
+      const pincodesArr = pincodeStr
+        ? pincodeStr.split(",").map((p) => p.trim()).filter(Boolean)
+        : [];
       vendor.address = {
         line1: String(payload.address?.line1 || "").trim(),
         line2: String(payload.address?.line2 || "").trim(),
         city: String(payload.address?.city || "").trim(),
         state: String(payload.address?.state || "").trim(),
-        pincode: String(payload.address?.pincode || "").trim(),
+        pincode: pincodeStr,
+        pincodes: pincodesArr,
       };
     }
 

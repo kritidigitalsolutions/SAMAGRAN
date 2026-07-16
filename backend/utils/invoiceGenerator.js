@@ -1,4 +1,11 @@
 import PDFDocument from "pdfkit";
+import mongoose from "mongoose";
+
+const isValEmpty = (val) => {
+  if (!val) return true;
+  const clean = String(val).trim();
+  return clean === "" || clean === "—" || clean === "-" || clean === "null" || clean === "undefined";
+};
 
 /**
  * Converts a number into Indian Rupees words.
@@ -102,9 +109,33 @@ function drawMockQrCode(doc, x, y, size) {
  * @param {object} order - Mongoose Order document (should have populated items.product, user, and vendorId)
  * @param {WritableStream} stream - Target stream (e.g., res)
  */
-export const generateInvoicePdf = (order, stream) => {
+export const generateInvoicePdf = async (order, stream) => {
   const doc = new PDFDocument({ margin: 40, size: "A4" });
   doc.pipe(stream);
+
+  // Retrieve Super Admin's corporateDetails dynamically
+  let corporateDetails = {};
+  try {
+    const Admin = mongoose.model("Admin");
+    const superAdmin = await Admin.findOne({ role: "super" }).lean();
+    corporateDetails = superAdmin?.corporateDetails || {};
+  } catch (err) {
+    console.error("Failed to load corporateDetails in invoiceGenerator:", err);
+  }
+
+  const defaultCorporateDetails = {
+    companyName: "Samagran Ventures Private Limited",
+    address: "godown, Patlipada, Hiranandani, Thane (W)-400607, MH, India",
+    cin: "U74140MH2025PTC055568",
+    pan: "AAFCS8024E",
+    fssai: "10018064001545",
+    email: "support@samagran.com",
+    phone: "+91-9988776655",
+    authorizedSignatory: "Anil Sharma",
+    hideCompanyDetails: false,
+  };
+
+  const corp = { ...defaultCorporateDetails, ...corporateDetails };
 
   const fmtDate = (v) => v ? new Date(v).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—";
   const shortId = (id) => String(id).slice(-8).toUpperCase();
@@ -167,8 +198,8 @@ export const generateInvoicePdf = (order, stream) => {
 
   // Seller Info (Left Column)
   const vendor = order.vendorId || {};
-  const sellerName = vendor.businessName || vendor.name || "Samagran Ventures LLP";
-  const sellerAddress = [
+  const sellerName = order.invoiceDetails?.sellerName || vendor.businessName || vendor.name || "Samagran Ventures LLP";
+  const sellerAddress = order.invoiceDetails?.sellerAddress || [
     vendor.address?.line1,
     vendor.address?.line2,
     vendor.address?.city,
@@ -176,22 +207,46 @@ export const generateInvoicePdf = (order, stream) => {
     vendor.address?.pincode
   ].filter(Boolean).join(", ") || "Godown, Patlipada, Near Ramnath Tabela, Thane (M.Corp)-400607, Maharashtra";
   
-  const sellerGstin = vendor.gstin || "27AACFY8913A1Z8";
-  const sellerFssai = vendor.fssai || "13323999000008";
-  const sellerCin = vendor.cin || "AAZ-3294";
-  const sellerPan = vendor.pan || "AACFY8913A";
-  const sellerEmail = vendor.email || "support@samagran.com";
-  const sellerPhone = vendor.phone || "+91 9876543210";
+  const sellerGstin = order.invoiceDetails?.sellerGstin || vendor.kyc?.gst || vendor.gstin || "";
+  const sellerFssai = order.invoiceDetails?.sellerFssai || vendor.kyc?.fssai || vendor.fssai || "";
+  const sellerCin = order.invoiceDetails?.sellerCin || vendor.kyc?.cin || vendor.cin || "";
+  const sellerPan = order.invoiceDetails?.sellerPan || vendor.kyc?.pan || vendor.pan || "";
+  const sellerEmail = order.invoiceDetails?.sellerEmail || vendor.email || "";
+  const sellerPhone = order.invoiceDetails?.sellerPhone || vendor.phone || "";
 
   doc.fillColor("#8B1E3F").font("Helvetica-Bold").fontSize(9.5).text("Sold By / Seller:", 50, sellerY + 8);
   doc.fillColor("#1a1a1a").font("Helvetica-Bold").fontSize(10.5).text(sellerName, 50, sellerY + 22, { width: 270, height: 14, ellipsis: true });
   doc.fillColor("#4b5563").font("Helvetica").fontSize(8).text(sellerAddress, 50, sellerY + 37, { width: 270, height: 26, ellipsis: true });
 
   // Seller tax credentials
+  const credentialParts = [];
+  if (!isValEmpty(sellerGstin)) credentialParts.push(`GSTIN: ${sellerGstin}`);
+  if (!isValEmpty(sellerPan)) credentialParts.push(`PAN: ${sellerPan}`);
+  const credentialLine1 = credentialParts.join("  |  ");
+
+  const credentialParts2 = [];
+  if (!isValEmpty(sellerCin)) credentialParts2.push(`CIN: ${sellerCin}`);
+  if (!isValEmpty(sellerFssai)) credentialParts2.push(`FSSAI: ${sellerFssai}`);
+  const credentialLine2 = credentialParts2.join("  |  ");
+
+  const contactParts = [];
+  if (!isValEmpty(sellerEmail)) contactParts.push(`Email: ${sellerEmail}`);
+  if (!isValEmpty(sellerPhone)) contactParts.push(`Contact: ${sellerPhone}`);
+  const contactLine = contactParts.join("  |  ");
+
+  let credY = sellerY + 66;
   doc.fillColor("#374151").fontSize(7.5);
-  doc.text(`GSTIN: ${sellerGstin}  |  PAN: ${sellerPan}`, 50, sellerY + 66);
-  doc.text(`CIN: ${sellerCin}  |  FSSAI: ${sellerFssai}`, 50, sellerY + 77);
-  doc.text(`Email: ${sellerEmail}  |  Contact: ${sellerPhone}`, 50, sellerY + 88);
+  if (credentialLine1) {
+    doc.text(credentialLine1, 50, credY);
+    credY += 11;
+  }
+  if (credentialLine2) {
+    doc.text(credentialLine2, 50, credY);
+    credY += 11;
+  }
+  if (contactLine) {
+    doc.text(contactLine, 50, credY);
+  }
 
   // Invoice Details & QR Code (Right Column)
   drawMockQrCode(doc, 480, sellerY + 10, 60);
@@ -316,7 +371,8 @@ export const generateInvoicePdf = (order, stream) => {
     const unitDiscount = Math.max(0, unitMRP - unitPrice);
     const qty = item.quantity || 1;
     const totalAmount = unitPrice * qty;
-    const gstPercent = p?.pricing?.gstPercent || 18;
+    const gstIncluded = p?.pricing?.priceIncludesGst ?? true;
+    const gstPercent = gstIncluded ? (p?.pricing?.gstPercent || 0) : 0;
     const taxableValue = totalAmount / (1 + gstPercent / 100);
     const gstAmount = totalAmount - taxableValue;
 
@@ -428,42 +484,57 @@ export const generateInvoicePdf = (order, stream) => {
 
   doc.restore();
 
-  // 6. Footer Box (Corporate Office & Signatory)
-  // Standardize Y to at least Y = 680 to push it down near the bottom of A4
-  const footerY = Math.max(totalsY + 45, 660);
-  
-  doc.save();
-  // Draw outer box
-  doc.rect(40, footerY, 515, 60)
-     .strokeColor("#d1d5db")
-     .lineWidth(1)
-     .stroke();
+  const isHidden = order.invoiceDetails?.hideCompanyDetails !== undefined
+    ? order.invoiceDetails.hideCompanyDetails
+    : corp.hideCompanyDetails;
 
-  // Corporate Office (Left side of footer box)
-  doc.fillColor("#8B1E3F").font("Helvetica-Bold").fontSize(8.5).text("Samagran Ventures Private Limited (Corporate Office)", 48, footerY + 8);
-  doc.fillColor("#4b5563").font("Helvetica").fontSize(7).text("Reg. Address: godown, Patlipada, Hiranandani, Thane (W)-400607, MH, India", 48, footerY + 20);
-  doc.text("CIN: U74140MH2025PTC055568 | PAN: AAFCS8024E | FSSAI: 10018064001545", 48, footerY + 31);
-  doc.text("Customer Support: support@samagran.com | +91-9988776655", 48, footerY + 42);
+  if (!isHidden) {
+    // 6. Footer Box (Corporate Office & Signatory)
+    // Standardize Y to at least Y = 680 to push it down near the bottom of A4
+    const footerY = Math.max(totalsY + 45, 660);
+    
+    doc.save();
+    // Draw outer box
+    doc.rect(40, footerY, 515, 60)
+       .strokeColor("#d1d5db")
+       .lineWidth(1)
+       .stroke();
 
-  // Signatory (Right side of footer box)
-  doc.moveTo(380, footerY)
-     .lineTo(380, footerY + 60)
-     .strokeColor("#d1d5db")
-     .stroke();
+    // Corporate Office (Left side of footer box)
+    doc.fillColor("#8B1E3F").font("Helvetica-Bold").fontSize(8.5).text(`${corp.companyName} (Corporate Office)`, 48, footerY + 8);
+    doc.fillColor("#4b5563").font("Helvetica").fontSize(7).text(`Reg. Address: ${corp.address}`, 48, footerY + 20);
+    doc.text(`CIN: ${corp.cin} | PAN: ${corp.pan} | FSSAI: ${corp.fssai}`, 48, footerY + 31);
+    doc.text(`Customer Support: ${corp.email} | ${corp.phone}`, 48, footerY + 42);
 
-  // Draw cursive signature text
-  doc.fillColor("#6b7280").font("Courier-BoldOblique").fontSize(12).text("Anil Sharma", 400, footerY + 15, { width: 140, align: "center" });
-  doc.fillColor("#374151").font("Helvetica-Bold").fontSize(7.5).text("Authorized Signatory", 400, footerY + 42, { width: 140, align: "center" });
-  doc.restore();
+    // Signatory (Right side of footer box)
+    doc.moveTo(380, footerY)
+       .lineTo(380, footerY + 60)
+       .strokeColor("#d1d5db")
+       .stroke();
 
-  // Terms & Conditions below footer box
-  doc.save();
-  const termsY = footerY + 68;
-  doc.fillColor("#2f1618").font("Helvetica-Bold").fontSize(8.5).text("Terms & Conditions:", 40, termsY);
-  doc.fillColor("#6b7280").font("Helvetica").fontSize(7).text("1. All items listed belong to their respective registered sellers on the Samagran Marketplace.", 40, termsY + 12);
-  doc.text("2. Tax rates are applied in accordance with GST compliance guidelines as provided by the sellers.", 40, termsY + 21);
-  doc.text("3. For any customer support or refund queries, contact the support email or chat within 30 days of the purchase date.", 40, termsY + 30);
-  doc.restore();
+    // Draw cursive signature text
+    doc.fillColor("#6b7280").font("Courier-BoldOblique").fontSize(12).text(corp.authorizedSignatory, 400, footerY + 15, { width: 140, align: "center" });
+    doc.fillColor("#374151").font("Helvetica-Bold").fontSize(7.5).text("Authorized Signatory", 400, footerY + 42, { width: 140, align: "center" });
+    doc.restore();
+
+    // Terms & Conditions below footer box
+    doc.save();
+    const termsY = footerY + 68;
+    doc.fillColor("#2f1618").font("Helvetica-Bold").fontSize(8.5).text("Terms & Conditions:", 40, termsY);
+    doc.fillColor("#6b7280").font("Helvetica").fontSize(7).text("1. All items listed belong to their respective registered sellers on the Samagran Marketplace.", 40, termsY + 12);
+    doc.text("2. Tax rates are applied in accordance with GST compliance guidelines as provided by the sellers.", 40, termsY + 21);
+    doc.text("3. For any customer support or refund queries, contact the support email or chat within 30 days of the purchase date.", 40, termsY + 30);
+    doc.restore();
+  } else {
+    // If hidden, we can still render Terms & Conditions below the totals
+    doc.save();
+    const termsY = totalsY + 45;
+    doc.fillColor("#2f1618").font("Helvetica-Bold").fontSize(8.5).text("Terms & Conditions:", 40, termsY);
+    doc.fillColor("#6b7280").font("Helvetica").fontSize(7).text("1. All items listed belong to their respective registered sellers on the Samagran Marketplace.", 40, termsY + 12);
+    doc.text("2. Tax rates are applied in accordance with GST compliance guidelines as provided by the sellers.", 40, termsY + 21);
+    doc.text("3. For any customer support or refund queries, contact the support email or chat within 30 days of the purchase date.", 40, termsY + 30);
+    doc.restore();
+  }
 
   doc.end();
 };

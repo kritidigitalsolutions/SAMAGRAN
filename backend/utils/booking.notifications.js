@@ -1,5 +1,5 @@
 import Notification from "../models/notification.model.js";
-import admin from "firebase-admin";
+import { sendPushNotification } from "./fcm.service.js";
 
 /**
  * Send notification to user for pandit booking status update
@@ -23,6 +23,12 @@ export const notifyPanditBookingStatusUpdate = async (
     let type = "booking_status_update";
 
     switch (status) {
+      case "requested":
+        title = "Booking Requested! 📋";
+        body = `Your booking request for ${ritualTitle} has been submitted to ${pandit.name}.`;
+        type = "booking_requested";
+        break;
+
       case "confirmed":
         title = "Booking Confirmed! ✅";
         body = `${pandit.name} has confirmed your ${ritualTitle} booking.`;
@@ -70,28 +76,23 @@ export const notifyPanditBookingStatusUpdate = async (
     try {
       const userDoc = await (await import("../models/user.model.js")).default.findById(userId);
       if (userDoc?.fcmToken) {
-        const message = {
-          notification: {
-            title,
-            body,
-          },
+        const result = await sendPushNotification({
+          token: userDoc.fcmToken,
+          title,
+          body,
           data: {
             bookingId: bookingId.toString(),
             type: "booking_status_update",
             status: status,
           },
-          token: userDoc.fcmToken,
-        };
-
-        await admin.messaging().send(message);
-        console.log(`✓ FCM notification sent to user ${userId}`);
+        });
+        console.log(`✓ FCM notification send result for user ${userId}:`, result);
       }
     } catch (fcmError) {
       console.log(
         `ℹ FCM notification skipped for user ${userId}:`,
         fcmError.message
       );
-      // Don't throw - FCM is optional
     }
 
     return {
@@ -176,27 +177,22 @@ export const notifyPanditBookingAction = async (
         await import("../models/pandit.model.js")
       ).default.findById(panditId);
       if (panditDoc?.fcmToken) {
-        const message = {
-          notification: {
-            title,
-            body,
-          },
+        const result = await sendPushNotification({
+          token: panditDoc.fcmToken,
+          title,
+          body,
           data: {
             bookingId: bookingId.toString(),
             type: "booking_action",
           },
-          token: panditDoc.fcmToken,
-        };
-
-        await admin.messaging().send(message);
-        console.log(`✓ FCM notification sent to pandit ${panditId}`);
+        });
+        console.log(`✓ FCM notification send result for pandit ${panditId}:`, result);
       }
     } catch (fcmError) {
       console.log(
         `ℹ FCM notification skipped for pandit ${panditId}:`,
         fcmError.message
       );
-      // Don't throw - FCM is optional
     }
 
     return {

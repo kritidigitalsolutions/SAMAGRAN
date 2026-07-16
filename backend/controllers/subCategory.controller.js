@@ -19,7 +19,7 @@ export const getAllSubCategoriesUser = async (req, res) => {
       return sendCityRequired(res);
     }
 
-    const vendorFilter = await buildVendorCityFilter(city);
+    const vendorFilter = await buildVendorCityFilter(city, req);
 
     const filter = {
       status: "active",

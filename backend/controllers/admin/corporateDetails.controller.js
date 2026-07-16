@@ -9,6 +9,7 @@ const defaultCorporateDetails = {
   email: "support@samagran.com",
   phone: "+91-9988776655",
   authorizedSignatory: "Anil Sharma",
+  hideCompanyDetails: false,
 };
 
 export const getCorporateDetails = async (req, res) => {
@@ -38,6 +39,7 @@ export const updateCorporateDetails = async (req, res) => {
       email,
       phone,
       authorizedSignatory,
+      hideCompanyDetails,
     } = req.body || {};
 
     const admin = await Admin.findOne({ role: "super" });
@@ -54,6 +56,7 @@ export const updateCorporateDetails = async (req, res) => {
       email: String(email !== undefined ? email : (admin.corporateDetails?.email || defaultCorporateDetails.email)).trim(),
       phone: String(phone !== undefined ? phone : (admin.corporateDetails?.phone || defaultCorporateDetails.phone)).trim(),
       authorizedSignatory: String(authorizedSignatory !== undefined ? authorizedSignatory : (admin.corporateDetails?.authorizedSignatory || defaultCorporateDetails.authorizedSignatory)).trim(),
+      hideCompanyDetails: Boolean(hideCompanyDetails !== undefined ? hideCompanyDetails : (admin.corporateDetails?.hideCompanyDetails || defaultCorporateDetails.hideCompanyDetails)),
     };
 
     await admin.save();

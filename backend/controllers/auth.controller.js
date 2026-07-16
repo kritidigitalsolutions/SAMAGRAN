@@ -1,4 +1,5 @@
 import User from "../models/user.model.js";
+import Pandit from "../models/pandit.model.js";
 import generateToken from "../utils/generateToken.js";
 import { deleteUserCompleteData } from "./admin/user.controller.js";
 import OTP from "../models/otp.model.js";
@@ -604,9 +605,32 @@ export const updateUserFcmToken = async (req, res) => {
       });
     }
 
+    if (req.pandit) {
+      const pandit = await updateDeviceToken({
+        Model: Pandit,
+        id: req.pandit._id,
+        token,
+      });
+
+      if (!pandit) {
+        return res.status(404).json({
+          success: false,
+          message: "Pandit not found",
+        });
+      }
+
+      return res.json({
+        success: true,
+        message: "Pandit FCM token updated",
+        data: {
+          panditId: pandit._id,
+        },
+      });
+    }
+
     const user = await updateDeviceToken({
       Model: User,
-      id: req.user._id,
+      id: req.user?._id,
       token,
     });
 
@@ -619,7 +643,7 @@ export const updateUserFcmToken = async (req, res) => {
 
     return res.json({
       success: true,
-      message: "FCM token updated",
+      message: "User FCM token updated",
       data: {
         userId: user._id,
       },

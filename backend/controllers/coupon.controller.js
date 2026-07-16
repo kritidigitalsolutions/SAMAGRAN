@@ -24,7 +24,7 @@ const computeDiscount = ({ amount, coupon }) => {
 };
 
 // 🕐 Lazy expiry check: user ka welcome coupon validDays ke hisaab se expire hua ya nahi
-// Agar expire hua toh user ke account se welcome coupon auto-remove ho jaata hai
+// Note: We DO NOT clear the coupon from the database or the user's document to avoid duplicate auto-renewal assignment.
 export const checkAndClearExpiredWelcomeCoupon = async (user) => {
   if (!user || !user.welcomeCouponCode || user.welcomeCouponRedeemed) {
     return false;
@@ -37,12 +37,7 @@ export const checkAndClearExpiredWelcomeCoupon = async (user) => {
   const coupon = await Coupon.findOne({ code: welcomeCouponCode, isWelcomeCoupon: true });
 
   if (!coupon) {
-    // Coupon DB mein nahi hai, user se bhi clear karo
-    await user.constructor.updateOne(
-      { _id: user._id },
-      { $set: { welcomeCouponCode: "", welcomeCouponAssignedAt: null } }
-    );
-    return true;
+    return true; // Coupon DB mein nahi hai, expired/unusable treat karo
   }
 
   // welcomeValidDays check: 0 means unlimited
@@ -53,12 +48,7 @@ export const checkAndClearExpiredWelcomeCoupon = async (user) => {
     const now = new Date();
 
     if (now > expiryDate) {
-      // Expire ho gayi — user ke account se remove karo
-      await user.constructor.updateOne(
-        { _id: user._id },
-        { $set: { welcomeCouponCode: "", welcomeCouponAssignedAt: null } }
-      );
-      return true; // expired, removed
+      return true; // expired
     }
   }
 
@@ -79,11 +69,21 @@ export const applyCoupon = async (req, res) => {
     }
 
     const coupon = await Coupon.findOne({ code: normalizedCode, isActive: true });
-    if (!coupon || !isWithinWindow(coupon)) {
+    if (!coupon) {
       return res.status(404).json({
         success: false,
         message: "Coupon not found or inactive",
       });
+    }
+
+    // Only general coupons use global start/expiry dates for checking validity at checkout
+    if (!coupon.isWelcomeCoupon) {
+      if (!isWithinWindow(coupon)) {
+        return res.status(404).json({
+          success: false,
+          message: "Coupon not found or inactive",
+        });
+      }
     }
 
     if (coupon.isRestricted) {
@@ -109,6 +109,20 @@ export const applyCoupon = async (req, res) => {
         });
       }
 
+      // If the user doesn't have a welcome coupon code assigned yet, assign this one if it's active and within window
+      if (!req.user?.welcomeCouponCode) {
+        if (isWithinWindow(coupon)) {
+          req.user.welcomeCouponCode = coupon.code;
+          req.user.welcomeCouponAssignedAt = new Date();
+          await req.user.save();
+        } else {
+          return res.status(400).json({
+            success: false,
+            message: "Welcome coupon is no longer available for assignment",
+          });
+        }
+      }
+
       // 🕐 Lazy expiry check
       const wasExpired = await checkAndClearExpiredWelcomeCoupon(req.user);
       if (wasExpired) {
@@ -118,7 +132,7 @@ export const applyCoupon = async (req, res) => {
         });
       }
 
-      if (req.user?.welcomeCouponCode && normalizedCode !== String(req.user.welcomeCouponCode).trim().toUpperCase()) {
+      if (normalizedCode !== String(req.user.welcomeCouponCode).trim().toUpperCase()) {
         return res.status(403).json({
           success: false,
           message: "Only your assigned welcome coupon is available",
@@ -185,19 +199,33 @@ export const getCoupons = async (req, res) => {
     if (req.user && !req.user.welcomeCouponRedeemed) {
       const activeWelcome = await Coupon.findOne({ isWelcomeCoupon: true, isActive: true });
       if (activeWelcome) {
-        // If the user's welcome coupon code is empty or doesn't match the active welcome coupon code, assign it
         const currentCode = String(req.user.welcomeCouponCode || "").trim().toUpperCase();
-        if (currentCode !== activeWelcome.code) {
-          req.user.welcomeCouponCode = activeWelcome.code;
-          req.user.welcomeCouponAssignedAt = new Date();
-          await req.user.save();
+        
+        if (!currentCode) {
+          // If the user has no welcome coupon code assigned yet, assign the active welcome coupon (if within its global window)
+          if (isWithinWindow(activeWelcome)) {
+            req.user.welcomeCouponCode = activeWelcome.code;
+            req.user.welcomeCouponAssignedAt = new Date();
+            await req.user.save();
+          }
+        } else if (currentCode !== activeWelcome.code) {
+          // If the welcome coupon code has changed, we only update it if the user's current welcome coupon is NOT expired
+          const wasExpired = await checkAndClearExpiredWelcomeCoupon(req.user);
+          if (!wasExpired) {
+            req.user.welcomeCouponCode = activeWelcome.code;
+            // Note: We DO NOT reset welcomeCouponAssignedAt to preserve their original signup/assignment date!
+            await req.user.save();
+          }
         }
+      }
 
-        // Run lazy expiry check
+      // Check if the user's assigned welcome coupon is expired
+      if (req.user.welcomeCouponCode) {
         const wasExpired = await checkAndClearExpiredWelcomeCoupon(req.user);
         if (!wasExpired) {
-          const couponDoc = await Coupon.findOne({ code: activeWelcome.code, isActive: true });
-          if (couponDoc && isWithinWindow(couponDoc)) {
+          const couponDoc = await Coupon.findOne({ code: req.user.welcomeCouponCode, isActive: true });
+          if (couponDoc) {
+            // Note: We DO NOT check isWithinWindow(couponDoc) for already assigned coupon to preserve their per-user validity!
             coupons.push(couponDoc);
           }
         }

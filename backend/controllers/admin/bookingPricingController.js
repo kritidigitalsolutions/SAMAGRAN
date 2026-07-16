@@ -9,7 +9,8 @@ export const setBookingPrice = async (req, res) => {
       panditCommissionPercent,
       panditCommissionThreshold,
       minRecommendationPriceForCommission,
-      freeDeliveryThreshold
+      freeDeliveryThreshold,
+      autoCancelDurationHours
     } = req.body;
 
     if (
@@ -17,7 +18,8 @@ export const setBookingPrice = async (req, res) => {
       panditCommissionPercent === undefined &&
       panditCommissionThreshold === undefined &&
       minRecommendationPriceForCommission === undefined &&
-      freeDeliveryThreshold === undefined
+      freeDeliveryThreshold === undefined &&
+      autoCancelDurationHours === undefined
     ) {
       return res.status(400).json({ message: "At least one value is required" });
     }
@@ -50,6 +52,13 @@ export const setBookingPrice = async (req, res) => {
       }
     }
 
+    if (autoCancelDurationHours !== undefined) {
+      const durationValue = Number(autoCancelDurationHours);
+      if (!Number.isFinite(durationValue) || durationValue < 0) {
+        return res.status(400).json({ message: "autoCancelDurationHours must be a positive number" });
+      }
+    }
+
     // Check existing pricing
     let pricing = await BookingPricing.findOne();
 
@@ -69,6 +78,9 @@ export const setBookingPrice = async (req, res) => {
       if (freeDeliveryThreshold !== undefined) {
         pricing.freeDeliveryThreshold = Number(freeDeliveryThreshold);
       }
+      if (autoCancelDurationHours !== undefined) {
+        pricing.autoCancelDurationHours = Number(autoCancelDurationHours);
+      }
       await pricing.save();
     } else {
       if (price === undefined) {
@@ -80,6 +92,7 @@ export const setBookingPrice = async (req, res) => {
         panditCommissionThreshold: Number(panditCommissionThreshold || 500),
         minRecommendationPriceForCommission: Number(minRecommendationPriceForCommission || 0),
         freeDeliveryThreshold: Number(freeDeliveryThreshold || 0),
+        autoCancelDurationHours: Number(autoCancelDurationHours || 1),
       });
     }
 
@@ -133,6 +146,7 @@ export const getBookingPrice = async (req, res) => {
         panditCommissionThreshold: pricing.panditCommissionThreshold || 0,
         minRecommendationPriceForCommission: pricing.minRecommendationPriceForCommission || 0,
         freeDeliveryThreshold: pricing.freeDeliveryThreshold || 0,
+        autoCancelDurationHours: pricing.autoCancelDurationHours || 1,
         isActive: pricing.isActive,
       },
     });

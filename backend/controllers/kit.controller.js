@@ -11,7 +11,7 @@ export const getAllKitsForUsers = async (req, res) => {
     const city = resolveCity(req);
     if (!city) return sendCityRequired(res);
 
-    const vendorFilter = await buildVendorCityFilter(city);
+    const vendorFilter = await buildVendorCityFilter(city, req);
 
     const { search = "", festivalType } = req.query;
     const searchText = search.trim();

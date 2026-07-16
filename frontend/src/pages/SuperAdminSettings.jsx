@@ -14,6 +14,7 @@ const defaultCorporateDetails = {
   email: "",
   phone: "",
   authorizedSignatory: "",
+  hideCompanyDetails: false,
 };
 
 const TABS = [
@@ -507,6 +508,22 @@ export default function SuperAdminSettings() {
                         className="mt-2 w-full rounded-xl border border-[var(--admin-border)] bg-transparent px-3 py-2 text-sm text-[var(--admin-text)] outline-none focus:border-[var(--admin-primary)]"
                         required
                       />
+                    </div>
+
+                    <div className="md:col-span-2 flex items-center gap-2 mt-2">
+                      <input
+                        type="checkbox"
+                        id="hideCompanyDetails"
+                        name="hideCompanyDetails"
+                        checked={form.hideCompanyDetails || false}
+                        onChange={(e) => {
+                          setForm((prev) => ({ ...prev, hideCompanyDetails: e.target.checked }));
+                        }}
+                        className="h-4 w-4 rounded border-[var(--admin-border)] bg-transparent text-[var(--admin-primary)] focus:ring-[var(--admin-primary)] cursor-pointer"
+                      />
+                      <label htmlFor="hideCompanyDetails" className="text-sm font-semibold text-[var(--admin-text)] cursor-pointer select-none">
+                        Hide Company/Corporate Details in Invoice (Invoice me company details hide karein)
+                      </label>
                     </div>
                   </div>
 

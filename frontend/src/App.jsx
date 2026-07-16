@@ -92,10 +92,10 @@ function App() {
         <Route path="orders" element={<AccessRoute pageKey="orders"><Orders /></AccessRoute>} />
         <Route path="invoices" element={<AccessRoute pageKey="orders"><Invoices /></AccessRoute>} />
         <Route path="items" element={<AccessRoute pageKey="products"><Items /></AccessRoute>} />
-        <Route path="category" element={<AccessRoute pageKey="category"><Category /></AccessRoute>} />
-        <Route path="sub-category" element={<AccessRoute pageKey="sub-category"><SubCategories /></AccessRoute>} />
-        <Route path="category-commission" element={<AccessRoute pageKey="category-commission"><CategoryCommission /></AccessRoute>} />
-        <Route path="brands" element={<AccessRoute pageKey="brands"><Brands /></AccessRoute>} />
+        <Route path="category" element={<AccessRoute pageKey="category" superAdminOnly={true}><Category /></AccessRoute>} />
+        <Route path="sub-category" element={<AccessRoute pageKey="sub-category" superAdminOnly={true}><SubCategories /></AccessRoute>} />
+        <Route path="category-commission" element={<AccessRoute pageKey="category-commission" superAdminOnly={true}><CategoryCommission /></AccessRoute>} />
+        <Route path="brands" element={<AccessRoute pageKey="brands" superAdminOnly={true}><Brands /></AccessRoute>} />
         <Route path="kits" element={<AccessRoute pageKey="kits"><Kits /></AccessRoute>} />
         <Route path="pandits" element={<AccessRoute pageKey="pandits"><Pandits /></AccessRoute>} />
         <Route path="rituals" element={<AccessRoute pageKey="rituals"><Rituals /></AccessRoute>} />
@@ -105,24 +105,24 @@ function App() {
         <Route path="coupons" element={<AccessRoute pageKey="coupons"><Coupons /></AccessRoute>} />
         <Route path="offers" element={<AccessRoute pageKey="offers"><Offers /></AccessRoute>} />
         <Route path="legal" element={<AccessRoute pageKey="legal"><Legal /></AccessRoute>} />
-        <Route path="custom-samagri" element={<AccessRoute pageKey="custom-samagri"><CustomSamagri /></AccessRoute>} />
+        <Route path="custom-samagri" element={<AccessRoute pageKey="custom-samagri" superAdminOnly={true}><CustomSamagri /></AccessRoute>} />
         <Route path="notifications" element={<AccessRoute pageKey="notifications"><Notifications /></AccessRoute>} />
-        <Route path="booking-pricing" element={<AccessRoute pageKey="booking-pricing"><BookingPricing /></AccessRoute>} />
+        <Route path="booking-pricing" element={<AccessRoute pageKey="booking-pricing" superAdminOnly={true}><BookingPricing /></AccessRoute>} />
         <Route path="settings" element={<AccessRoute pageKey="settings" vendorOnly={true}><VendorSettings /></AccessRoute>} />
-        <Route path="super-settings" element={<AccessRoute pageKey="settings"><SuperAdminSettings /></AccessRoute>} />
+        <Route path="super-settings" element={<AccessRoute pageKey="settings" superAdminOnly={true}><SuperAdminSettings /></AccessRoute>} />
         <Route path="delivery-boys" element={<AccessRoute pageKey="delivery-boys"><DeliveryBoys /></AccessRoute>} />
         <Route path="transactions" element={<AccessRoute pageKey="transactions"><Transactions /></AccessRoute>} />
         <Route path="earnings" element={<AccessRoute pageKey="earnings"><Earnings /></AccessRoute>} />
         <Route path="withdrawals" element={<AccessRoute pageKey="withdrawals"><Withdrawals /></AccessRoute>} />
         <Route path="refunds" element={<AccessRoute pageKey="refunds"><Refunds /></AccessRoute>} />
-        <Route path="vendor-commission" element={<AccessRoute pageKey="vendor-commission"><VendorCommissionReport /></AccessRoute>} />
+        <Route path="vendor-commission" element={<AccessRoute pageKey="vendor-commission" superAdminOnly={true}><VendorCommissionReport /></AccessRoute>} />
         <Route path="delivery-charges" element={<AccessRoute pageKey="delivery-charges"><DeliveryCharge /></AccessRoute>} />
         <Route path="pandit-earnings" element={<AccessRoute pageKey="pandit-bookings"><PanditEarnings /></AccessRoute>} />
         <Route path="pandit-payouts" element={<AccessRoute pageKey="pandit-bookings"><PanditPayouts /></AccessRoute>} />
         <Route
           path="vendors"
           element={
-            <AccessRoute pageKey="vendors">
+            <AccessRoute pageKey="vendors" superAdminOnly={true}>
               <Vendors />
             </AccessRoute>
           }
@@ -130,7 +130,7 @@ function App() {
         <Route
           path="vendors/:vendorId"
           element={
-            <AccessRoute pageKey="vendors">
+            <AccessRoute pageKey="vendors" superAdminOnly={true}>
               <VendorDetails />
             </AccessRoute>
           }

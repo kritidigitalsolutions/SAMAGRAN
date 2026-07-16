@@ -29,9 +29,9 @@ const navSections = [
     heading: "Catalog",
     items: [
       { label: "Products", path: "/dashboard/items", icon: "box", accessKey: "products" },
-      { label: "Category", path: "/dashboard/category", icon: "box", accessKey: "category" },
-      { label: "Sub Category", path: "/dashboard/sub-category", icon: "box", accessKey: "sub-category" },
-      { label: "Brands", path: "/dashboard/brands", icon: "box", accessKey: "brands" },
+      { label: "Category", path: "/dashboard/category", icon: "box", accessKey: "category", role: "super-admin" },
+      { label: "Sub Category", path: "/dashboard/sub-category", icon: "box", accessKey: "sub-category", role: "super-admin" },
+      { label: "Brands", path: "/dashboard/brands", icon: "box", accessKey: "brands", role: "super-admin" },
       { label: "Kits", path: "/dashboard/kits", icon: "gift", accessKey: "kits" },
       { label: "Rituals", path: "/dashboard/rituals", icon: "rituals", accessKey: "rituals" },
       { label: "Temples", path: "/dashboard/temples", icon: "temples", accessKey: "temples" },

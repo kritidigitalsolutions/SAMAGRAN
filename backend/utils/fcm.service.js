@@ -52,6 +52,22 @@ export const sendPushNotification = async ({ token, title, body, data = {} }) =>
             body: String(body || "").trim(),
         },
         data: normalizeData(data),
+        android: {
+            priority: "high",
+            notification: {
+                sound: "default",
+                channelId: "high_importance_channel"
+            }
+        },
+        apns: {
+            payload: {
+                aps: {
+                    sound: "default",
+                    contentAvailable: true,
+                    badge: 1
+                }
+            }
+        }
     };
 
     try {
@@ -99,6 +115,22 @@ export const sendPushNotifications = async ({ tokens = [], title, body, data = {
                 body: String(body || "").trim(),
             },
             data: normalizedData,
+            android: {
+                priority: "high",
+                notification: {
+                    sound: "default",
+                    channelId: "high_importance_channel"
+                }
+            },
+            apns: {
+                payload: {
+                    aps: {
+                        sound: "default",
+                        contentAvailable: true,
+                        badge: 1
+                    }
+                }
+            }
         });
 
         sentCount += result.successCount;

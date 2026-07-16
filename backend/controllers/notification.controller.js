@@ -241,3 +241,44 @@ export const clearUserNotifications = async (req, res) => {
   }
 };
 
+export const markAllNotificationsRead = async (req, res) => {
+  try {
+    const actor = getActorFromRequest(req);
+    if (!actor) {
+      return res.status(401).json({
+        success: false,
+        message: "Not authorized",
+      });
+    }
+
+    const { id: actorId, role, createdAt } = actor;
+
+    const query = {
+      ...buildAudienceQuery(actorId, role),
+      ...buildVisibilityQuery(actorId),
+      ...buildCreatedAtQuery(createdAt),
+      readBy: { $ne: toObjectId(actorId) },
+    };
+
+    const result = await Notification.updateMany(query, {
+      $addToSet: { readBy: toObjectId(actorId) },
+    });
+
+    return res.json({
+      success: true,
+      message: "All notifications marked as read",
+      data: {
+        matched: result.matchedCount ?? result.n,
+        modified: result.modifiedCount ?? result.nModified,
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Unable to update notifications",
+    });
+  }
+};
+
+
+

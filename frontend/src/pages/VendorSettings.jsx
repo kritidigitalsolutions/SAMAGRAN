@@ -55,6 +55,85 @@ const CheckBadge = ({ verified }) =>
     </span>
   );
 
+const PincodeListManager = ({ value = "", onChange }) => {
+  const [newPin, setNewPin] = useState("");
+
+  const pins = useMemo(() => {
+    return value
+      ? value
+          .split(",")
+          .map((p) => p.trim())
+          .filter(Boolean)
+      : [];
+  }, [value]);
+
+  const handleAdd = (e) => {
+    e.preventDefault();
+    const pin = newPin.trim();
+    if (!pin) return;
+    if (pins.includes(pin)) {
+      setNewPin("");
+      return;
+    }
+    const updated = [...pins, pin];
+    onChange(updated.join(", "));
+    setNewPin("");
+  };
+
+  const handleRemove = (pinToRemove) => {
+    const updated = pins.filter((p) => p !== pinToRemove);
+    onChange(updated.join(", "));
+  };
+
+  return (
+    <div className="space-y-3 mt-2 rounded-xl border border-[var(--admin-border)] p-4 bg-[var(--admin-surface-soft)]/20 dark:border-white/10">
+      <div className="flex gap-2">
+        <input
+          type="text"
+          placeholder="Enter Pincode (e.g. 282007)"
+          value={newPin}
+          onChange={(e) => setNewPin(e.target.value)}
+          className="flex-1 rounded-lg border border-[var(--admin-border)] bg-transparent px-3 py-1.5 text-xs text-[var(--admin-text)] outline-none focus:border-[var(--admin-primary)] dark:border-white/20"
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              handleAdd(e);
+            }
+          }}
+        />
+        <button
+          type="button"
+          onClick={handleAdd}
+          className="rounded-lg bg-[var(--admin-primary)] px-3 py-1.5 text-xs font-bold text-white transition-all hover:bg-[var(--admin-primary-strong)]"
+        >
+          Add
+        </button>
+      </div>
+
+      {pins.length > 0 ? (
+        <div className="flex flex-wrap gap-2">
+          {pins.map((pin) => (
+            <span
+              key={pin}
+              className="inline-flex items-center gap-1.5 rounded-full bg-[var(--admin-primary)]/10 px-2.5 py-1 text-xs font-semibold text-[var(--admin-primary)] dark:bg-[var(--admin-primary)]/20"
+            >
+              {pin}
+              <button
+                type="button"
+                onClick={() => handleRemove(pin)}
+                className="hover:text-red-500 font-bold transition-all"
+              >
+                &times;
+              </button>
+            </span>
+          ))}
+        </div>
+      ) : (
+        <p className="text-xs text-[var(--admin-muted)] italic">No pincodes added yet.</p>
+      )}
+    </div>
+  );
+};
+
 export default function VendorSettings() {
   const isVendor = getAdminRole() === "vendor-admin";
 
@@ -431,13 +510,18 @@ export default function VendorSettings() {
                   </div>
                   <div>
                     <label className="text-sm font-medium text-[var(--admin-text)]">
-                      Pincode
+                      Serviceable Pincodes List
                     </label>
-                    <input
-                      name="address.pincode"
+                    <PincodeListManager
                       value={profile.address.pincode}
-                      onChange={handleProfileChange}
-                      className="mt-2 w-full rounded-lg border border-[var(--admin-border)] bg-transparent px-3 py-2 text-sm text-[var(--admin-text)]"
+                      onChange={(newValue) => {
+                        handleProfileChange({
+                          target: {
+                            name: "address.pincode",
+                            value: newValue,
+                          },
+                        });
+                      }}
                     />
                   </div>
                 </div>

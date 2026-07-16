@@ -226,6 +226,7 @@ const orderSchema = new mongoose.Schema(
       companyEmail: { type: String, default: "" },
       companyPhone: { type: String, default: "" },
       authorizedSignatory: { type: String, default: "" },
+      hideCompanyDetails: { type: Boolean, default: false },
     },
   },
   { timestamps: true }

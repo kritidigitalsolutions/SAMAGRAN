@@ -3,6 +3,7 @@ import Item from "../models/product.model.js";
 import ProductReview from "../models/productReview.model.js";
 import {
   resolveCity,
+  resolvePincode,
   buildVendorCityFilter,
   sendCityRequired,
 } from "../utils/locationFilter.js";
@@ -104,10 +105,11 @@ const buildRatingSummary = async (productId) => {
 // Get all products (User)
 export const getProductsUser = async (req, res) => {
   try {
-    // ── 1. Resolve city ──────────────────────────────────────────────────────
+    // ── 1. Resolve city and pincode ──────────────────────────────────────────
     const city = resolveCity(req);
+    const pincode = resolvePincode(req);
 
-    if (!city) {
+    if (!city && !pincode) {
       return sendCityRequired(res);
     }
 
@@ -121,7 +123,7 @@ export const getProductsUser = async (req, res) => {
     }
 
     // ── 3. Build base query with city-aware vendor filter ────────────────────
-    const vendorFilter = await buildVendorCityFilter(city);
+    const vendorFilter = await buildVendorCityFilter(city, req);
 
     let query = { status: "active", ...vendorFilter };
 

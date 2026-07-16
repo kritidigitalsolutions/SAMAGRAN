@@ -62,12 +62,28 @@ export const buildCommissionLines = async (orders = []) => {
   return orders.map((order) => {
     const hasPandit = !!(order.pandit?._id || order.pandit);
 
+    // Calculate undiscounted total amount of items in this order
+    let undiscountedItemTotal = 0;
+    (order.items || []).forEach((item) => {
+      const quantity = Number(item.quantity || 0);
+      undiscountedItemTotal += Number(item.price || 0) * quantity;
+    });
+    undiscountedItemTotal = toMoney(undiscountedItemTotal);
+
+    // Calculate the ratio of total paid to total undiscounted items
+    // (handles coupons, offers, and discounts proportionally per item)
+    const discountTotal = Number(order.discountTotal || 0);
+    const discountRatio = undiscountedItemTotal > 0
+      ? Math.max(0, 1 - discountTotal / undiscountedItemTotal)
+      : 1;
+
     const lines = (order.items || []).map((item) => {
       const productDoc = item.product && typeof item.product === "object" ? item.product : productCategoryMap.get(String(item.product || ""));
       const categoryId = productDoc?.categoryId ? String(productDoc.categoryId) : "";
       const category = categoryMap.get(categoryId);
       const quantity = Number(item.quantity || 0);
-      const grossAmount = toMoney(Number(item.price || 0) * quantity);
+      const originalGrossAmount = Number(item.price || 0) * quantity;
+      const grossAmount = toMoney(originalGrossAmount * discountRatio);
 
       // Find customized category commission
       const itemSubCategory = String(productDoc?.category?.subCategory || category?.subCategory || "").trim();

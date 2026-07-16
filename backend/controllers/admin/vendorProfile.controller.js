@@ -5,13 +5,21 @@ import Vendor from "../../models/vendor.model.js";
 
 const isValidPhone = (phone) => /^[6-9]\d{9}$/.test(phone);
 
-const buildAddressPayload = (input = {}) => ({
-  line1: String(input?.line1 || "").trim(),
-  line2: String(input?.line2 || "").trim(),
-  city: String(input?.city || "").trim(),
-  state: String(input?.state || "").trim(),
-  pincode: String(input?.pincode || "").trim(),
-});
+const buildAddressPayload = (input = {}) => {
+  const pincodeStr = String(input?.pincode || "").trim();
+  const pincodesArr = pincodeStr
+    ? pincodeStr.split(",").map((p) => p.trim()).filter(Boolean)
+    : [];
+
+  return {
+    line1: String(input?.line1 || "").trim(),
+    line2: String(input?.line2 || "").trim(),
+    city: String(input?.city || "").trim(),
+    state: String(input?.state || "").trim(),
+    pincode: pincodeStr,
+    pincodes: pincodesArr,
+  };
+};
 
 const ensureVendor = async (req, res) => {
   if (req.admin?.role !== "vendor") {

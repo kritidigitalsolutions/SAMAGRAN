@@ -20,11 +20,6 @@ const ensureCanManageSubCategories = (req, res) => {
   if (req.admin?.role === "super") {
     return true;
   }
-  if (req.admin?.role === "vendor") {
-    if (req.vendor?.pageAccess?.includes("sub-category")) {
-      return true;
-    }
-  }
   res.status(403).json({
     success: false,
     message: "Only super admin can manage sub-categories",
@@ -128,7 +123,7 @@ export const getAllSubCategories = async (req, res) => {
     if (categoryId) {
       if (req.admin.role === "vendor") {
         const accessibleCategories = await Category.find({
-          vendorId: req.vendor._id,
+          $or: [{ vendorId: req.vendor._id }, { vendorId: null }],
         }).select("_id");
         const categoryIds = accessibleCategories.map((c) => c._id.toString());
         if (!categoryIds.includes(categoryId.toString())) {
@@ -141,7 +136,7 @@ export const getAllSubCategories = async (req, res) => {
       filter.categoryId = categoryId;
     } else if (req.admin.role === "vendor") {
       const accessibleCategories = await Category.find({
-        vendorId: req.vendor._id,
+        $or: [{ vendorId: req.vendor._id }, { vendorId: null }],
       }).select("_id");
       const categoryIds = accessibleCategories.map((c) => c._id);
       filter.categoryId = { $in: categoryIds };

@@ -1,5 +1,5 @@
 import express from "express";
-import protect from "../../middleware/auth.middleware.js";
+import protect, { protectUserOrPandit } from "../../middleware/auth.middleware.js";
 import {
 	getProfile,
 	deleteAccount,
@@ -15,7 +15,7 @@ import { protectAdmin } from "../../middleware/admin.middleware.js";
 // 🔐 Protected route
 router.get("/profile", protect, getProfile);
 router.post("/delete-account", protect, deleteAccount);
-router.patch("/fcm-token", protect, updateUserFcmToken);
+router.patch("/fcm-token", protectUserOrPandit, updateUserFcmToken);
 router.patch(
 	"/:id",
 	protect,

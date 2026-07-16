@@ -26,6 +26,11 @@ const bookingPricingSchema = new mongoose.Schema(
       default: 0,
       min: 0,
     },
+    autoCancelDurationHours: {
+      type: Number,
+      default: 1, // default to 1 hour
+      min: 0,
+    },
     isActive: {
       type: Boolean,
       default: true,

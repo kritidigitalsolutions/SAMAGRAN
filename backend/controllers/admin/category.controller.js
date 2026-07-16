@@ -13,11 +13,6 @@ const ensureCanManageCategories = (req, res) => {
   if (req.admin?.role === "super") {
     return true;
   }
-  if (req.admin?.role === "vendor") {
-    if (req.vendor?.pageAccess?.includes("category")) {
-      return true;
-    }
-  }
   res.status(403).json({
     success: false,
     message: "Only super admin can manage categories",
@@ -103,7 +98,7 @@ export const getAllCategories = async (req, res) => {
     }
 
     const vendorFilter = req.admin.role === "vendor"
-      ? { vendorId: req.vendor._id }
+      ? { $or: [{ vendorId: req.vendor._id }, { vendorId: null }] }
       : {};
 
     const searchFilter = search.trim() 

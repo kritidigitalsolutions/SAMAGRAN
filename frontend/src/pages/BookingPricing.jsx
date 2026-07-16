@@ -6,7 +6,7 @@ const initialForm = {
   panditCommissionPercent: "",
   panditCommissionThreshold: "",
   minRecommendationPriceForCommission: "",
-  freeDeliveryThreshold: "",
+  autoCancelDurationHours: "",
 };
 
 export default function BookingPricing() {
@@ -28,7 +28,7 @@ export default function BookingPricing() {
         panditCommissionPercent: data.panditCommissionPercent ?? 0,
         panditCommissionThreshold: data.panditCommissionThreshold ?? 500,
         minRecommendationPriceForCommission: data.minRecommendationPriceForCommission ?? 0,
-        freeDeliveryThreshold: data.freeDeliveryThreshold ?? 0,
+        autoCancelDurationHours: data.autoCancelDurationHours ?? 1,
       });
     } catch (err) {
       setError(err.response?.data?.message || "Unable to load booking pricing");
@@ -60,7 +60,7 @@ export default function BookingPricing() {
       panditCommissionPercent: Number(form.panditCommissionPercent),
       panditCommissionThreshold: Number(form.panditCommissionThreshold),
       minRecommendationPriceForCommission: Number(form.minRecommendationPriceForCommission),
-      freeDeliveryThreshold: Number(form.freeDeliveryThreshold),
+      autoCancelDurationHours: Number(form.autoCancelDurationHours),
     };
 
     try {
@@ -84,7 +84,7 @@ export default function BookingPricing() {
           Pandit Booking & Commission
         </h2>
         <p className="mt-2 text-sm text-[var(--admin-text-muted)]">
-          Update booking price and pandit commission settings.
+          Update booking price, auto-cancellation duration, and pandit commission settings.
         </p>
       </section>
 
@@ -160,17 +160,19 @@ export default function BookingPricing() {
               </label>
 
               <label className="space-y-2 text-sm font-semibold text-[var(--admin-text)]">
-                Free Delivery Product Order Limit (INR)
+                Booking Auto-Cancel Duration (Hours)
                 <input
                   type="number"
-                  min="0"
-                  step="1"
-                  name="freeDeliveryThreshold"
-                  value={form.freeDeliveryThreshold}
+                  min="0.1"
+                  step="0.1"
+                  name="autoCancelDurationHours"
+                  value={form.autoCancelDurationHours}
                   onChange={handleChange}
                   className="w-full rounded-2xl border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] px-4 py-3 text-sm"
+                  required
                 />
               </label>
+
             </div>
 
             <div className="flex flex-wrap gap-3">

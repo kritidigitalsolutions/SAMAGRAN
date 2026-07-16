@@ -28,6 +28,7 @@ const adminSchema = new mongoose.Schema({
     email: { type: String, default: "support@samagran.com" },
     phone: { type: String, default: "+91-9988776655" },
     authorizedSignatory: { type: String, default: "Anil Sharma" },
+    hideCompanyDetails: { type: Boolean, default: false },
   },
 }, { timestamps: true });
 

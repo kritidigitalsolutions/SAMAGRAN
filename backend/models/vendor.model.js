@@ -19,6 +19,7 @@ const vendorSchema = new mongoose.Schema(
       city: { type: String, trim: true, default: "" },
       state: { type: String, trim: true, default: "" },
       pincode: { type: String, trim: true, default: "" },
+      pincodes: { type: [String], default: [] },
     },
     pageAccess: {
       type: [String],

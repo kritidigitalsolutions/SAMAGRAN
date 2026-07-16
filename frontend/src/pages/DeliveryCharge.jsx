@@ -23,6 +23,9 @@ export default function DeliveryCharge() {
   const isSuperAdmin = getAdminRole() === "super-admin";
   const [vendors, setVendors] = useState([]);
   const [selectedVendorId, setSelectedVendorId] = useState("");
+  const [freeDeliveryLimit, setFreeDeliveryLimit] = useState("");
+  const [savingThreshold, setSavingThreshold] = useState(false);
+  const [bookingPricingData, setBookingPricingData] = useState(null);
 
   const [pricings, setPricings] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -77,6 +80,43 @@ export default function DeliveryCharge() {
       loadVendors();
     }
   }, [isSuperAdmin]);
+
+  const fetchFreeDeliveryThreshold = async () => {
+    try {
+      const res = await API.get("/admin/booking-price/price");
+      const data = res.data?.data || res.data || {};
+      setBookingPricingData(data);
+      setFreeDeliveryLimit(data.freeDeliveryThreshold ?? "0");
+    } catch (err) {
+      console.error("Failed to load free delivery threshold:", err);
+    }
+  };
+
+  useEffect(() => {
+    if (isSuperAdmin) {
+      fetchFreeDeliveryThreshold();
+    }
+  }, [isSuperAdmin]);
+
+  const handleFreeDeliverySubmit = async (e) => {
+    e.preventDefault();
+    setSavingThreshold(true);
+    try {
+      const payload = {
+        ...bookingPricingData,
+        freeDeliveryThreshold: Number(freeDeliveryLimit),
+      };
+      await API.post("/admin/booking-price/price", payload);
+      setSuccess("Free delivery limit updated successfully.");
+      setError("");
+      fetchFreeDeliveryThreshold();
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to update free delivery limit.");
+      setSuccess("");
+    } finally {
+      setSavingThreshold(false);
+    }
+  };
 
   const fetchPricings = useCallback(async () => {
     if (isSuperAdmin && !selectedVendorId) {
@@ -360,6 +400,37 @@ export default function DeliveryCharge() {
             ))}
           </select>
         </div>
+      )}
+
+      {/* Free Delivery Threshold for Super Admin */}
+      {isSuperAdmin && (
+        <section className="rounded-3xl border border-[var(--admin-border)] bg-[var(--admin-surface)] p-6 shadow-[var(--admin-shadow)]">
+          <h3 className="text-lg font-bold text-[#2f1618] dark:text-[#fff3dc] mb-2">Free Delivery Settings</h3>
+          <p className="text-sm text-[#6e4b40] dark:text-[#f7e3c0]/75 mb-4">
+            Set the order value threshold above which delivery charges become free.
+          </p>
+          <form onSubmit={handleFreeDeliverySubmit} className="flex flex-wrap items-end gap-4 max-w-lg">
+            <label className="space-y-2 text-sm font-semibold text-[var(--admin-text)] flex-1 min-w-[250px]">
+              Free Delivery Product Order Limit (INR)
+              <input
+                type="number"
+                min="0"
+                step="1"
+                value={freeDeliveryLimit}
+                onChange={(e) => setFreeDeliveryLimit(e.target.value)}
+                className="w-full rounded-2xl border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] px-4 py-3 text-sm outline-none focus:border-[var(--admin-primary)] mt-1.5"
+                required
+              />
+            </label>
+            <button
+              type="submit"
+              disabled={savingThreshold}
+              className="admin-btn-primary rounded-2xl px-6 py-3 text-sm font-semibold shadow disabled:opacity-60 h-[46px] flex items-center justify-center"
+            >
+              {savingThreshold ? "Saving..." : "Save Limit"}
+            </button>
+          </form>
+        </section>
       )}
 
       {(error || success) && (

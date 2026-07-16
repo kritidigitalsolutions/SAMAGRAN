@@ -47,29 +47,56 @@ export const resolveCity = (req) => {
  *
  * Vendors with an empty/missing address.city are considered "available
  * everywhere" and are always included (backward compatibility).
+ * Resolve the effective pincode for a request.
  *
- * @param {string} city
- * @returns {Promise<import('mongoose').Types.ObjectId[]>}
- *   Array of vendor ObjectIds active in the city (includes city-agnostic ones).
- *   Returns null when no city is provided — caller must handle that case.
+ * @param {import('express').Request} req
+ * @returns {string|null}  Trimmed pincode string, or null if not determinable.
  */
-export const getVendorIdsByCity = async (city) => {
-  if (!city) return null;
+export const resolvePincode = (req) => {
+  const queryPincode = String(req.query?.pincode || "").trim();
+  if (queryPincode) return queryPincode;
 
-  const normalizedCity = city.trim();
+  const userPincode = String(req.user?.pincode || "").trim();
+  if (userPincode) return userPincode;
 
-  const vendors = await Vendor.find({
-    status: "active",
-    $or: [
-      // Vendors explicitly serving this city (case-insensitive)
-      { "address.city": { $regex: `^${escapeRegex(normalizedCity)}$`, $options: "i" } },
-      // Vendors with no city set — treat as global (backward compat)
-      { "address.city": "" },
-      { "address.city": { $exists: false } },
-    ],
-  }).select("_id");
+  return null;
+};
 
+export const getVendorIdsByLocation = async (city, pincode = null) => {
+  const query = { status: "active" };
+  const orConditions = [];
+
+  if (pincode) {
+    const normalizedPincode = String(pincode).trim();
+    orConditions.push({ "address.pincodes": normalizedPincode });
+  }
+
+  if (city) {
+    const normalizedCity = city.trim();
+    orConditions.push({ "address.city": { $regex: `^${escapeRegex(normalizedCity)}$`, $options: "i" } });
+  }
+
+  // Backward compatibility: vendors with no city and no pincodes list are treated as active everywhere
+  orConditions.push({
+    $and: [
+      { $or: [{ "address.city": "" }, { "address.city": { $exists: false } }] },
+      { $or: [{ "address.pincodes": { $size: 0 } }, { "address.pincodes": { $exists: false } }] }
+    ]
+  });
+
+  if (orConditions.length === 1) {
+    // Only backward compatibility condition exists, but no city or pincode was resolved
+    return null;
+  }
+
+  query.$or = orConditions;
+
+  const vendors = await Vendor.find(query).select("_id");
   return vendors.map((v) => v._id);
+};
+
+export const getVendorIdsByCity = async (city) => {
+  return getVendorIdsByLocation(city, null);
 };
 
 /**
@@ -80,14 +107,17 @@ export const getVendorIdsByCity = async (city) => {
  * (legacy / admin-created items) — those pass through regardless of city.
  *
  * @param {string|null} city
+ * @param {import('express').Request|null} req
  * @returns {Promise<object>}  Partial Mongoose filter object.
  */
-export const buildVendorCityFilter = async (city) => {
-  if (!city) return {};
+export const buildVendorCityFilter = async (city, req = null) => {
+  const pincode = req ? resolvePincode(req) : null;
 
-  const vendorIds = await getVendorIdsByCity(city);
+  if (!city && !pincode) return {};
 
-  // Include: documents whose vendorId is in the city set, OR vendorId is null/missing
+  const vendorIds = await getVendorIdsByLocation(city, pincode);
+
+  // Include: documents whose vendorId is in the location set, OR vendorId is null/missing
   return {
     $or: [
       { vendorId: { $in: vendorIds } },

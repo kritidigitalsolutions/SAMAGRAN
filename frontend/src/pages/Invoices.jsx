@@ -5,6 +5,12 @@ import { toast } from "react-toastify";
 import { getStoredAdmin } from "../utils/auth";
 
 /* ─── helpers ─────────────────────────────────────────────── */
+const isValEmpty = (val) => {
+  if (!val) return true;
+  const clean = String(val).trim();
+  return clean === "" || clean === "—" || clean === "-" || clean === "null" || clean === "undefined";
+};
+
 const fmt = (v) =>
   Number(v || 0).toLocaleString("en-IN", {
     style: "currency",
@@ -183,7 +189,8 @@ function InvoicePreview({ order, onClose, onUpdated }) {
     const unitDiscount = Math.max(0, unitMRP - unitPrice);
     const qty = item.quantity || 1;
     const totalAmount = unitPrice * qty;
-    const gstPercent = p?.pricing?.gstPercent || 18;
+    const gstIncluded = p?.pricing?.priceIncludesGst ?? true;
+    const gstPercent = gstIncluded ? (p?.pricing?.gstPercent || 0) : 0;
     const taxableValue = totalAmount / (1 + gstPercent / 100);
     const gstAmount = totalAmount - taxableValue;
 
@@ -219,6 +226,7 @@ function InvoicePreview({ order, onClose, onUpdated }) {
 
   // --- STATE FOR EDITABLE DATA ---
   const [isEditing, setIsEditing] = useState(false);
+  const [globalHideCompanyDetails, setGlobalHideCompanyDetails] = useState(false);
   const [invoiceData, setInvoiceData] = useState({
     // Seller Details
     sellerName: order.invoiceDetails?.sellerName || vendor.businessName || vendor.name || "Samagran Ventures LLP",
@@ -234,12 +242,12 @@ function InvoicePreview({ order, onClose, onUpdated }) {
         .join(", ") ||
       "Godown, Patlipada, Near Ramnath Tabela, Thane (M.Corp)-400607, Maharashtra",
     // KYC fields from vendor.kyc (dynamic from DB)
-    sellerGstin: order.invoiceDetails?.sellerGstin || vendor.kyc?.gst || vendor.gstin || "—",
-    sellerFssai: order.invoiceDetails?.sellerFssai || vendor.kyc?.fssai || vendor.fssai || "—",
-    sellerCin: order.invoiceDetails?.sellerCin || vendor.kyc?.cin || vendor.cin || "—",
-    sellerPan: order.invoiceDetails?.sellerPan || vendor.kyc?.pan || vendor.pan || "—",
-    sellerEmail: order.invoiceDetails?.sellerEmail || vendor.email || "support@samagran.com",
-    sellerPhone: order.invoiceDetails?.sellerPhone || vendor.phone || "+91 9876543210",
+    sellerGstin: order.invoiceDetails?.sellerGstin || vendor.kyc?.gst || vendor.gstin || "",
+    sellerFssai: order.invoiceDetails?.sellerFssai || vendor.kyc?.fssai || vendor.fssai || "",
+    sellerCin: order.invoiceDetails?.sellerCin || vendor.kyc?.cin || vendor.cin || "",
+    sellerPan: order.invoiceDetails?.sellerPan || vendor.kyc?.pan || vendor.pan || "",
+    sellerEmail: order.invoiceDetails?.sellerEmail || vendor.email || "",
+    sellerPhone: order.invoiceDetails?.sellerPhone || vendor.phone || "",
 
     // Customer Details
     customerName: order.invoiceDetails?.customerName || order.user?.name || order.address?.name || "Customer",
@@ -252,8 +260,8 @@ function InvoicePreview({ order, onClose, onUpdated }) {
       ]
         .filter(Boolean)
         .join(", ") || "Address not provided",
-    customerPhone: order.invoiceDetails?.customerPhone || order.user?.phone || order.address?.phone || "—",
-    customerEmail: order.invoiceDetails?.customerEmail || order.user?.email || "—",
+    customerPhone: order.invoiceDetails?.customerPhone || order.user?.phone || order.address?.phone || "",
+    customerEmail: order.invoiceDetails?.customerEmail || order.user?.email || "",
 
     // Invoice Metadata
     invoiceNumber: order.invoiceDetails?.invoiceNumber || buildInvoiceNumber(order),
@@ -270,10 +278,11 @@ function InvoicePreview({ order, onClose, onUpdated }) {
     companyEmail: order.invoiceDetails?.companyEmail || "",
     companyPhone: order.invoiceDetails?.companyPhone || "",
     authorizedSignatory: order.invoiceDetails?.authorizedSignatory || "",
+    hideCompanyDetails: order.invoiceDetails?.hideCompanyDetails,
   });
 
   const handleChange = (e) => {
-    setInvoiceData({ ...invoiceData, [e.target.name]: e.target.value });
+    setInvoiceData({ ...invoiceData, [e.target.name]: e.target.type === 'checkbox' ? e.target.checked : e.target.value });
   };
 
   useEffect(() => {
@@ -281,6 +290,7 @@ function InvoicePreview({ order, onClose, onUpdated }) {
       try {
         const res = await API.get("/admin/corporate-details");
         const corp = res.data?.data || {};
+        setGlobalHideCompanyDetails(corp.hideCompanyDetails || false);
         setInvoiceData((prev) => ({
           ...prev,
           companyName: prev.companyName || corp.companyName || "Samagran Ventures Private Limited",
@@ -291,6 +301,7 @@ function InvoicePreview({ order, onClose, onUpdated }) {
           companyEmail: prev.companyEmail || corp.email || "support@samagran.com",
           companyPhone: prev.companyPhone || corp.phone || "+91-9988776655",
           authorizedSignatory: prev.authorizedSignatory || corp.authorizedSignatory || "Anil Sharma",
+          hideCompanyDetails: prev.hideCompanyDetails !== undefined ? prev.hideCompanyDetails : (corp.hideCompanyDetails || false),
         }));
       } catch (err) {
         console.error("Failed to load corporate details:", err);
@@ -385,11 +396,17 @@ function InvoicePreview({ order, onClose, onUpdated }) {
       <p style="font-size:12px;color:#4b5563;line-height:1.5;margin-bottom:10px;white-space:pre-wrap;">${invoiceData.sellerAddress}</p>
       
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:10px;color:#6b7280;font-weight:600;border-top:1px solid #f3f4f6;padding-top:8px;">
-        <p>GSTIN: <span style="color:#1a1a1a;font-weight:bold;">${invoiceData.sellerGstin}</span></p>
-        <p>PAN: <span style="color:#1a1a1a;font-weight:bold;">${invoiceData.sellerPan}</span></p>
-        <p>CIN: <span style="color:#1a1a1a;font-weight:bold;">${invoiceData.sellerCin}</span></p>
-        <p>FSSAI No: <span style="color:#1a1a1a;font-weight:bold;">${invoiceData.sellerFssai}</span></p>
-        <p style="grid-column: span 2;margin-top:4px;">Email: <span style="color:#1a1a1a;font-weight:bold;">${invoiceData.sellerEmail}</span>  |  Contact: <span style="color:#1a1a1a;font-weight:bold;">${invoiceData.sellerPhone}</span></p>
+        ${!isValEmpty(invoiceData.sellerGstin) ? `<p>GSTIN: <span style="color:#1a1a1a;font-weight:bold;">${invoiceData.sellerGstin}</span></p>` : ""}
+        ${!isValEmpty(invoiceData.sellerPan) ? `<p>PAN: <span style="color:#1a1a1a;font-weight:bold;">${invoiceData.sellerPan}</span></p>` : ""}
+        ${!isValEmpty(invoiceData.sellerCin) ? `<p>CIN: <span style="color:#1a1a1a;font-weight:bold;">${invoiceData.sellerCin}</span></p>` : ""}
+        ${!isValEmpty(invoiceData.sellerFssai) ? `<p>FSSAI No: <span style="color:#1a1a1a;font-weight:bold;">${invoiceData.sellerFssai}</span></p>` : ""}
+        ${(!isValEmpty(invoiceData.sellerEmail) || !isValEmpty(invoiceData.sellerPhone)) ? `
+          <p style="grid-column: span 2;margin-top:4px;">
+            ${!isValEmpty(invoiceData.sellerEmail) ? `Email: <span style="color:#1a1a1a;font-weight:bold;">${invoiceData.sellerEmail}</span>` : ""}
+            ${(!isValEmpty(invoiceData.sellerEmail) && !isValEmpty(invoiceData.sellerPhone)) ? "  |  " : ""}
+            ${!isValEmpty(invoiceData.sellerPhone) ? `Contact: <span style="color:#1a1a1a;font-weight:bold;">${invoiceData.sellerPhone}</span>` : ""}
+          </p>
+        ` : ""}
       </div>
     </div>
     <div style="padding:16px;background-color:#fafafa;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;">
@@ -490,6 +507,7 @@ function InvoicePreview({ order, onClose, onUpdated }) {
     </div>
   </div>
   
+  ${!(globalHideCompanyDetails || invoiceData.hideCompanyDetails) ? `
   <div class="border-box grid-3">
     <div style="padding:12px;font-size:10px;color:#6b7280;line-height:1.5;font-weight:600;">
       <p style="font-size:11px;font-weight:bold;color:#8B1E3F;margin-bottom:4px;">${invoiceData.companyName} (Corporate Office)</p>
@@ -502,6 +520,7 @@ function InvoicePreview({ order, onClose, onUpdated }) {
       <span style="font-size:9px;font-weight:800;color:#6b7280;text-transform:uppercase;letter-spacing:1px;border-top:1px solid #f3f4f6;width:100%;padding-top:6px;margin-top:8px;">Authorized Signatory</span>
     </div>
   </div>
+  ` : ""}
 
   <div style="font-size:9px;color:#9ca3af;font-weight:600;line-height:1.5;border-top:1px solid #f3f4f6;padding-top:12px;">
     <p style="font-weight:bold;color:#6b7280;font-size:12px;margin-bottom:4px;">Terms & Conditions:</p>
@@ -697,58 +716,76 @@ function InvoicePreview({ order, onClose, onUpdated }) {
                   </div>
 
                   <div className="grid grid-cols-2 gap-y-1 gap-x-2 text-[10px] text-gray-500 font-semibold border-t border-gray-100 pt-2">
-                    <p className="flex items-center gap-1">
-                      GSTIN:{" "}
-                      <strong className="text-gray-800">
-                        <EditableField
-                          name="sellerGstin"
-                          value={invoiceData.sellerGstin}
-                        />
-                      </strong>
-                    </p>
-                    <p className="flex items-center gap-1">
-                      PAN:{" "}
-                      <strong className="text-gray-800">
-                        <EditableField
-                          name="sellerPan"
-                          value={invoiceData.sellerPan}
-                        />
-                      </strong>
-                    </p>
-                    <p className="flex items-center gap-1">
-                      CIN:{" "}
-                      <strong className="text-gray-800">
-                        <EditableField
-                          name="sellerCin"
-                          value={invoiceData.sellerCin}
-                        />
-                      </strong>
-                    </p>
-                    <p className="flex items-center gap-1">
-                      FSSAI No:{" "}
-                      <strong className="text-gray-800">
-                        <EditableField
-                          name="sellerFssai"
-                          value={invoiceData.sellerFssai}
-                        />
-                      </strong>
-                    </p>
-                    <p className="col-span-2 mt-1 flex items-center gap-1">
-                      Email:{" "}
-                      <strong className="text-gray-800 mr-2">
-                        <EditableField
-                          name="sellerEmail"
-                          value={invoiceData.sellerEmail}
-                        />
-                      </strong>
-                      Contact:{" "}
-                      <strong className="text-gray-800">
-                        <EditableField
-                          name="sellerPhone"
-                          value={invoiceData.sellerPhone}
-                        />
-                      </strong>
-                    </p>
+                    {!isValEmpty(invoiceData.sellerGstin) || isEditing ? (
+                      <p className="flex items-center gap-1">
+                        GSTIN:{" "}
+                        <strong className="text-gray-800">
+                          <EditableField
+                            name="sellerGstin"
+                            value={invoiceData.sellerGstin}
+                          />
+                        </strong>
+                      </p>
+                    ) : null}
+                    {!isValEmpty(invoiceData.sellerPan) || isEditing ? (
+                      <p className="flex items-center gap-1">
+                        PAN:{" "}
+                        <strong className="text-gray-800">
+                          <EditableField
+                            name="sellerPan"
+                            value={invoiceData.sellerPan}
+                          />
+                        </strong>
+                      </p>
+                    ) : null}
+                    {!isValEmpty(invoiceData.sellerCin) || isEditing ? (
+                      <p className="flex items-center gap-1">
+                        CIN:{" "}
+                        <strong className="text-gray-800">
+                          <EditableField
+                            name="sellerCin"
+                            value={invoiceData.sellerCin}
+                          />
+                        </strong>
+                      </p>
+                    ) : null}
+                    {!isValEmpty(invoiceData.sellerFssai) || isEditing ? (
+                      <p className="flex items-center gap-1">
+                        FSSAI No:{" "}
+                        <strong className="text-gray-800">
+                          <EditableField
+                            name="sellerFssai"
+                            value={invoiceData.sellerFssai}
+                          />
+                        </strong>
+                      </p>
+                    ) : null}
+                    {(!isValEmpty(invoiceData.sellerEmail) || !isValEmpty(invoiceData.sellerPhone) || isEditing) ? (
+                      <p className="col-span-2 mt-1 flex flex-wrap items-center gap-1">
+                        {!isValEmpty(invoiceData.sellerEmail) || isEditing ? (
+                          <>
+                            Email:{" "}
+                            <strong className="text-gray-800 mr-2">
+                              <EditableField
+                                name="sellerEmail"
+                                value={invoiceData.sellerEmail}
+                              />
+                            </strong>
+                          </>
+                        ) : null}
+                        {!isValEmpty(invoiceData.sellerPhone) || isEditing ? (
+                          <>
+                            Contact:{" "}
+                            <strong className="text-gray-800">
+                              <EditableField
+                                name="sellerPhone"
+                                value={invoiceData.sellerPhone}
+                              />
+                            </strong>
+                          </>
+                        ) : null}
+                      </p>
+                    ) : null}
                   </div>
                 </div>
                 <div className="col-span-1 p-4 bg-gray-50/50 flex flex-col justify-center items-center text-center">
@@ -1006,81 +1043,97 @@ function InvoicePreview({ order, onClose, onUpdated }) {
                 </div>
               </div>
 
-              {/* Bottom Box: Company office + Signatory */}
-              <div className="grid grid-cols-3 border border-gray-300 rounded-xl mb-5 overflow-hidden">
-                <div className="col-span-2 p-3 text-[10px] text-gray-500 leading-relaxed font-semibold">
-                  <p className="text-[11px] font-bold text-[#8B1E3F] mb-1">
-                    <EditableField
-                      name="companyName"
-                      value={invoiceData.companyName}
-                    /> (Corporate Office)
-                  </p>
-                  <p className="mb-1">
-                    Reg. Address:{" "}
-                    <EditableField
-                      name="companyAddress"
-                      value={invoiceData.companyAddress}
-                      isTextArea={true}
-                    />
-                  </p>
-                  <p className="flex items-center flex-wrap gap-x-2 gap-y-1 mb-1">
-                    <span>CIN:</span>
-                    <strong className="text-gray-800">
+              {(!(globalHideCompanyDetails || invoiceData.hideCompanyDetails) || isEditing) && (
+                <div className="grid grid-cols-3 border border-gray-300 rounded-xl mb-5 overflow-hidden">
+                  <div className="col-span-2 p-3 text-[10px] text-gray-500 leading-relaxed font-semibold">
+                    {isEditing && (
+                      <div className="mb-2 flex items-center gap-1.5 border-b border-gray-100 pb-1.5">
+                        <input
+                          type="checkbox"
+                          id="invoice-hide-company"
+                          name="hideCompanyDetails"
+                          checked={invoiceData.hideCompanyDetails || false}
+                          onChange={(e) => setInvoiceData(prev => ({ ...prev, hideCompanyDetails: e.target.checked }))}
+                          className="h-3.5 w-3.5 cursor-pointer text-[#8B1E3F] focus:ring-[#8B1E3F]"
+                        />
+                        <label htmlFor="invoice-hide-company" className="text-[9px] font-bold text-gray-500 cursor-pointer select-none">
+                          Hide Corporate/Company Details on Invoice
+                        </label>
+                      </div>
+                    )}
+                    <p className="text-[11px] font-bold text-[#8B1E3F] mb-1">
                       <EditableField
-                        name="companyCin"
-                        value={invoiceData.companyCin}
-                      />
-                    </strong>
-                    <span>| PAN:</span>
-                    <strong className="text-gray-800">
+                        name="companyName"
+                        value={invoiceData.companyName}
+                      /> (Corporate Office)
+                    </p>
+                    <p className="mb-1">
+                      Reg. Address:{" "}
                       <EditableField
-                        name="companyPan"
-                        value={invoiceData.companyPan}
+                        name="companyAddress"
+                        value={invoiceData.companyAddress}
+                        isTextArea={true}
                       />
-                    </strong>
-                    <span>| FSSAI:</span>
-                    <strong className="text-gray-800">
+                    </p>
+                    <p className="flex items-center flex-wrap gap-x-2 gap-y-1 mb-1">
+                      <span>CIN:</span>
+                      <strong className="text-gray-800">
+                        <EditableField
+                          name="companyCin"
+                          value={invoiceData.companyCin}
+                        />
+                      </strong>
+                      <span>| PAN:</span>
+                      <strong className="text-gray-800">
+                        <EditableField
+                          name="companyPan"
+                          value={invoiceData.companyPan}
+                        />
+                      </strong>
+                      <span>| FSSAI:</span>
+                      <strong className="text-gray-800">
+                        <EditableField
+                          name="companyFssai"
+                          value={invoiceData.companyFssai}
+                        />
+                      </strong>
+                    </p>
+                    <p className="mt-1 flex items-center flex-wrap gap-x-2">
+                      <span>Customer Support:</span>
+                      <strong className="text-gray-800 mr-2">
+                        <EditableField
+                          name="companyEmail"
+                          value={invoiceData.companyEmail}
+                        />
+                      </strong>
+                      <span>| Contact:</span>
+                      <strong className="text-gray-800">
+                        <EditableField
+                          name="companyPhone"
+                          value={invoiceData.companyPhone}
+                        />
+                      </strong>
+                    </p>
+                  </div>
+                  <div className="col-span-1 border-l border-gray-300 p-3 flex flex-col justify-between items-center text-center">
+                    <span
+                      style={{
+                        fontFamily: "'Brush Script MT', cursive, sans-serif",
+                      }}
+                      className="text-lg text-gray-400 font-bold mt-1 block w-full"
+                    >
                       <EditableField
-                        name="companyFssai"
-                        value={invoiceData.companyFssai}
+                        name="authorizedSignatory"
+                        value={invoiceData.authorizedSignatory}
+                        className="block text-center"
                       />
-                    </strong>
-                  </p>
-                  <p className="mt-1 flex items-center flex-wrap gap-x-2">
-                    <span>Customer Support:</span>
-                    <strong className="text-gray-800 mr-2">
-                      <EditableField
-                        name="companyEmail"
-                        value={invoiceData.companyEmail}
-                      />
-                    </strong>
-                    <span>| Contact:</span>
-                    <strong className="text-gray-800">
-                      <EditableField
-                        name="companyPhone"
-                        value={invoiceData.companyPhone}
-                      />
-                    </strong>
-                  </p>
+                    </span>
+                    <span className="text-[9px] font-extrabold text-gray-500 uppercase tracking-wider border-t border-gray-100 w-full pt-1.5 mt-2">
+                      Authorized Signatory
+                    </span>
+                  </div>
                 </div>
-                <div className="col-span-1 border-l border-gray-300 p-3 flex flex-col justify-between items-center text-center">
-                  <span
-                    style={{
-                      fontFamily: "'Brush Script MT', cursive, sans-serif",
-                    }}
-                    className="text-lg text-gray-400 font-bold mt-1 block w-full"
-                  >
-                    <EditableField
-                      name="authorizedSignatory"
-                      value={invoiceData.authorizedSignatory}
-                      className="block text-center"
-                    />
-                  </span>
-                  <span className="text-[9px] font-extrabold text-gray-500 uppercase tracking-wider border-t border-gray-100 w-full pt-1.5 mt-2">
-                    Authorized Signatory
-                  </span>
-                </div>
-              </div>
+              )}
 
               {/* Terms and conditions */}
               <div className="text-[9px] text-gray-400 font-semibold leading-relaxed border-t border-gray-100 pt-3">

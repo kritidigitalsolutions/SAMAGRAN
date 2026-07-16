@@ -4,8 +4,21 @@ import { uploadFileToFirebase } from "../../utils/firebaseUpload.js";
 const normalizeName = (value = "") => String(value || "").trim();
 const normalizeCode = (value = "") => String(value || "").trim();
 
+const ensureCanManageBrands = (req, res) => {
+  if (req.admin?.role === "super") {
+    return true;
+  }
+  res.status(403).json({
+    success: false,
+    message: "Only super admin can manage brands",
+  });
+  return false;
+};
+
 export const createBrand = async (req, res) => {
   try {
+    if (!ensureCanManageBrands(req, res)) return;
+
     const name = normalizeName(req.body?.name);
     const description = normalizeName(req.body?.description);
     const status = req.body?.status === "inactive" ? "inactive" : "active";
@@ -141,6 +154,8 @@ export const getBrandById = async (req, res) => {
 
 export const updateBrand = async (req, res) => {
   try {
+    if (!ensureCanManageBrands(req, res)) return;
+
     const brand = await Brand.findById(req.params.id).populate("vendorId", "name businessName email phone address");
 
     if (!brand) {
@@ -233,19 +248,14 @@ export const updateBrand = async (req, res) => {
 
 export const deleteBrand = async (req, res) => {
   try {
+    if (!ensureCanManageBrands(req, res)) return;
+
     const brand = await Brand.findById(req.params.id).populate("vendorId", "name businessName email phone address");
 
     if (!brand) {
       return res.status(404).json({
         success: false,
         message: "Brand not found",
-      });
-    }
-
-    if (req.admin.role === "vendor" && (!brand.vendorId || brand.vendorId.toString() !== req.vendor._id.toString())) {
-      return res.status(403).json({
-        success: false,
-        message: "Access denied (Cannot delete global or other vendor's brand)",
       });
     }
 
@@ -262,4 +272,3 @@ export const deleteBrand = async (req, res) => {
     });
   }
 };
-

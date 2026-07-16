@@ -13,7 +13,7 @@ export const getDefaultKitsForUsers = async (req, res) => {
     const city = resolveCity(req);
     if (!city) return sendCityRequired(res);
 
-    const vendorFilter = await buildVendorCityFilter(city);
+    const vendorFilter = await buildVendorCityFilter(city, req);
 
     const { search = "" } = req.query;
 
@@ -52,7 +52,7 @@ export const getDefaultKitByIdForUsers = async (req, res) => {
     const city = resolveCity(req);
     if (!city) return sendCityRequired(res);
 
-    const vendorFilter = await buildVendorCityFilter(city);
+    const vendorFilter = await buildVendorCityFilter(city, req);
 
     const kitFilter = {
       _id: req.params.id,

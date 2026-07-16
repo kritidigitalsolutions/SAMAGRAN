@@ -7,6 +7,7 @@ import Cart from "../models/cart.model.js";
 import Item from "../models/product.model.js";
 import FestivalKit from "../models/festivalKit.model.js";
 import User from "../models/user.model.js";
+import Vendor from "../models/vendor.model.js";
 import Coupon from "../models/coupon.model.js";
 import UserCoupon from "../models/userCoupon.model.js";
 import Offer from "../models/offer.model.js";
@@ -866,6 +867,20 @@ export const createRazorpayOrder = async (req, res) => {
       req,
     });
 
+    // Pincode validation: Check if vendor serves the user's pincode
+    if (vendorId) {
+      const vendorDoc = await Vendor.findById(vendorId).lean();
+      if (vendorDoc && vendorDoc.address?.pincodes?.length > 0) {
+        const userPincode = String(resolvedAddress?.pincode || "").trim();
+        if (!vendorDoc.address.pincodes.includes(userPincode)) {
+          return res.status(400).json({
+            success: false,
+            message: `Delivery not available at pincode ${userPincode} for this vendor's products`,
+          });
+        }
+      }
+    }
+
     const finalDeliveryFee = await calculateDynamicDeliveryFee(
       vendorId,
       resolvedAddress,
@@ -1040,6 +1055,20 @@ export const placeOrder = async (req, res) => {
       };
     } else {
       finalAddress = buildAddress(req, address, addressType);
+    }
+
+    // Pincode validation: Check if vendor serves the user's pincode
+    if (vendorId) {
+      const vendorDoc = await Vendor.findById(vendorId).lean();
+      if (vendorDoc && vendorDoc.address?.pincodes?.length > 0) {
+        const userPincode = String(finalAddress?.pincode || "").trim();
+        if (!vendorDoc.address.pincodes.includes(userPincode)) {
+          return res.status(400).json({
+            success: false,
+            message: `Delivery not available at pincode ${userPincode} for this vendor's products`,
+          });
+        }
+      }
     }
 
     const finalDeliveryFee = await calculateDynamicDeliveryFee(
@@ -1880,7 +1909,7 @@ export const getOrderInvoicePdf = async (req, res) => {
     );
 
     // Generate PDF and pipe to response
-    generateInvoicePdf(order, res);
+    await generateInvoicePdf(order, res);
   } catch (err) {
     console.error("Invoice Generation Error:", err);
     return res.status(500).json({

@@ -5,7 +5,7 @@ import { toast } from "react-toastify";
 const TABS = ["Basic Info", "Address", "KYC & Bank", "Page Access"];
 
 const availablePages = [
-  "dashboard", "orders", "products", "category", "sub-category", "items", "kits",
+  "dashboard", "orders", "products", "items", "kits",
   "pandits", "rituals", "temples", "pandit-bookings",
   "banners", "coupons", "offers", "legal", "custom-samagri",
   "notifications", "delivery-boys", "settings",
@@ -22,6 +22,85 @@ const CheckBadge = ({ verified }) =>
       Verified
     </span>
   ) : null;
+
+const PincodeListManager = ({ value = "", onChange }) => {
+  const [newPin, setNewPin] = React.useState("");
+
+  const pins = React.useMemo(() => {
+    return value
+      ? value
+          .split(",")
+          .map((p) => p.trim())
+          .filter(Boolean)
+      : [];
+  }, [value]);
+
+  const handleAdd = (e) => {
+    e.preventDefault();
+    const pin = newPin.trim();
+    if (!pin) return;
+    if (pins.includes(pin)) {
+      setNewPin("");
+      return;
+    }
+    const updated = [...pins, pin];
+    onChange(updated.join(", "));
+    setNewPin("");
+  };
+
+  const handleRemove = (pinToRemove) => {
+    const updated = pins.filter((p) => p !== pinToRemove);
+    onChange(updated.join(", "));
+  };
+
+  return (
+    <div className="space-y-3 mt-2 rounded-xl border border-[#d7c3a3] p-4 bg-white/40 dark:border-white/10 dark:bg-white/5">
+      <div className="flex gap-2">
+        <input
+          type="text"
+          placeholder="Enter Pincode (e.g. 282007)"
+          value={newPin}
+          onChange={(e) => setNewPin(e.target.value)}
+          className="flex-1 rounded-lg border border-[#d7c3a3] bg-transparent px-3 py-1.5 text-xs text-[#2f1618] outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:text-white"
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              handleAdd(e);
+            }
+          }}
+        />
+        <button
+          type="button"
+          onClick={handleAdd}
+          className="rounded-lg bg-[#8B1E3F] px-3 py-1.5 text-xs font-bold text-white transition-all hover:opacity-90"
+        >
+          Add
+        </button>
+      </div>
+
+      {pins.length > 0 ? (
+        <div className="flex flex-wrap gap-2">
+          {pins.map((pin) => (
+            <span
+              key={pin}
+              className="inline-flex items-center gap-1.5 rounded-full bg-[#8B1E3F]/10 px-2.5 py-1 text-xs font-semibold text-[#8B1E3F] dark:bg-[#8B1E3F]/30 dark:text-pink-300"
+            >
+              {pin}
+              <button
+                type="button"
+                onClick={() => handleRemove(pin)}
+                className="hover:text-red-500 font-bold transition-all text-sm leading-none"
+              >
+                &times;
+              </button>
+            </span>
+          ))}
+        </div>
+      ) : (
+        <p className="text-xs text-gray-500 italic">No pincodes added yet.</p>
+      )}
+    </div>
+  );
+};
 
 const AddVendorModal = ({ onClose, onVendorAdded }) => {
   const [activeTab, setActiveTab] = useState(0);
@@ -173,8 +252,13 @@ const AddVendorModal = ({ onClose, onVendorAdded }) => {
                 <input name="state" value={address.state} onChange={setField(setAddress)} className={inputCls} placeholder="Jharkhand" />
               </div>
               <div>
-                <label className={labelCls}>Pincode</label>
-                <input name="pincode" value={address.pincode} onChange={setField(setAddress)} className={inputCls} placeholder="834001" />
+                <label className={labelCls}>Serviceable Pincodes List</label>
+                <PincodeListManager
+                  value={address.pincode}
+                  onChange={(newValue) => {
+                    setAddress((prev) => ({ ...prev, pincode: newValue }));
+                  }}
+                />
               </div>
             </div>
           )}
