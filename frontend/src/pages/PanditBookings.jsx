@@ -5,6 +5,7 @@ import { FiEye, FiMoreVertical, FiSearch, FiTrash2, FiX } from "react-icons/fi";
 import TablePagination from "../components/TablePagination";
 import TableMenuPopover from "../components/TableMenuPopover";
 import { getStoredAdmin } from "../utils/auth";
+import { useAutoRefresh } from "../utils/realtime";
 
 const statusBadgeClass = (status) => {
   if (status === "confirmed") {
@@ -70,6 +71,7 @@ export default function PanditBookings() {
   const [availableCities, setAvailableCities] = useState([]);
   const [pincodeFilter, setPincodeFilter] = useState("");
   const [availablePincodes, setAvailablePincodes] = useState([]);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   const fetchBookings = useCallback(
     async (
@@ -138,7 +140,11 @@ export default function PanditBookings() {
     }, 350);
 
     return () => clearTimeout(timer);
-  }, [fetchBookings, searchTerm, statusFilter, cityFilter, pincodeFilter]);
+  }, [fetchBookings, searchTerm, statusFilter, cityFilter, pincodeFilter, refreshTrigger]);
+
+  useAutoRefresh("admin_bookings_update", () => {
+    setRefreshTrigger((prev) => prev + 1);
+  });
 
   useEffect(() => {
     const handleClick = (event) => {

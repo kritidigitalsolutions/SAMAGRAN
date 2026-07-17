@@ -4,6 +4,7 @@ import API from "../api/axios";
 import TablePagination from "../components/TablePagination";
 import { toast } from "react-toastify";
 import { getStoredAdmin } from "../utils/auth";
+import { useAutoRefresh } from "../utils/realtime";
 
 const formatMoney = (value) => `INR ${Number(value || 0).toFixed(2)}`;
 
@@ -37,6 +38,7 @@ export default function Transactions() {
   const [error, setError] = useState("");
   const [page, setPage] = useState(1);
   const [selectedIds, setSelectedIds] = useState([]);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   const fetchTransactions = useCallback(async () => {
     try {
@@ -56,7 +58,11 @@ export default function Transactions() {
   useEffect(() => {
     fetchTransactions();
     setPage(1);
-  }, [fetchTransactions]);
+  }, [fetchTransactions, refreshTrigger]);
+
+  useAutoRefresh("admin_transactions_update", () => {
+    setRefreshTrigger((prev) => prev + 1);
+  });
 
   const pagedTransactions = useMemo(() => {
     const start = (page - 1) * pageSize;

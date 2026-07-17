@@ -232,4 +232,7 @@ const orderSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+import { attachSseMiddleware } from "../utils/sse.js";
+attachSseMiddleware(orderSchema, ["orders_update", "transactions_update"]);
+
 export default mongoose.model("Order", orderSchema);

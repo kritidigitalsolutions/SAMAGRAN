@@ -156,6 +156,7 @@ import userComplaintRoutes from "./routes/user/complaint.routes.js";
 import userSupportSettingRoutes from "./routes/user/supportSetting.routes.js";
 import panditComplaintRoutes from "./routes/pandit/complaint.routes.js";
 import adminPanditComplaintRoutes from "./routes/admin/panditComplaint.routes.js";
+import { handleSseConnection } from "./utils/sse.js";
 
 
 app.use("/api/user/items", userProductRoutes);
@@ -216,6 +217,7 @@ export const bootstrapApp = async () => {
 
 app.use("/api/admin", adminRoutes);
 app.use("/api/admin/auth", adminAuthRoutes);
+app.get("/api/admin/updates", handleSseConnection);
 
 app.use("/api/admin", adminKitRoutes);
 app.use("/api", userKitRoutes);

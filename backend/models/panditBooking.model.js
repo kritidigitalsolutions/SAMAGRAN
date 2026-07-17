@@ -240,4 +240,7 @@ const panditBookingSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
+import { attachSseMiddleware } from "../utils/sse.js";
+attachSseMiddleware(panditBookingSchema, ["bookings_update", "transactions_update"]);
+
 export default mongoose.model("PanditBooking", panditBookingSchema);

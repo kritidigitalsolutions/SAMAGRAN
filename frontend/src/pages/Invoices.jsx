@@ -555,6 +555,7 @@ function InvoicePreview({ order, onClose, onUpdated }) {
     totalGstAmount,
     deliveryFee,
     order._id,
+    globalHideCompanyDetails,
   ]);
 
   // Helper component to render either plain text or input field

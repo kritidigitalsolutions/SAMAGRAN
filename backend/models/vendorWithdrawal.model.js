@@ -73,4 +73,7 @@ const vendorWithdrawalSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+import { attachSseMiddleware } from "../utils/sse.js";
+attachSseMiddleware(vendorWithdrawalSchema, "transactions_update");
+
 export default mongoose.model("VendorWithdrawal", vendorWithdrawalSchema);

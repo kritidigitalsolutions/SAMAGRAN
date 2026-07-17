@@ -5,6 +5,7 @@ import { normalizeCities } from "../utils/normalizeCity";
 import TablePagination from "../components/TablePagination";
 import { getStoredAdmin } from "../utils/auth";
 import TableMenuPopover from "../components/TableMenuPopover";
+import { useAutoRefresh } from "../utils/realtime";
 
 const apiOrigin = (API.defaults.baseURL || "http://localhost:8000/api").replace(/\/api\/?$/, "");
 const formatImageUrl = (path) => {
@@ -178,6 +179,7 @@ export default function Orders() {
   const [deliveryBoysLoading, setDeliveryBoysLoading] = useState(false);
   const [deliveryBoySelection, setDeliveryBoySelection] = useState("");
   const [deliveryAssigningId, setDeliveryAssigningId] = useState("");
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   const fetchOrders = useCallback(
     async ({ search = "", status = "all", paymentStatus = "all", paymentMethod = "all", city = "", page = 1 } = {}) => {
@@ -267,7 +269,12 @@ export default function Orders() {
     cityFilter,
     pagination.currentPage,
     pageSize,
+    refreshTrigger,
   ]);
+
+  useAutoRefresh("admin_orders_update", () => {
+    setRefreshTrigger((prev) => prev + 1);
+  });
 
   useEffect(() => {
     fetchDeliveryBoys();

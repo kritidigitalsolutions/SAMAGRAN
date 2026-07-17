@@ -1,11 +1,17 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Outlet } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import Sidebar from "../components/Sidebar";
+import { setupRealtimeUpdates } from "../utils/realtime";
 
 export default function AdminLayout() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+
+  useEffect(() => {
+    const cleanup = setupRealtimeUpdates();
+    return () => cleanup();
+  }, []);
 
   return (
     <div className="flex h-screen overflow-hidden bg-[var(--admin-bg)] text-[var(--admin-text)]">
