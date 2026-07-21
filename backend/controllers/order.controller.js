@@ -155,35 +155,36 @@ const calculateDynamicDeliveryFee = async (vendorId, address, inputFee, itemTota
     return 0;
   }
 
-  let matchedCharge = null;
+  let matchedPricing = null;
 
   if (vendorId && address) {
     const { pincode, city } = address;
     const filter = { vendorId, status: { $ne: "inactive" } };
 
     if (pincode?.trim()) {
-      const pricing = await DeliveryPricing.findOne({
+      matchedPricing = await DeliveryPricing.findOne({
         ...filter,
         pincode: pincode.trim(),
       });
-      if (pricing) {
-        matchedCharge = pricing.deliveryCharge;
-      }
     }
 
-    if (matchedCharge === null && city?.trim()) {
-      const pricing = await DeliveryPricing.findOne({
+    if (!matchedPricing && city?.trim()) {
+      matchedPricing = await DeliveryPricing.findOne({
         ...filter,
         locationName: { $regex: new RegExp(`^${city.trim()}$`, "i") },
       });
-      if (pricing) {
-        matchedCharge = pricing.deliveryCharge;
-      }
     }
   }
 
-  if (matchedCharge !== null) {
-    return matchedCharge;
+  if (matchedPricing) {
+    const deliveryCharge = Number(matchedPricing.deliveryCharge || 0);
+    const codCharge = Number(matchedPricing.codCharge || 0);
+
+    // Rule: "agar delivery charge nhi hai to COD hoga uski jagah"
+    if (deliveryCharge <= 0 && codCharge > 0) {
+      return codCharge;
+    }
+    return deliveryCharge;
   }
 
   return getDeliveryFee(inputFee);

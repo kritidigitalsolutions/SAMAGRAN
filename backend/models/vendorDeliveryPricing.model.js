@@ -28,7 +28,12 @@ const vendorDeliveryPricingSchema =
 
       deliveryCharge: {
         type: Number,
-        required: true
+        default: 0
+      },
+
+      codCharge: {
+        type: Number,
+        default: 0
       },
 
       status: {
@@ -42,7 +47,13 @@ const vendorDeliveryPricingSchema =
     }
   );
 
-export default mongoose.model(
+vendorDeliveryPricingSchema.index({ vendorId: 1, locationName: 1, pincode: 1 });
+
+const VendorDeliveryPricing = mongoose.model(
   "VendorDeliveryPricing",
   vendorDeliveryPricingSchema
 );
+
+VendorDeliveryPricing.collection.dropIndex("vendorId_1_locationName_1").catch(() => {});
+
+export default VendorDeliveryPricing;

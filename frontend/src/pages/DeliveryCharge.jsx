@@ -16,6 +16,7 @@ const initialForm = {
   state: "",
   pincode: "",
   deliveryCharge: "",
+  codCharge: "",
   status: "active",
 };
 
@@ -189,7 +190,8 @@ export default function DeliveryCharge() {
       locationName: pricing?.locationName || "",
       state: pricing?.state || "",
       pincode: pricing?.pincode || "",
-      deliveryCharge: pricing?.deliveryCharge || "",
+      deliveryCharge: pricing?.deliveryCharge ?? "",
+      codCharge: pricing?.codCharge ?? "",
       status: pricing?.status || "active",
     });
     setEditingId(pricing?._id || "");
@@ -226,7 +228,8 @@ export default function DeliveryCharge() {
         locationName: form.locationName.trim(),
         state: form.state.trim(),
         pincode: form.pincode.trim(),
-        deliveryCharge: Number(form.deliveryCharge),
+        deliveryCharge: Number(form.deliveryCharge || 0),
+        codCharge: Number(form.codCharge || 0),
         status: form.status,
         ...(isSuperAdmin ? { vendorId: selectedVendorId } : {}),
       };
@@ -291,6 +294,7 @@ export default function DeliveryCharge() {
         state: pricing.state,
         pincode: pricing.pincode,
         deliveryCharge: pricing.deliveryCharge,
+        codCharge: pricing.codCharge,
         status: nextStatus,
         ...(isSuperAdmin ? { vendorId: selectedVendorId } : {}),
       };
@@ -506,17 +510,31 @@ export default function DeliveryCharge() {
 
             <div className="space-y-2">
               <label className="text-sm font-medium">
-                Delivery Charge (₹) *
+                Delivery Charge (₹)
               </label>
               <input
                 type="number"
                 name="deliveryCharge"
                 value={form.deliveryCharge}
                 onChange={handleFieldChange}
-                placeholder="e.g. 50"
+                placeholder="e.g. 50 (or 0)"
                 min="0"
                 className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-[#16181d] dark:text-white text-black"
-                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">
+                Cash On Delivery (COD) Charge (₹)
+              </label>
+              <input
+                type="number"
+                name="codCharge"
+                value={form.codCharge}
+                onChange={handleFieldChange}
+                placeholder="e.g. 40 (If Delivery Charge is 0)"
+                min="0"
+                className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-[#16181d] dark:text-white text-black"
               />
             </div>
 
@@ -531,6 +549,10 @@ export default function DeliveryCharge() {
                 <option value="active">Active</option>
                 <option value="inactive">Inactive</option>
               </select>
+            </div>
+
+            <div className="col-span-full rounded-xl bg-amber-500/10 px-3 py-2 text-xs font-medium text-amber-800 dark:text-amber-200">
+              💡 Note: Agar Delivery Charge nahi hai (0 hai), to uski jagah Cash On Delivery (COD) Charge apply hoga.
             </div>
           </div>
 
@@ -631,7 +653,8 @@ export default function DeliveryCharge() {
                     <th className="px-3 py-3">Location</th>
                     <th className="px-3 py-3">State</th>
                     <th className="px-3 py-3">Pincode</th>
-                    <th className="px-3 py-3">Charge (₹)</th>
+                    <th className="px-3 py-3">Delivery Charge (₹)</th>
+                    <th className="px-3 py-3">COD Charge (₹)</th>
                     <th className="px-3 py-3">Status</th>
                     <th className="px-3 py-3 text-right">Actions</th>
                   </tr>
@@ -668,7 +691,10 @@ export default function DeliveryCharge() {
                         {item.pincode || "-"}
                       </td>
                       <td className="px-3 py-4 font-bold text-[#8B1E3F] dark:text-[#f7e3c0]">
-                        ₹{item.deliveryCharge}
+                        ₹{item.deliveryCharge || 0}
+                      </td>
+                      <td className="px-3 py-4 font-bold text-amber-700 dark:text-amber-300">
+                        ₹{item.codCharge || 0}
                       </td>
                       <td className="px-3 py-4">
                         <span

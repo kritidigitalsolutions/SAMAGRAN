@@ -26,7 +26,8 @@ export const addPricing = async (req, res) => {
       locationName: req.body.locationName,
       state: req.body.state || "",
       pincode: req.body.pincode || "",
-      deliveryCharge: req.body.deliveryCharge,
+      deliveryCharge: Number(req.body.deliveryCharge || 0),
+      codCharge: Number(req.body.codCharge || 0),
       status: req.body.status || "active"
     });
 
@@ -104,6 +105,10 @@ export const updatePricing = async (req, res) => {
     pricing.deliveryCharge =
       req.body.deliveryCharge ??
       pricing.deliveryCharge;
+
+    pricing.codCharge =
+      req.body.codCharge ??
+      pricing.codCharge;
 
     pricing.state =
       req.body.state ??
