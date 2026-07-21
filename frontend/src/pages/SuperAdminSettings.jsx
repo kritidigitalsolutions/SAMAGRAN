@@ -3,10 +3,11 @@ import { Navigate } from "react-router-dom";
 import API from "../api/axios";
 import { getAdminRole, setStoredAdmin } from "../utils/auth";
 import { toast } from "react-toastify";
-import { FiEye, FiEyeOff } from "react-icons/fi";
+import { FiEye, FiEyeOff, FiUpload, FiImage } from "react-icons/fi";
 
 const defaultCorporateDetails = {
   companyName: "",
+  logoUrl: "",
   address: "",
   cin: "",
   pan: "",
@@ -14,7 +15,6 @@ const defaultCorporateDetails = {
   email: "",
   phone: "",
   authorizedSignatory: "",
-  hideCompanyDetails: false,
 };
 
 const TABS = [
@@ -28,6 +28,8 @@ export default function SuperAdminSettings() {
 
   const [activeTab, setActiveTab] = useState("company");
   const [form, setForm] = useState(defaultCorporateDetails);
+  const [logoFile, setLogoFile] = useState(null);
+  const [logoPreview, setLogoPreview] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -65,7 +67,11 @@ export default function SuperAdminSettings() {
       setLoading(true);
       setError("");
       const res = await API.get("/admin/corporate-details");
-      setForm(res.data?.data || defaultCorporateDetails);
+      const data = res.data?.data || defaultCorporateDetails;
+      setForm(data);
+      if (data.logoUrl) {
+        setLogoPreview(data.logoUrl);
+      }
     } catch (err) {
       setError(err?.response?.data?.message || "Failed to load corporate details");
     } finally {
@@ -118,6 +124,14 @@ export default function SuperAdminSettings() {
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
+  const handleLogoChange = (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setLogoFile(file);
+      setLogoPreview(URL.createObjectURL(file));
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSaving(true);
@@ -125,7 +139,22 @@ export default function SuperAdminSettings() {
     setError("");
 
     try {
-      await API.patch("/admin/corporate-details", form);
+      if (logoFile) {
+        const formData = new FormData();
+        formData.append("logo", logoFile);
+        Object.keys(form).forEach((key) => {
+          formData.append(key, form[key] || "");
+        });
+        const res = await API.patch("/admin/corporate-details", formData, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
+        if (res.data?.data?.logoUrl) {
+          setLogoPreview(res.data.data.logoUrl);
+          setForm((prev) => ({ ...prev, logoUrl: res.data.data.logoUrl }));
+        }
+      } else {
+        await API.patch("/admin/corporate-details", form);
+      }
       setMessage("Corporate settings updated successfully.");
       toast.success("Corporate settings updated successfully!");
     } catch (err) {
@@ -405,6 +434,40 @@ export default function SuperAdminSettings() {
 
                   <div className="grid gap-4 md:grid-cols-2">
                     <div className="md:col-span-2">
+                      <label className="text-xs font-semibold uppercase tracking-wider text-[var(--admin-muted)] block mb-2">
+                        Company Logo (Invoices Header Logo)
+                      </label>
+                      <div className="flex items-center gap-4 p-3 rounded-2xl border border-[var(--admin-border)] bg-[var(--admin-surface-soft)]">
+                        <div className="h-14 w-14 rounded-xl border border-[var(--admin-border)] bg-white flex items-center justify-center overflow-hidden shrink-0 shadow-sm">
+                          {logoPreview ? (
+                            <img src={logoPreview} alt="Logo" className="h-full w-full object-contain p-1" />
+                          ) : (
+                            <FiImage className="h-6 w-6 text-gray-400" />
+                          )}
+                        </div>
+                        <div className="flex-1">
+                          <input
+                            type="file"
+                            id="logoUpload"
+                            accept="image/*"
+                            onChange={handleLogoChange}
+                            className="hidden"
+                          />
+                          <label
+                            htmlFor="logoUpload"
+                            className="inline-flex items-center gap-2 rounded-xl bg-[var(--admin-surface)] border border-[var(--admin-border)] px-4 py-2 text-xs font-semibold text-[var(--admin-text)] hover:bg-gray-100 dark:hover:bg-white/10 transition cursor-pointer shadow-sm"
+                          >
+                            <FiUpload className="h-4 w-4" />
+                            {logoPreview ? "Change Invoice Logo" : "Upload Invoice Logo"}
+                          </label>
+                          <p className="mt-1 text-[11px] text-[var(--admin-muted)]">
+                            PNG or JPG image. Visible across all generated invoices.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="md:col-span-2">
                       <label className="text-xs font-semibold uppercase tracking-wider text-[var(--admin-muted)]">
                         Company Name
                       </label>
@@ -413,7 +476,6 @@ export default function SuperAdminSettings() {
                         value={form.companyName}
                         onChange={handleChange}
                         className="mt-2 w-full rounded-xl border border-[var(--admin-border)] bg-transparent px-3 py-2 text-sm text-[var(--admin-text)] outline-none focus:border-[var(--admin-primary)]"
-                        required
                       />
                     </div>
 
@@ -427,7 +489,6 @@ export default function SuperAdminSettings() {
                         onChange={handleChange}
                         rows={2}
                         className="mt-2 w-full rounded-xl border border-[var(--admin-border)] bg-transparent px-3 py-2 text-sm text-[var(--admin-text)] outline-none focus:border-[var(--admin-primary)]"
-                        required
                       />
                     </div>
 
@@ -440,7 +501,6 @@ export default function SuperAdminSettings() {
                         value={form.cin}
                         onChange={handleChange}
                         className="mt-2 w-full rounded-xl border border-[var(--admin-border)] bg-transparent px-3 py-2 text-sm text-[var(--admin-text)] outline-none focus:border-[var(--admin-primary)]"
-                        required
                       />
                     </div>
 
@@ -453,7 +513,6 @@ export default function SuperAdminSettings() {
                         value={form.pan}
                         onChange={handleChange}
                         className="mt-2 w-full rounded-xl border border-[var(--admin-border)] bg-transparent px-3 py-2 text-sm text-[var(--admin-text)] outline-none focus:border-[var(--admin-primary)]"
-                        required
                       />
                     </div>
 
@@ -466,7 +525,6 @@ export default function SuperAdminSettings() {
                         value={form.fssai}
                         onChange={handleChange}
                         className="mt-2 w-full rounded-xl border border-[var(--admin-border)] bg-transparent px-3 py-2 text-sm text-[var(--admin-text)] outline-none focus:border-[var(--admin-primary)]"
-                        required
                       />
                     </div>
 
@@ -479,7 +537,6 @@ export default function SuperAdminSettings() {
                         value={form.authorizedSignatory}
                         onChange={handleChange}
                         className="mt-2 w-full rounded-xl border border-[var(--admin-border)] bg-transparent px-3 py-2 text-sm text-[var(--admin-text)] outline-none focus:border-[var(--admin-primary)]"
-                        required
                       />
                     </div>
 
@@ -493,7 +550,6 @@ export default function SuperAdminSettings() {
                         value={form.email}
                         onChange={handleChange}
                         className="mt-2 w-full rounded-xl border border-[var(--admin-border)] bg-transparent px-3 py-2 text-sm text-[var(--admin-text)] outline-none focus:border-[var(--admin-primary)]"
-                        required
                       />
                     </div>
 
@@ -506,24 +562,7 @@ export default function SuperAdminSettings() {
                         value={form.phone}
                         onChange={handleChange}
                         className="mt-2 w-full rounded-xl border border-[var(--admin-border)] bg-transparent px-3 py-2 text-sm text-[var(--admin-text)] outline-none focus:border-[var(--admin-primary)]"
-                        required
                       />
-                    </div>
-
-                    <div className="md:col-span-2 flex items-center gap-2 mt-2">
-                      <input
-                        type="checkbox"
-                        id="hideCompanyDetails"
-                        name="hideCompanyDetails"
-                        checked={form.hideCompanyDetails || false}
-                        onChange={(e) => {
-                          setForm((prev) => ({ ...prev, hideCompanyDetails: e.target.checked }));
-                        }}
-                        className="h-4 w-4 rounded border-[var(--admin-border)] bg-transparent text-[var(--admin-primary)] focus:ring-[var(--admin-primary)] cursor-pointer"
-                      />
-                      <label htmlFor="hideCompanyDetails" className="text-sm font-semibold text-[var(--admin-text)] cursor-pointer select-none">
-                        Hide Company/Corporate Details in Invoice (Invoice me company details hide karein)
-                      </label>
                     </div>
                   </div>
 

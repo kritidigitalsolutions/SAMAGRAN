@@ -1,4 +1,7 @@
 import PanditBooking from "../../models/panditBooking.model.js";
+import Wallet from "../../models/wallet.model.js";
+import WalletTransaction from "../../models/walletTransaction.model.js";
+import Complaint from "../../models/complaint.model.js";
 import mongoose from "mongoose";
 import { ensureZoomMeetingForBooking, autoCancelExpiredBookings } from "../../controllers/panditBooking.controller.js";
 import { createMeeting } from "../../utils/zoom.service.js";
@@ -177,6 +180,46 @@ export const updatePanditBookingByAdmin = async (req, res) => {
       const nextStatus = String(bookingStatus).trim().toLowerCase();
       const panditName = populated.pandit?.fullName || "Pandit";
       const ritualName = populated.ritual?.name || "Ritual";
+
+      if (nextStatus === "cancelled") {
+        const isPaid =
+          String(booking.payment?.status || "").toLowerCase() === "paid" ||
+          String(booking.paymentStatus || "").toLowerCase() === "paid";
+
+        if (isPaid && booking.payment?.status !== "refunded") {
+          const userId = booking.user;
+          const refundAmount = Number(booking.bookingAmount || booking.dakshinaAmount || booking.price || 0);
+
+          if (userId && refundAmount > 0) {
+            let wallet = await Wallet.findOne({ user: userId });
+            if (!wallet) {
+              wallet = await Wallet.create({ user: userId, balance: 0 });
+            }
+
+            wallet.balance = Number((wallet.balance + refundAmount).toFixed(2));
+            await wallet.save();
+
+            await WalletTransaction.create({
+              wallet: wallet._id,
+              user: userId,
+              type: "credit",
+              source: "refund",
+              amount: refundAmount,
+              balanceAfter: wallet.balance,
+              reference: `REFUND_${booking._id}`,
+              notes: `Refund for Pandit booking cancelled by admin: ${ritualName}`,
+              meta: {
+                bookingId: booking._id,
+                reason: "admin_cancelled",
+              },
+            });
+
+            booking.payment = booking.payment || {};
+            booking.payment.status = "refunded";
+            await booking.save();
+          }
+        }
+      }
 
       // Notify User
       void notifyPanditBookingStatusUpdate(

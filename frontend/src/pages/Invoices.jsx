@@ -226,7 +226,6 @@ function InvoicePreview({ order, onClose, onUpdated }) {
 
   // --- STATE FOR EDITABLE DATA ---
   const [isEditing, setIsEditing] = useState(false);
-  const [globalHideCompanyDetails, setGlobalHideCompanyDetails] = useState(false);
   const [invoiceData, setInvoiceData] = useState({
     // Seller Details
     sellerName: order.invoiceDetails?.sellerName || vendor.businessName || vendor.name || "Samagran Ventures LLP",
@@ -271,6 +270,7 @@ function InvoicePreview({ order, onClose, onUpdated }) {
 
     // Corporate & Signatory Details
     companyName: order.invoiceDetails?.companyName || "",
+    logoUrl: order.invoiceDetails?.logoUrl || "",
     companyAddress: order.invoiceDetails?.companyAddress || "",
     companyCin: order.invoiceDetails?.companyCin || "",
     companyPan: order.invoiceDetails?.companyPan || "",
@@ -278,7 +278,6 @@ function InvoicePreview({ order, onClose, onUpdated }) {
     companyEmail: order.invoiceDetails?.companyEmail || "",
     companyPhone: order.invoiceDetails?.companyPhone || "",
     authorizedSignatory: order.invoiceDetails?.authorizedSignatory || "",
-    hideCompanyDetails: order.invoiceDetails?.hideCompanyDetails,
   });
 
   const handleChange = (e) => {
@@ -290,18 +289,17 @@ function InvoicePreview({ order, onClose, onUpdated }) {
       try {
         const res = await API.get("/admin/corporate-details");
         const corp = res.data?.data || {};
-        setGlobalHideCompanyDetails(corp.hideCompanyDetails || false);
         setInvoiceData((prev) => ({
           ...prev,
-          companyName: prev.companyName || corp.companyName || "Samagran Ventures Private Limited",
-          companyAddress: prev.companyAddress || corp.address || "godown, Patlipada, Hiranandani, Thane (W)-400607, MH, India",
-          companyCin: prev.companyCin || corp.cin || "U74140MH2025PTC055568",
-          companyPan: prev.companyPan || corp.pan || "AAFCS8024E",
-          companyFssai: prev.companyFssai || corp.fssai || "10018064001545",
-          companyEmail: prev.companyEmail || corp.email || "support@samagran.com",
-          companyPhone: prev.companyPhone || corp.phone || "+91-9988776655",
-          authorizedSignatory: prev.authorizedSignatory || corp.authorizedSignatory || "Anil Sharma",
-          hideCompanyDetails: prev.hideCompanyDetails !== undefined ? prev.hideCompanyDetails : (corp.hideCompanyDetails || false),
+          companyName: prev.companyName !== undefined && prev.companyName !== "" ? prev.companyName : (corp.companyName || ""),
+          logoUrl: prev.logoUrl !== undefined && prev.logoUrl !== "" ? prev.logoUrl : (corp.logoUrl || ""),
+          companyAddress: prev.companyAddress !== undefined && prev.companyAddress !== "" ? prev.companyAddress : (corp.address || ""),
+          companyCin: prev.companyCin !== undefined && prev.companyCin !== "" ? prev.companyCin : (corp.cin || ""),
+          companyPan: prev.companyPan !== undefined && prev.companyPan !== "" ? prev.companyPan : (corp.pan || ""),
+          companyFssai: prev.companyFssai !== undefined && prev.companyFssai !== "" ? prev.companyFssai : (corp.fssai || ""),
+          companyEmail: prev.companyEmail !== undefined && prev.companyEmail !== "" ? prev.companyEmail : (corp.email || ""),
+          companyPhone: prev.companyPhone !== undefined && prev.companyPhone !== "" ? prev.companyPhone : (corp.phone || ""),
+          authorizedSignatory: prev.authorizedSignatory !== undefined && prev.authorizedSignatory !== "" ? prev.authorizedSignatory : (corp.authorizedSignatory || ""),
         }));
       } catch (err) {
         console.error("Failed to load corporate details:", err);
@@ -357,6 +355,38 @@ function InvoicePreview({ order, onClose, onUpdated }) {
     `
         : "";
 
+    const logoHtml = invoiceData.logoUrl
+      ? `<img src="${invoiceData.logoUrl}" alt="Logo" style="height:44px;max-width:160px;object-fit:contain;" />`
+      : `<div style="width:40px;height:40px;border-radius:50%;background-color:#8B1E3F;display:flex;align-items:center;justify-content:center;color:#fff;font-size:18px;font-weight:bold;box-shadow:0 2px 4px rgba(0,0,0,0.1);">S</div>`;
+
+    const corpTaxParts = [];
+    if (!isValEmpty(invoiceData.companyCin)) corpTaxParts.push(`CIN: ${invoiceData.companyCin}`);
+    if (!isValEmpty(invoiceData.companyPan)) corpTaxParts.push(`PAN: ${invoiceData.companyPan}`);
+    if (!isValEmpty(invoiceData.companyFssai)) corpTaxParts.push(`FSSAI: ${invoiceData.companyFssai}`);
+
+    const corpContactParts = [];
+    if (!isValEmpty(invoiceData.companyEmail)) corpContactParts.push(`Customer Support: ${invoiceData.companyEmail}`);
+    if (!isValEmpty(invoiceData.companyPhone)) corpContactParts.push(`Contact: ${invoiceData.companyPhone}`);
+
+    const hasCorpData = !isValEmpty(invoiceData.companyName) || !isValEmpty(invoiceData.companyAddress) || corpTaxParts.length > 0 || corpContactParts.length > 0 || !isValEmpty(invoiceData.authorizedSignatory);
+
+    const corpHtml = hasCorpData ? `
+  <div class="border-box grid-3">
+    <div style="padding:12px;font-size:10px;color:#6b7280;line-height:1.5;font-weight:600;">
+      ${!isValEmpty(invoiceData.companyName) ? `<p style="font-size:11px;font-weight:bold;color:#8B1E3F;margin-bottom:4px;">${invoiceData.companyName} (Corporate Office)</p>` : ""}
+      ${!isValEmpty(invoiceData.companyAddress) ? `<p>Reg. Address: ${invoiceData.companyAddress}</p>` : ""}
+      ${corpTaxParts.length > 0 ? `<p>${corpTaxParts.join("  |  ")}</p>` : ""}
+      ${corpContactParts.length > 0 ? `<p style="margin-top:4px;">${corpContactParts.join("  |  ")}</p>` : ""}
+    </div>
+    ${!isValEmpty(invoiceData.authorizedSignatory) ? `
+    <div style="padding:12px;border-left:1px solid #d1d5db;display:flex;flex-direction:column;justify-content:space-between;align-items:center;text-align:center;">
+      <span style="font-family:'Brush Script MT', cursive, sans-serif;font-size:18px;color:#9ca3af;font-weight:bold;margin-top:4px;">${invoiceData.authorizedSignatory}</span>
+      <span style="font-size:9px;font-weight:800;color:#6b7280;text-transform:uppercase;letter-spacing:1px;border-top:1px solid #f3f4f6;width:100%;padding-top:6px;margin-top:8px;">Authorized Signatory</span>
+    </div>
+    ` : ""}
+  </div>
+  ` : "";
+
     const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -376,7 +406,7 @@ function InvoicePreview({ order, onClose, onUpdated }) {
 <body>
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;">
     <div style="display:flex;align-items:center;gap:12px;">
-      <div style="width:40px;height:40px;border-radius:50%;background-color:#8B1E3F;display:flex;align-items:center;justify-content:center;color:#fff;font-size:18px;font-weight:bold;box-shadow:0 2px 4px rgba(0,0,0,0.1);">S</div>
+      ${logoHtml}
       <div>
         <span style="font-size:20px;font-weight:800;color:#8B1E3F;letter-spacing:-0.5px;">Samagran</span>
         <p style="font-size:10px;color:#6b7280;font-weight:500;margin-top:1px;">Marketplace Portal</p>
@@ -507,26 +537,15 @@ function InvoicePreview({ order, onClose, onUpdated }) {
     </div>
   </div>
   
-  ${!(globalHideCompanyDetails || invoiceData.hideCompanyDetails) ? `
-  <div class="border-box grid-3">
-    <div style="padding:12px;font-size:10px;color:#6b7280;line-height:1.5;font-weight:600;">
-      <p style="font-size:11px;font-weight:bold;color:#8B1E3F;margin-bottom:4px;">${invoiceData.companyName} (Corporate Office)</p>
-      <p>Reg. Address: ${invoiceData.companyAddress}</p>
-      <p>CIN: ${invoiceData.companyCin} | PAN: ${invoiceData.companyPan} | FSSAI: ${invoiceData.companyFssai}</p>
-      <p style="margin-top:4px;">Customer Support: ${invoiceData.companyEmail}  |  ${invoiceData.companyPhone}</p>
-    </div>
-    <div style="padding:12px;border-left:1px solid #d1d5db;display:flex;flex-direction:column;justify-content:space-between;align-items:center;text-align:center;">
-      <span style="font-family:'Brush Script MT', cursive, sans-serif;font-size:18px;color:#9ca3af;font-weight:bold;margin-top:4px;">${invoiceData.authorizedSignatory}</span>
-      <span style="font-size:9px;font-weight:800;color:#6b7280;text-transform:uppercase;letter-spacing:1px;border-top:1px solid #f3f4f6;width:100%;padding-top:6px;margin-top:8px;">Authorized Signatory</span>
-    </div>
-  </div>
-  ` : ""}
+  ${corpHtml}
 
-  <div style="font-size:9px;color:#9ca3af;font-weight:600;line-height:1.5;border-top:1px solid #f3f4f6;padding-top:12px;">
-    <p style="font-weight:bold;color:#6b7280;font-size:12px;margin-bottom:4px;">Terms & Conditions:</p>
-    <p>1. All items listed belong to their respective registered sellers on the Samagran Marketplace.</p>
-    <p>2. Tax rates are applied in accordance with GST compliance guidelines as provided by the sellers.</p>
-    <p>3. For any customer support or refund queries, contact the support email or chat within 30 days of the purchase date.</p>
+  <div style="font-size:9px;color:#9ca3af;font-weight:600;line-height:1.6;border-top:1px solid #f3f4f6;padding-top:12px;">
+    <p style="font-weight:bold;color:#6b7280;font-size:11px;margin-bottom:4px;">Terms & Conditions:</p>
+    <p style="margin-bottom:3px;">• All products sold on Samagran are offered by Lal Bhandar under the brand name "Samagran" and may be fulfilled directly or through authorised fulfilment partners.</p>
+    <p style="margin-bottom:3px;">• Applicable taxes (including GST, if any) are reflected on this invoice.</p>
+    <p style="margin-bottom:3px;">• Any product-related issue must be reported within 24 hours of delivery.</p>
+    <p style="margin-bottom:3px;">• Refunds, replacements and cancellations are subject to Samagran's applicable policies.</p>
+    <p style="margin-bottom:3px;">• Certain consumable, edible, customised and puja-related products may not be eligible for return or replacement unless received in a damaged, defective or incorrect condition.</p>
   </div>
 
 </body>
@@ -555,10 +574,8 @@ function InvoicePreview({ order, onClose, onUpdated }) {
     totalGstAmount,
     deliveryFee,
     order._id,
-    globalHideCompanyDetails,
   ]);
 
-  // Helper component to render either plain text or input field
   const EditableField = ({
     name,
     value,
@@ -591,22 +608,22 @@ function InvoicePreview({ order, onClose, onUpdated }) {
   return (
     <>
       <div
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-2 sm:p-4"
         onClick={(e) => {
           if (e.target === e.currentTarget) onClose();
         }}
       >
-        <div className="relative flex flex-col w-full max-w-4xl max-h-[95vh] rounded-3xl border border-[#d8c4a5] bg-[#fffdf8] shadow-2xl dark:border-white/10 dark:bg-[#141820] overflow-hidden">
+        <div className="relative flex flex-col w-full max-w-4xl max-h-[95vh] rounded-2xl sm:rounded-3xl border border-[#d8c4a5] bg-[#fffdf8] shadow-2xl dark:border-white/10 dark:bg-[#141820] overflow-hidden">
           {/* Header */}
-          <div className="flex flex-wrap items-center justify-between px-6 py-4 border-b border-[#e8d9c4] dark:border-white/10 gap-2">
-            <h2 className="text-lg font-bold text-[#2f1618] dark:text-[#fff3dc]">
+          <div className="flex flex-wrap items-center justify-between px-3 sm:px-6 py-2.5 sm:py-4 border-b border-[#e8d9c4] dark:border-white/10 gap-2">
+            <h2 className="text-base sm:text-lg font-bold text-[#2f1618] dark:text-[#fff3dc]">
               Invoice Preview
             </h2>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 sm:gap-2">
               <button
                 type="button"
                 onClick={handleSaveClick}
-                className={`inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold transition-colors ${
+                className={`inline-flex items-center gap-1.5 rounded-xl border px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold transition-colors ${
                   isEditing
                     ? "bg-[#8B1E3F] text-white border-[#8B1E3F] hover:bg-[#a0233f]"
                     : "border-[#d7bf9b] text-[#6f3945] hover:bg-[#8B1E3F]/10 dark:border-white/20 dark:text-[#f7e3c0]"
@@ -617,7 +634,7 @@ function InvoicePreview({ order, onClose, onUpdated }) {
               <button
                 type="button"
                 onClick={handleDownloadPdf}
-                className="inline-flex items-center gap-2 rounded-xl border border-[#d7bf9b] px-4 py-2 text-sm font-semibold text-[#6f3945] hover:bg-[#8B1E3F]/10 dark:border-white/20 dark:text-[#f7e3c0] transition-colors"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-[#d7bf9b] px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold text-[#6f3945] hover:bg-[#8B1E3F]/10 dark:border-white/20 dark:text-[#f7e3c0] transition-colors"
               >
                 <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4">
                   <path
@@ -639,7 +656,7 @@ function InvoicePreview({ order, onClose, onUpdated }) {
               <button
                 type="button"
                 onClick={onClose}
-                className="grid h-9 w-9 place-items-center rounded-xl border border-[#d7bf9b] text-[#6f3945] hover:bg-[#8B1E3F]/10 dark:border-white/20 dark:text-[#f7e3c0] transition-colors"
+                className="grid h-8 w-8 sm:h-9 sm:w-9 place-items-center rounded-xl border border-[#d7bf9b] text-[#6f3945] hover:bg-[#8B1E3F]/10 dark:border-white/20 dark:text-[#f7e3c0] transition-colors"
               >
                 <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4">
                   <path
@@ -654,41 +671,39 @@ function InvoicePreview({ order, onClose, onUpdated }) {
           </div>
 
           {/* Scrollable invoice body */}
-          <div className="flex-1 overflow-y-auto p-6">
+          <div className="flex-1 overflow-y-auto p-2 sm:p-4 md:p-6">
             <div
               id="invoice-print-area"
-              className="bg-white text-[#1a1a1a] rounded-2xl p-8 shadow-sm border border-gray-200"
+              className="bg-white text-[#1a1a1a] rounded-xl sm:rounded-2xl p-3 sm:p-6 md:p-8 shadow-sm border border-gray-200 w-full max-w-[800px] mx-auto overflow-hidden"
               style={{
                 fontFamily: "'Segoe UI', Arial, sans-serif",
-                width: "100%",
-                maxWidth: "800px",
-                margin: "0 auto",
               }}
             >
               {/* Header: Logo and Title */}
-              <div className="flex justify-between items-center mb-6">
-                <div className="flex items-center gap-3">
-                  <div
-                    className="h-10 w-10 rounded-full flex items-center justify-center text-white text-lg font-bold shadow-sm"
-                    style={{ backgroundColor: "#8B1E3F" }}
-                  >
-                    S
-                  </div>
+              <div className="flex justify-between items-center mb-4 sm:mb-6">
+                <div className="flex items-center gap-2 sm:gap-3">
+                  {invoiceData.logoUrl ? (
+                    <img src={invoiceData.logoUrl} alt="Logo" className="h-8 sm:h-10 max-w-[120px] sm:max-w-[150px] object-contain" />
+                  ) : (
+                    <div
+                      className="h-8 w-8 sm:h-10 sm:w-10 rounded-full flex items-center justify-center text-white text-base sm:text-lg font-bold shadow-sm"
+                      style={{ backgroundColor: "#8B1E3F" }}
+                    >
+                      S
+                    </div>
+                  )}
                   <div>
                     <span
-                      className="text-xl font-extrabold tracking-tight"
+                      className="text-base sm:text-xl font-extrabold tracking-tight"
                       style={{ color: "#8B1E3F" }}
                     >
                       Samagran
                     </span>
-                    <p className="text-[10px] text-gray-500 font-medium">
-                      Marketplace Portal
-                    </p>
                   </div>
                 </div>
                 <div className="text-right">
                   <h1
-                    className="text-2xl font-black uppercase tracking-wider"
+                    className="text-lg sm:text-2xl font-black uppercase tracking-wider"
                     style={{ color: "#2f1618" }}
                   >
                     Tax Invoice
@@ -696,19 +711,19 @@ function InvoicePreview({ order, onClose, onUpdated }) {
                 </div>
               </div>
 
-              {/* Top Box: Seller Details & QR Code */}
-              <div className="grid grid-cols-3 border border-gray-300 rounded-xl mb-5 overflow-hidden">
-                <div className="col-span-2 p-4 border-r border-gray-300">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-[#8B1E3F] mb-1">
+              {/* Top Box: Seller Details */}
+              <div className="grid grid-cols-1 md:grid-cols-3 border border-gray-300 rounded-xl mb-4 sm:mb-5 overflow-hidden">
+                <div className="col-span-1 md:col-span-2 p-3 sm:p-4 border-b md:border-b-0 md:border-r border-gray-300">
+                  <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-[#8B1E3F] mb-0.5 sm:mb-1">
                     Sold By / Seller:
                   </p>
-                  <p className="font-extrabold text-[#1a1a1a] text-sm mb-1">
+                  <p className="font-extrabold text-[#1a1a1a] text-xs sm:text-sm mb-1">
                     <EditableField
                       name="sellerName"
                       value={invoiceData.sellerName}
                     />
                   </p>
-                  <div className="text-xs text-gray-600 mb-2 leading-relaxed whitespace-pre-wrap">
+                  <div className="text-[11px] sm:text-xs text-gray-600 mb-2 leading-relaxed whitespace-pre-wrap">
                     <EditableField
                       name="sellerAddress"
                       value={invoiceData.sellerAddress}
@@ -716,7 +731,7 @@ function InvoicePreview({ order, onClose, onUpdated }) {
                     />
                   </div>
 
-                  <div className="grid grid-cols-2 gap-y-1 gap-x-2 text-[10px] text-gray-500 font-semibold border-t border-gray-100 pt-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-1 gap-x-2 text-[9.5px] sm:text-[10px] text-gray-500 font-semibold border-t border-gray-100 pt-2">
                     {!isValEmpty(invoiceData.sellerGstin) || isEditing ? (
                       <p className="flex items-center gap-1">
                         GSTIN:{" "}
@@ -762,7 +777,7 @@ function InvoicePreview({ order, onClose, onUpdated }) {
                       </p>
                     ) : null}
                     {(!isValEmpty(invoiceData.sellerEmail) || !isValEmpty(invoiceData.sellerPhone) || isEditing) ? (
-                      <p className="col-span-2 mt-1 flex flex-wrap items-center gap-1">
+                      <p className="sm:col-span-2 mt-1 flex flex-wrap items-center gap-1">
                         {!isValEmpty(invoiceData.sellerEmail) || isEditing ? (
                           <>
                             Email:{" "}
@@ -789,7 +804,7 @@ function InvoicePreview({ order, onClose, onUpdated }) {
                     ) : null}
                   </div>
                 </div>
-                <div className="col-span-1 p-4 bg-gray-50/50 flex flex-col justify-center items-center text-center">
+                <div className="col-span-1 p-3 sm:p-4 bg-gray-50/50 flex flex-col justify-center items-center text-center">
                   <div className="w-full">
                     <p className="text-[9px] font-bold text-gray-400 uppercase">
                       Invoice Number
@@ -806,18 +821,18 @@ function InvoicePreview({ order, onClose, onUpdated }) {
               </div>
 
               {/* Middle Box: Customer Details & Order details */}
-              <div className="grid grid-cols-3 border border-gray-300 rounded-xl mb-5 overflow-hidden">
-                <div className="col-span-2 p-4 border-r border-gray-300">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-[#8B1E3F] mb-1">
+              <div className="grid grid-cols-1 md:grid-cols-3 border border-gray-300 rounded-xl mb-4 sm:mb-5 overflow-hidden">
+                <div className="col-span-1 md:col-span-2 p-3 sm:p-4 border-b md:border-b-0 md:border-r border-gray-300">
+                  <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-[#8B1E3F] mb-0.5 sm:mb-1">
                     Invoice To:
                   </p>
-                  <p className="font-extrabold text-[#1a1a1a] text-sm mb-1">
+                  <p className="font-extrabold text-[#1a1a1a] text-xs sm:text-sm mb-1">
                     <EditableField
                       name="customerName"
                       value={invoiceData.customerName}
                     />
                   </p>
-                  <div className="text-xs text-gray-600 mb-2 leading-relaxed whitespace-pre-wrap">
+                  <div className="text-[11px] sm:text-xs text-gray-600 mb-2 leading-relaxed whitespace-pre-wrap">
                     <EditableField
                       name="customerAddress"
                       value={invoiceData.customerAddress}
@@ -825,7 +840,7 @@ function InvoicePreview({ order, onClose, onUpdated }) {
                     />
                   </div>
 
-                  <div className="text-[10px] text-gray-500 font-semibold border-t border-gray-100 pt-2">
+                  <div className="text-[9.5px] sm:text-[10px] text-gray-500 font-semibold border-t border-gray-100 pt-2">
                     <p className="flex items-center gap-1 mb-1">
                       Phone Number:{" "}
                       <strong className="text-gray-800">
@@ -846,7 +861,7 @@ function InvoicePreview({ order, onClose, onUpdated }) {
                     </p>
                   </div>
                 </div>
-                <div className="col-span-1 p-4 bg-gray-50/50 flex flex-col gap-2 justify-center text-xs">
+                <div className="col-span-1 p-3 sm:p-4 bg-gray-50/50 flex flex-col gap-1.5 sm:gap-2 justify-center text-[11px] sm:text-xs">
                   <div className="flex justify-between items-center gap-2">
                     <span className="text-gray-500 font-semibold">
                       Order ID:
@@ -895,42 +910,42 @@ function InvoicePreview({ order, onClose, onUpdated }) {
               </div>
 
               {/* Product Table (Read only for calculations logic) */}
-              <div className="mb-5 overflow-hidden rounded-xl border border-gray-300">
-                <table className="w-full text-[10px]">
+              <div className="mb-4 sm:mb-5 overflow-x-auto rounded-xl border border-gray-300 w-full touch-pan-x bg-white">
+                <table className="w-full text-[9px] sm:text-[10px] min-w-[640px] border-collapse">
                   <thead>
                     <tr
                       style={{ background: "#8B1E3F" }}
                       className="text-white"
                     >
-                      <th className="px-2 py-2.5 text-center font-bold">
+                      <th className="px-1.5 sm:px-2 py-2 sm:py-2.5 text-center font-bold whitespace-nowrap">
                         Sr. No.
                       </th>
-                      <th className="px-2 py-2.5 text-left font-bold">
+                      <th className="px-1.5 sm:px-2 py-2 sm:py-2.5 text-left font-bold whitespace-nowrap">
                         SKU/UPC
                       </th>
-                      <th className="px-2 py-2.5 text-left font-bold">
+                      <th className="px-1.5 sm:px-2 py-2 sm:py-2.5 text-left font-bold whitespace-nowrap">
                         Item Description
                       </th>
-                      <th className="px-2 py-2.5 text-left font-bold">
+                      <th className="px-1.5 sm:px-2 py-2 sm:py-2.5 text-left font-bold whitespace-nowrap">
                         HSN/SAC
                       </th>
-                      <th className="px-2 py-2.5 text-right font-bold">
+                      <th className="px-1.5 sm:px-2 py-2 sm:py-2.5 text-right font-bold whitespace-nowrap">
                         MRP (₹)
                       </th>
-                      <th className="px-2 py-2.5 text-right font-bold">
+                      <th className="px-1.5 sm:px-2 py-2 sm:py-2.5 text-right font-bold whitespace-nowrap">
                         Discount (₹)
                       </th>
-                      <th className="px-2 py-2.5 text-center font-bold">Qty</th>
-                      <th className="px-2 py-2.5 text-right font-bold">
-                        Taxable Value (₹)
+                      <th className="px-1.5 sm:px-2 py-2 sm:py-2.5 text-center font-bold whitespace-nowrap">Qty</th>
+                      <th className="px-1.5 sm:px-2 py-2 sm:py-2.5 text-right font-bold whitespace-nowrap">
+                        Taxable (₹)
                       </th>
-                      <th className="px-2 py-2.5 text-center font-bold">
+                      <th className="px-1.5 sm:px-2 py-2 sm:py-2.5 text-center font-bold whitespace-nowrap">
                         GST (%)
                       </th>
-                      <th className="px-2 py-2.5 text-right font-bold">
+                      <th className="px-1.5 sm:px-2 py-2 sm:py-2.5 text-right font-bold whitespace-nowrap">
                         GST Amt (₹)
                       </th>
-                      <th className="px-2 py-2.5 text-right font-bold">
+                      <th className="px-1.5 sm:px-2 py-2 sm:py-2.5 text-right font-bold whitespace-nowrap">
                         Total (₹)
                       </th>
                     </tr>
@@ -942,40 +957,40 @@ function InvoicePreview({ order, onClose, onUpdated }) {
                         className={idx % 2 === 0 ? "bg-white" : "bg-[#fdf8f2]"}
                         style={{ borderTop: "1px solid #e5e7eb" }}
                       >
-                        <td className="px-2 py-3 text-center text-gray-500 font-semibold">
+                        <td className="px-1.5 sm:px-2 py-2 sm:py-2.5 text-center text-gray-500 font-semibold">
                           {idx + 1}
                         </td>
-                        <td className="px-2 py-3 text-left font-mono text-[10px] text-gray-700">
+                        <td className="px-1.5 sm:px-2 py-2 sm:py-2.5 text-left font-mono text-[9px] sm:text-[10px] text-gray-700">
                           {item.sku}
                         </td>
                         <td
-                          className="px-2 py-3 text-left font-bold text-[#8B1E3F] max-w-[120px] truncate"
+                          className="px-1.5 sm:px-2 py-2 sm:py-2.5 text-left font-bold text-[#8B1E3F] max-w-[110px] sm:max-w-[130px] truncate"
                           title={item.name}
                         >
                           {item.name}
                         </td>
-                        <td className="px-2 py-3 text-left text-gray-600 font-semibold">
+                        <td className="px-1.5 sm:px-2 py-2 sm:py-2.5 text-left text-gray-600 font-semibold">
                           {item.hsn}
                         </td>
-                        <td className="px-2 py-3 text-right text-gray-700 font-semibold">
+                        <td className="px-1.5 sm:px-2 py-2 sm:py-2.5 text-right text-gray-700 font-semibold">
                           {item.mrp.toFixed(2)}
                         </td>
-                        <td className="px-2 py-3 text-right text-gray-700 font-semibold">
+                        <td className="px-1.5 sm:px-2 py-2 sm:py-2.5 text-right text-gray-700 font-semibold">
                           {item.discount.toFixed(2)}
                         </td>
-                        <td className="px-2 py-3 text-center font-bold text-gray-800">
+                        <td className="px-1.5 sm:px-2 py-2 sm:py-2.5 text-center font-bold text-gray-800">
                           {item.qty}
                         </td>
-                        <td className="px-2 py-3 text-right text-gray-700 font-semibold">
+                        <td className="px-1.5 sm:px-2 py-2 sm:py-2.5 text-right text-gray-700 font-semibold">
                           {item.taxableValue.toFixed(2)}
                         </td>
-                        <td className="px-2 py-3 text-center text-gray-600 font-semibold">
+                        <td className="px-1.5 sm:px-2 py-2 sm:py-2.5 text-center text-gray-600 font-semibold">
                           {item.gstPercent}%
                         </td>
-                        <td className="px-2 py-3 text-right text-gray-700 font-semibold">
+                        <td className="px-1.5 sm:px-2 py-2 sm:py-2.5 text-right text-gray-700 font-semibold">
                           {item.gstAmount.toFixed(2)}
                         </td>
-                        <td className="px-2 py-3 text-right font-bold text-[#8B1E3F]">
+                        <td className="px-1.5 sm:px-2 py-2 sm:py-2.5 text-right font-bold text-[#8B1E3F]">
                           {item.totalAmount.toFixed(2)}
                         </td>
                       </tr>
@@ -985,18 +1000,18 @@ function InvoicePreview({ order, onClose, onUpdated }) {
               </div>
 
               {/* Totals Section */}
-              <div className="grid grid-cols-2 gap-4 mb-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 mb-4 sm:mb-6">
                 <div>
-                  <div className="p-4 rounded-xl bg-gray-50 border border-gray-200">
-                    <p className="text-[10px] font-bold text-[#8B1E3F] uppercase tracking-wider mb-1">
+                  <div className="p-3 sm:p-4 rounded-xl bg-gray-50 border border-gray-200">
+                    <p className="text-[9px] sm:text-[10px] font-bold text-[#8B1E3F] uppercase tracking-wider mb-1">
                       Amount in Words:
                     </p>
-                    <p className="text-xs font-bold text-gray-800 italic leading-relaxed">
+                    <p className="text-[11px] sm:text-xs font-bold text-gray-800 italic leading-relaxed">
                       {formatRupeesInWords(grandTotal)}
                     </p>
                   </div>
                 </div>
-                <div className="space-y-1.5 text-xs">
+                <div className="space-y-1 sm:space-y-1.5 text-[11px] sm:text-xs">
                   <div className="flex justify-between text-gray-500 font-semibold">
                     <span>Subtotal (MRP Total)</span>
                     <span className="text-gray-800 font-bold">
@@ -1035,124 +1050,135 @@ function InvoicePreview({ order, onClose, onUpdated }) {
                       ₹{deliveryFee.toFixed(2)}
                     </span>
                   </div>
-                  <div className="border-t border-gray-200 pt-2 flex justify-between text-sm font-extrabold">
+                  <div className="border-t border-gray-200 pt-2 flex justify-between text-xs sm:text-sm font-extrabold">
                     <span className="text-[#2f1618]">Grand Total</span>
-                    <span style={{ color: "#8B1E3F" }} className="text-lg">
+                    <span style={{ color: "#8B1E3F" }} className="text-base sm:text-lg">
                       ₹{grandTotal.toFixed(2)}
                     </span>
                   </div>
                 </div>
               </div>
 
-              {(!(globalHideCompanyDetails || invoiceData.hideCompanyDetails) || isEditing) && (
-                <div className="grid grid-cols-3 border border-gray-300 rounded-xl mb-5 overflow-hidden">
-                  <div className="col-span-2 p-3 text-[10px] text-gray-500 leading-relaxed font-semibold">
-                    {isEditing && (
-                      <div className="mb-2 flex items-center gap-1.5 border-b border-gray-100 pb-1.5">
-                        <input
-                          type="checkbox"
-                          id="invoice-hide-company"
-                          name="hideCompanyDetails"
-                          checked={invoiceData.hideCompanyDetails || false}
-                          onChange={(e) => setInvoiceData(prev => ({ ...prev, hideCompanyDetails: e.target.checked }))}
-                          className="h-3.5 w-3.5 cursor-pointer text-[#8B1E3F] focus:ring-[#8B1E3F]"
-                        />
-                        <label htmlFor="invoice-hide-company" className="text-[9px] font-bold text-gray-500 cursor-pointer select-none">
-                          Hide Corporate/Company Details on Invoice
-                        </label>
-                      </div>
+              {/* Corporate Details Box (Only non-empty fields shown) */}
+              {((!isValEmpty(invoiceData.companyName) || !isValEmpty(invoiceData.companyAddress) || !isValEmpty(invoiceData.companyCin) || !isValEmpty(invoiceData.companyPan) || !isValEmpty(invoiceData.companyFssai) || !isValEmpty(invoiceData.companyEmail) || !isValEmpty(invoiceData.companyPhone) || !isValEmpty(invoiceData.authorizedSignatory)) || isEditing) && (
+                <div className="grid grid-cols-1 md:grid-cols-3 border border-gray-300 rounded-xl mb-4 sm:mb-5 overflow-hidden">
+                  <div className="col-span-1 md:col-span-2 p-2.5 sm:p-3 text-[9.5px] sm:text-[10px] text-gray-500 leading-relaxed font-semibold border-b md:border-b-0 md:border-r border-gray-300">
+                    {(!isValEmpty(invoiceData.companyName) || isEditing) && (
+                      <p className="text-[10px] sm:text-[11px] font-bold text-[#8B1E3F] mb-0.5">
+                        <EditableField
+                          name="companyName"
+                          value={invoiceData.companyName}
+                        /> (Corporate Office)
+                      </p>
                     )}
-                    <p className="text-[11px] font-bold text-[#8B1E3F] mb-1">
-                      <EditableField
-                        name="companyName"
-                        value={invoiceData.companyName}
-                      /> (Corporate Office)
-                    </p>
-                    <p className="mb-1">
-                      Reg. Address:{" "}
-                      <EditableField
-                        name="companyAddress"
-                        value={invoiceData.companyAddress}
-                        isTextArea={true}
-                      />
-                    </p>
-                    <p className="flex items-center flex-wrap gap-x-2 gap-y-1 mb-1">
-                      <span>CIN:</span>
-                      <strong className="text-gray-800">
+                    {(!isValEmpty(invoiceData.companyAddress) || isEditing) && (
+                      <p className="mb-1">
+                        Reg. Address:{" "}
                         <EditableField
-                          name="companyCin"
-                          value={invoiceData.companyCin}
+                          name="companyAddress"
+                          value={invoiceData.companyAddress}
+                          isTextArea={true}
                         />
-                      </strong>
-                      <span>| PAN:</span>
-                      <strong className="text-gray-800">
-                        <EditableField
-                          name="companyPan"
-                          value={invoiceData.companyPan}
-                        />
-                      </strong>
-                      <span>| FSSAI:</span>
-                      <strong className="text-gray-800">
-                        <EditableField
-                          name="companyFssai"
-                          value={invoiceData.companyFssai}
-                        />
-                      </strong>
-                    </p>
-                    <p className="mt-1 flex items-center flex-wrap gap-x-2">
-                      <span>Customer Support:</span>
-                      <strong className="text-gray-800 mr-2">
-                        <EditableField
-                          name="companyEmail"
-                          value={invoiceData.companyEmail}
-                        />
-                      </strong>
-                      <span>| Contact:</span>
-                      <strong className="text-gray-800">
-                        <EditableField
-                          name="companyPhone"
-                          value={invoiceData.companyPhone}
-                        />
-                      </strong>
-                    </p>
+                      </p>
+                    )}
+                    {(!isValEmpty(invoiceData.companyCin) || !isValEmpty(invoiceData.companyPan) || !isValEmpty(invoiceData.companyFssai) || isEditing) && (
+                      <p className="flex items-center flex-wrap gap-x-2 gap-y-1 mb-1">
+                        {(!isValEmpty(invoiceData.companyCin) || isEditing) && (
+                          <>
+                            <span>CIN:</span>
+                            <strong className="text-gray-800">
+                              <EditableField
+                                name="companyCin"
+                                value={invoiceData.companyCin}
+                              />
+                            </strong>
+                          </>
+                        )}
+                        {(!isValEmpty(invoiceData.companyPan) || isEditing) && (
+                          <>
+                            <span>| PAN:</span>
+                            <strong className="text-gray-800">
+                              <EditableField
+                                name="companyPan"
+                                value={invoiceData.companyPan}
+                              />
+                            </strong>
+                          </>
+                        )}
+                        {(!isValEmpty(invoiceData.companyFssai) || isEditing) && (
+                          <>
+                            <span>| FSSAI:</span>
+                            <strong className="text-gray-800">
+                              <EditableField
+                                name="companyFssai"
+                                value={invoiceData.companyFssai}
+                              />
+                            </strong>
+                          </>
+                        )}
+                      </p>
+                    )}
+                    {(!isValEmpty(invoiceData.companyEmail) || !isValEmpty(invoiceData.companyPhone) || isEditing) && (
+                      <p className="mt-1 flex items-center flex-wrap gap-x-2">
+                        {(!isValEmpty(invoiceData.companyEmail) || isEditing) && (
+                          <>
+                            <span>Customer Support:</span>
+                            <strong className="text-gray-800 mr-2">
+                              <EditableField
+                                name="companyEmail"
+                                value={invoiceData.companyEmail}
+                              />
+                            </strong>
+                          </>
+                        )}
+                        {(!isValEmpty(invoiceData.companyPhone) || isEditing) && (
+                          <>
+                            <span>| Contact:</span>
+                            <strong className="text-gray-800">
+                              <EditableField
+                                name="companyPhone"
+                                value={invoiceData.companyPhone}
+                              />
+                            </strong>
+                          </>
+                        )}
+                      </p>
+                    )}
                   </div>
-                  <div className="col-span-1 border-l border-gray-300 p-3 flex flex-col justify-between items-center text-center">
-                    <span
-                      style={{
-                        fontFamily: "'Brush Script MT', cursive, sans-serif",
-                      }}
-                      className="text-lg text-gray-400 font-bold mt-1 block w-full"
-                    >
-                      <EditableField
-                        name="authorizedSignatory"
-                        value={invoiceData.authorizedSignatory}
-                        className="block text-center"
-                      />
-                    </span>
-                    <span className="text-[9px] font-extrabold text-gray-500 uppercase tracking-wider border-t border-gray-100 w-full pt-1.5 mt-2">
-                      Authorized Signatory
-                    </span>
+                  <div className="col-span-1 p-2.5 sm:p-3 flex flex-col justify-between items-center text-center">
+                    {(!isValEmpty(invoiceData.authorizedSignatory) || isEditing) && (
+                      <>
+                        <span
+                          style={{
+                            fontFamily: "'Brush Script MT', cursive, sans-serif",
+                          }}
+                          className="text-base sm:text-lg text-gray-400 font-bold mt-1 block w-full"
+                        >
+                          <EditableField
+                            name="authorizedSignatory"
+                            value={invoiceData.authorizedSignatory}
+                            className="block text-center"
+                          />
+                        </span>
+                        <span className="text-[8.5px] sm:text-[9px] font-extrabold text-gray-500 uppercase tracking-wider border-t border-gray-100 w-full pt-1.5 mt-2">
+                          Authorized Signatory
+                        </span>
+                      </>
+                    )}
                   </div>
                 </div>
               )}
 
               {/* Terms and conditions */}
-              <div className="text-[9px] text-gray-400 font-semibold leading-relaxed border-t border-gray-100 pt-3">
-                <p className="font-bold text-gray-500 text-xs mb-1">
+              <div className="text-[8.5px] sm:text-[9px] text-gray-500 font-semibold leading-relaxed border-t border-gray-100 pt-2.5 sm:pt-3">
+                <p className="font-bold text-gray-700 text-[10px] sm:text-xs mb-1">
                   Terms & Conditions:
                 </p>
-                <p>
-                  1. All items listed belong to their respective registered
-                  sellers on the Samagran Marketplace.
-                </p>
-                <p>
-                  2. Tax rates are applied in accordance with GST compliance
-                  guidelines as provided by the sellers.
-                </p>
-                <p>
-                  3. For any customer support or refund queries, contact the
-                  support email or chat within 30 days of the purchase date.
-                </p>
+                <p className="mb-0.5">• All products sold on Samagran are offered by Lal Bhandar under the brand name "Samagran" and may be fulfilled directly or through authorised fulfilment partners.</p>
+                <p className="mb-0.5">• Applicable taxes (including GST, if any) are reflected on this invoice.</p>
+                <p className="mb-0.5">• Any product-related issue must be reported within 24 hours of delivery.</p>
+                <p className="mb-0.5">• Refunds, replacements and cancellations are subject to Samagran's applicable policies.</p>
+                <p className="mb-0.5">• Certain consumable, edible, customised and puja-related products may not be eligible for return or replacement unless received in a damaged, defective or incorrect condition.</p>
               </div>
             </div>
           </div>

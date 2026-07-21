@@ -12,9 +12,10 @@ const toMoney = (value) => {
 };
 
 const resolveVendorScope = (req) => {
-  if (req.admin?.role === "vendor") {
+  const vId = req.vendor?._id || req.admin?.vendorId;
+  if (req.admin?.role === "vendor" || vId) {
     return {
-      vendorId: req.admin.vendorId ? String(req.admin.vendorId) : null,
+      vendorId: String(vId || req.admin?.vendorId || req.admin?._id),
       isAll: false,
     };
   }
@@ -51,17 +52,26 @@ export const getPanditPayoutAlerts = async (req, res) => {
       balance: { $gte: threshold, $gt: 0 },
     };
 
-    const panditMatchQuery = vendorId ? { vendorId: new mongoose.Types.ObjectId(vendorId) } : {};
+    if (vendorId) {
+      const vendorPanditDocs = await Pandit.find({
+        $or: [
+          { vendorId: vendorId },
+          ...(mongoose.Types.ObjectId.isValid(vendorId) ? [{ vendorId: new mongoose.Types.ObjectId(vendorId) }] : [])
+        ]
+      }).select("_id").lean();
+
+      const panditIds = vendorPanditDocs.map((p) => p._id);
+      query.pandit = { $in: panditIds };
+    }
 
     const wallets = await PanditWallet.find(query)
       .populate({
         path: "pandit",
         select: "fullName phone profileImage accountHolderName accountNumber ifscCode bankName vendorId",
-        match: panditMatchQuery,
       })
       .lean();
 
-    // Filter out wallets where pandit didn't match the vendor filter
+    // Filter out wallets where pandit didn't populate properly
     const alerts = wallets
       .filter((w) => w.pandit)
       .map((w) => ({
@@ -113,8 +123,11 @@ export const createPanditPayout = async (req, res) => {
     }
 
     // Verify vendor scope if applicable
-    if (vendorId && String(pandit.vendorId) !== String(vendorId)) {
-      return res.status(403).json({ success: false, message: "You can only process payouts for your own pandits" });
+    if (vendorId) {
+      const isOwnedByVendor = String(pandit.vendorId || "") === String(vendorId);
+      if (!isOwnedByVendor) {
+        return res.status(403).json({ success: false, message: "You can only process payouts for your own pandits" });
+      }
     }
 
     let wallet = await PanditWallet.findOne({ pandit: panditId });
@@ -129,7 +142,7 @@ export const createPanditPayout = async (req, res) => {
     // Create the payout record
     const payout = await PanditPayout.create({
       pandit: panditId,
-      vendorId: pandit.vendorId || null,
+      vendorId: pandit.vendorId || vendorId || null,
       amount: parsedAmount,
       method,
       bankDetails: {
@@ -138,7 +151,7 @@ export const createPanditPayout = async (req, res) => {
         ifscCode: pandit.ifscCode || "",
         bankName: pandit.bankName || "",
       },
-      upiId: method === "upi" ? (pandit.phone || "") : "", // fallback/placeholder if needed
+      upiId: method === "upi" ? (pandit.phone || "") : "",
       reference: String(reference).trim(),
       notes: String(notes).trim(),
       processedBy: req.admin._id,
@@ -209,10 +222,28 @@ export const getPanditPayoutHistory = async (req, res) => {
       return res.status(400).json({ success: false, message: "Vendor scope not resolved" });
     }
 
-    const query = vendorId ? { vendorId } : {};
+    let query = {};
+    if (vendorId) {
+      const vendorPanditDocs = await Pandit.find({
+        $or: [
+          { vendorId: vendorId },
+          ...(mongoose.Types.ObjectId.isValid(vendorId) ? [{ vendorId: new mongoose.Types.ObjectId(vendorId) }] : [])
+        ]
+      }).select("_id").lean();
+
+      const panditIds = vendorPanditDocs.map((p) => p._id);
+
+      query = {
+        $or: [
+          { vendorId: vendorId },
+          ...(mongoose.Types.ObjectId.isValid(vendorId) ? [{ vendorId: new mongoose.Types.ObjectId(vendorId) }] : []),
+          { pandit: { $in: panditIds } }
+        ]
+      };
+    }
 
     const payouts = await PanditPayout.find(query)
-      .populate("pandit", "fullName phone profileImage")
+      .populate("pandit", "fullName phone profileImage vendorId")
       .populate("processedBy", "name email")
       .sort({ paidAt: -1 })
       .lean();

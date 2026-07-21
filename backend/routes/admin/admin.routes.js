@@ -1,5 +1,6 @@
 import express from "express";
 import { protectAdmin, requireSuperAdmin } from "../../middleware/admin.middleware.js";
+import { upload } from "../../middleware/upload.js";
 import { getCorporateDetails, updateCorporateDetails } from "../../controllers/admin/corporateDetails.controller.js";
 import {
   getAdminProfile,
@@ -21,6 +22,6 @@ router.patch("/profile", protectAdmin, updateAdminProfile);
 router.patch("/password", protectAdmin, updateAdminPassword);
 
 router.get("/corporate-details", protectAdmin, getCorporateDetails);
-router.patch("/corporate-details", protectAdmin, requireSuperAdmin, updateCorporateDetails);
+router.patch("/corporate-details", protectAdmin, requireSuperAdmin, upload.single("logo"), updateCorporateDetails);
 
 export default router;

@@ -252,7 +252,7 @@ export default function Offers() {
     <div className="space-y-6 text-[#2f1618] dark:text-[#fff3dc]">
       <section className="rounded-3xl border border-[var(--admin-border)] bg-[var(--admin-surface)] p-6 shadow-[var(--admin-shadow)]">
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-2xl font-bold">Manage Offers</h2>
+          <h2 className="text-2xl font-bold">Manage Offers <span className="text-sm">(Offers are the content of explain the Coupon Discount)</span></h2>
           <button
             onClick={openCreate}
             className="admin-btn-primary flex items-center gap-2 rounded-2xl border border-transparent px-4 py-2 text-sm font-medium transition-all"

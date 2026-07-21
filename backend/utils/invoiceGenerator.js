@@ -1,5 +1,7 @@
 import PDFDocument from "pdfkit";
 import mongoose from "mongoose";
+import axios from "axios";
+import fs from "fs";
 
 const isValEmpty = (val) => {
   if (!val) return true;
@@ -64,46 +66,6 @@ function formatRupeesInWords(amount) {
 }
 
 /**
- * Draws a clean vector mock QR code.
- */
-function drawMockQrCode(doc, x, y, size) {
-  doc.save();
-  // Border
-  doc.rect(x, y, size, size).strokeColor("#e5e7eb").lineWidth(1).stroke();
-  
-  // Finder pattern top-left
-  doc.rect(x + 2, y + 2, 12, 12).fillColor("#1a1a1a").fill();
-  doc.rect(x + 4, y + 4, 8, 8).fillColor("#ffffff").fill();
-  doc.rect(x + 6, y + 6, 4, 4).fillColor("#1a1a1a").fill();
-  
-  // Finder pattern top-right
-  doc.rect(x + size - 14, y + 2, 12, 12).fillColor("#1a1a1a").fill();
-  doc.rect(x + size - 12, y + 4, 8, 8).fillColor("#ffffff").fill();
-  doc.rect(x + size - 10, y + 6, 4, 4).fillColor("#1a1a1a").fill();
-  
-  // Finder pattern bottom-left
-  doc.rect(x + 2, y + size - 14, 12, 12).fillColor("#1a1a1a").fill();
-  doc.rect(x + 4, y + size - 12, 8, 8).fillColor("#ffffff").fill();
-  doc.rect(x + 6, y + size - 10, 4, 4).fillColor("#1a1a1a").fill();
-
-  // Draw simulated pixels
-  doc.fillColor("#1a1a1a");
-  const pixels = [
-    [18, 4], [22, 6], [16, 10], [20, 12], [24, 8],
-    [4, 18], [6, 22], [10, 16], [12, 20], [8, 24],
-    [16, 16], [18, 20], [22, 18], [20, 24], [24, 22],
-    [14, 14], [15, 25], [25, 15], [26, 26]
-  ];
-  pixels.forEach(([px, py]) => {
-    const sx = x + (px / 30) * size;
-    const sy = y + (py / 30) * size;
-    const sSize = size / 15;
-    doc.rect(sx, sy, sSize, sSize).fill();
-  });
-  doc.restore();
-}
-
-/**
  * Generates an invoice PDF using pdfkit and pipes it to the provided stream.
  * 
  * @param {object} order - Mongoose Order document (should have populated items.product, user, and vendorId)
@@ -123,19 +85,7 @@ export const generateInvoicePdf = async (order, stream) => {
     console.error("Failed to load corporateDetails in invoiceGenerator:", err);
   }
 
-  const defaultCorporateDetails = {
-    companyName: "Samagran Ventures Private Limited",
-    address: "godown, Patlipada, Hiranandani, Thane (W)-400607, MH, India",
-    cin: "U74140MH2025PTC055568",
-    pan: "AAFCS8024E",
-    fssai: "10018064001545",
-    email: "support@samagran.com",
-    phone: "+91-9988776655",
-    authorizedSignatory: "Anil Sharma",
-    hideCompanyDetails: false,
-  };
-
-  const corp = { ...defaultCorporateDetails, ...corporateDetails };
+  const corp = corporateDetails || {};
 
   const fmtDate = (v) => v ? new Date(v).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—";
   const shortId = (id) => String(id).slice(-8).toUpperCase();
@@ -147,25 +97,43 @@ export const generateInvoicePdf = async (order, stream) => {
   const invoiceNumber = buildInvoiceNumber(order);
 
   // 1. Header Section
-  // Logo Circle (Maroon theme)
+  // Fetch custom uploaded logo image if available
+  let logoBuffer = null;
+  const logoUrlToFetch = order.invoiceDetails?.logoUrl || corp.logoUrl;
+  if (!isValEmpty(logoUrlToFetch)) {
+    try {
+      if (logoUrlToFetch.startsWith("http://") || logoUrlToFetch.startsWith("https://")) {
+        const resp = await axios.get(logoUrlToFetch, { responseType: "arraybuffer", timeout: 5000 });
+        logoBuffer = Buffer.from(resp.data);
+      } else if (fs.existsSync(logoUrlToFetch)) {
+        logoBuffer = fs.readFileSync(logoUrlToFetch);
+      }
+    } catch (err) {
+      console.error("Failed to load corporate logo image for PDF:", err.message);
+    }
+  }
+
+  const headerTitle = !isValEmpty(corp.companyName) ? corp.companyName : "Samagran";
+
   doc.save();
-  doc.circle(58, 60, 18)
-     .fillColor("#8B1E3F")
-     .fill();
-  
-  doc.fillColor("#ffffff")
-     .font("Helvetica-Bold")
-     .fontSize(16)
-     .text("S", 52, 53);
-  
-  doc.fillColor("#8B1E3F")
-     .fontSize(22)
-     .text("Samagran", 84, 46, { bold: true });
-     
-  doc.fillColor("#6b7280")
-     .fontSize(9)
-     .font("Helvetica")
-     .text("Marketplace Portal", 84, 68);
+  if (logoBuffer) {
+    try {
+      doc.image(logoBuffer, 40, 42, { fit: [90, 40] });
+      doc.fillColor("#8B1E3F")
+         .fontSize(20)
+         .font("Helvetica-Bold")
+         .text(headerTitle, 140, 48, { width: 200, ellipsis: true });
+    } catch (imgErr) {
+      console.error("Failed to render logo image buffer in PDFKit:", imgErr.message);
+      doc.circle(58, 60, 18).fillColor("#8B1E3F").fill();
+      doc.fillColor("#ffffff").font("Helvetica-Bold").fontSize(16).text("S", 52, 53);
+      doc.fillColor("#8B1E3F").fontSize(22).font("Helvetica-Bold").text(headerTitle, 84, 46, { width: 250, ellipsis: true });
+    }
+  } else {
+    doc.circle(58, 60, 18).fillColor("#8B1E3F").fill();
+    doc.fillColor("#ffffff").font("Helvetica-Bold").fontSize(16).text("S", 52, 53);
+    doc.fillColor("#8B1E3F").fontSize(22).font("Helvetica-Bold").text(headerTitle, 84, 46, { width: 250, ellipsis: true });
+  }
 
   // Tax Invoice Title on Right
   doc.fillColor("#2f1618")
@@ -181,7 +149,7 @@ export const generateInvoicePdf = async (order, stream) => {
      .lineTo(555, 92)
      .stroke();
 
-  // 2. Top Box: Seller Details & QR Code/Invoice ID
+  // 2. Top Box: Seller Details & Invoice Metadata
   const sellerY = 100;
   doc.save();
   // Draw outer box
@@ -248,9 +216,7 @@ export const generateInvoicePdf = async (order, stream) => {
     doc.text(contactLine, 50, credY);
   }
 
-  // Invoice Details & QR Code (Right Column)
-  drawMockQrCode(doc, 480, sellerY + 10, 60);
-
+  // Invoice Details (Right Column - NO QR CODE)
   doc.fillColor("#374151").font("Helvetica-Bold").fontSize(8.5);
   doc.text(`Invoice No:`, 340, sellerY + 15);
   doc.fillColor("#1a1a1a").font("Helvetica").fontSize(8.5);
@@ -320,32 +286,32 @@ export const generateInvoicePdf = async (order, stream) => {
   const tableY = 325;
   doc.save();
   // Draw header fill
-  doc.rect(40, tableY, 515, 20)
+  doc.rect(40, tableY, 515, 22)
      .fill("#8B1E3F");
 
-  // Columns coordinates
+  // Columns coordinates (Sum of widths = 515, matching left margin 40 to right 555)
   const cols = [
-    { name: "Sr. No.", x: 40, w: 25, align: "center" },
-    { name: "SKU/UPC", x: 65, w: 50, align: "left" },
-    { name: "Item Description", x: 115, w: 115, align: "left" },
-    { name: "HSN/SAC", x: 230, w: 45, align: "left" },
-    { name: "MRP", x: 275, w: 40, align: "right" },
-    { name: "Discount", x: 315, w: 40, align: "right" },
-    { name: "Qty", x: 355, w: 25, align: "center" },
-    { name: "Taxable", x: 380, w: 50, align: "right" },
-    { name: "GST (%)", x: 430, w: 25, align: "center" },
-    { name: "GST Amt", x: 455, w: 50, align: "right" },
-    { name: "Total", x: 505, w: 50, align: "right" }
+    { name: "Sr. No.", x: 40, w: 28, align: "center" },
+    { name: "SKU/UPC", x: 68, w: 60, align: "left" },
+    { name: "Item Description", x: 128, w: 110, align: "left" },
+    { name: "HSN/SAC", x: 238, w: 42, align: "left" },
+    { name: "MRP", x: 280, w: 36, align: "right" },
+    { name: "Discount", x: 316, w: 38, align: "right" },
+    { name: "Qty", x: 354, w: 24, align: "center" },
+    { name: "Taxable", x: 378, w: 42, align: "right" },
+    { name: "GST (%)", x: 420, w: 32, align: "center" },
+    { name: "GST Amt", x: 452, w: 45, align: "right" },
+    { name: "Total", x: 497, w: 58, align: "right" }
   ];
 
-  doc.fillColor("#ffffff").font("Helvetica-Bold").fontSize(7.5);
+  doc.fillColor("#ffffff").font("Helvetica-Bold").fontSize(7);
   cols.forEach(c => {
-    doc.text(c.name, c.x, tableY + 6, { width: c.w, align: c.align });
+    doc.text(c.name, c.x, tableY + 7, { width: c.w, align: c.align });
   });
   doc.restore();
 
   // Product Table Rows
-  let y = tableY + 20;
+  let y = tableY + 22;
   const items = order.items || [];
   
   let totalTaxableValue = 0;
@@ -382,7 +348,7 @@ export const generateInvoicePdf = async (order, stream) => {
     totalMRP += unitMRP * qty;
     totalDiscountVal += unitDiscount * qty;
 
-    doc.fillColor("#374151").font("Helvetica").fontSize(7.5);
+    doc.fillColor("#374151").font("Helvetica").fontSize(7);
     
     // Sr No
     doc.text(String(idx + 1), cols[0].x, y + 8, { width: cols[0].w, align: cols[0].align });
@@ -390,7 +356,7 @@ export const generateInvoicePdf = async (order, stream) => {
     doc.text(skuStr, cols[1].x, y + 8, { width: cols[1].w, align: cols[1].align, ellipsis: true });
     // Description
     doc.fillColor("#8B1E3F").font("Helvetica-Bold");
-    doc.text(nameStr, cols[2].x, y + 8, { width: cols[2].w, align: cols[2].align, height: 16, ellipsis: true });
+    doc.text(nameStr, cols[2].x, y + 8, { width: cols[2].w, align: cols[2].align, height: 14, ellipsis: true });
     doc.fillColor("#374151").font("Helvetica");
     // HSN
     doc.text(hsnStr, cols[3].x, y + 8, { width: cols[3].w, align: cols[3].align });
@@ -428,8 +394,6 @@ export const generateInvoicePdf = async (order, stream) => {
   const offerDiscount = Number(order.amountBreakup?.offerDiscount || 0);
   const orderLevelDiscount = couponDiscount + offerDiscount;
 
-  // Final total discount is product-level discount + order-level discount
-  const grandTotalDiscount = totalDiscountVal + orderLevelDiscount;
   const grandTotal = Number(order.totalAmount || (totalTaxableValue + totalGstAmount + deliveryFee - orderLevelDiscount));
 
   let totalsY = y + 12;
@@ -484,57 +448,78 @@ export const generateInvoicePdf = async (order, stream) => {
 
   doc.restore();
 
-  const isHidden = order.invoiceDetails?.hideCompanyDetails !== undefined
-    ? order.invoiceDetails.hideCompanyDetails
-    : corp.hideCompanyDetails;
+  // 6. Corporate Office & Signatory (Only rendered if non-empty fields exist!)
+  const corpName = order.invoiceDetails?.companyName || corp.companyName || "";
+  const corpAddr = order.invoiceDetails?.companyAddress || corp.address || "";
+  const corpCin = order.invoiceDetails?.companyCin || corp.cin || "";
+  const corpPan = order.invoiceDetails?.companyPan || corp.pan || "";
+  const corpFssai = order.invoiceDetails?.companyFssai || corp.fssai || "";
+  const corpEmail = order.invoiceDetails?.companyEmail || corp.email || "";
+  const corpPhone = order.invoiceDetails?.companyPhone || corp.phone || "";
+  const corpSignatory = order.invoiceDetails?.authorizedSignatory || corp.authorizedSignatory || "";
 
-  if (!isHidden) {
-    // 6. Footer Box (Corporate Office & Signatory)
-    // Standardize Y to at least Y = 680 to push it down near the bottom of A4
-    const footerY = Math.max(totalsY + 45, 660);
-    
+  const hasCorpData = !isValEmpty(corpName) || !isValEmpty(corpAddr) || !isValEmpty(corpCin) || !isValEmpty(corpPan) || !isValEmpty(corpFssai) || !isValEmpty(corpEmail) || !isValEmpty(corpPhone) || !isValEmpty(corpSignatory);
+
+  let footerY = totalsY + 30;
+
+  if (hasCorpData) {
+    footerY = Math.max(totalsY + 35, 650);
     doc.save();
-    // Draw outer box
-    doc.rect(40, footerY, 515, 60)
+    doc.rect(40, footerY, 515, 65)
        .strokeColor("#d1d5db")
        .lineWidth(1)
        .stroke();
 
-    // Corporate Office (Left side of footer box)
-    doc.fillColor("#8B1E3F").font("Helvetica-Bold").fontSize(8.5).text(`${corp.companyName} (Corporate Office)`, 48, footerY + 8);
-    doc.fillColor("#4b5563").font("Helvetica").fontSize(7).text(`Reg. Address: ${corp.address}`, 48, footerY + 20);
-    doc.text(`CIN: ${corp.cin} | PAN: ${corp.pan} | FSSAI: ${corp.fssai}`, 48, footerY + 31);
-    doc.text(`Customer Support: ${corp.email} | ${corp.phone}`, 48, footerY + 42);
+    let curY = footerY + 8;
+    if (!isValEmpty(corpName)) {
+      doc.fillColor("#8B1E3F").font("Helvetica-Bold").fontSize(8.5).text(`${corpName} (Corporate Office)`, 48, curY);
+      curY += 12;
+    }
+    if (!isValEmpty(corpAddr)) {
+      doc.fillColor("#4b5563").font("Helvetica").fontSize(7).text(`Reg. Address: ${corpAddr}`, 48, curY, { width: 320, height: 12, ellipsis: true });
+      curY += 12;
+    }
 
-    // Signatory (Right side of footer box)
-    doc.moveTo(380, footerY)
-       .lineTo(380, footerY + 60)
-       .strokeColor("#d1d5db")
-       .stroke();
+    const taxLineParts = [];
+    if (!isValEmpty(corpCin)) taxLineParts.push(`CIN: ${corpCin}`);
+    if (!isValEmpty(corpPan)) taxLineParts.push(`PAN: ${corpPan}`);
+    if (!isValEmpty(corpFssai)) taxLineParts.push(`FSSAI: ${corpFssai}`);
+    if (taxLineParts.length > 0) {
+      doc.fillColor("#4b5563").font("Helvetica").fontSize(7).text(taxLineParts.join("  |  "), 48, curY);
+      curY += 12;
+    }
 
-    // Draw cursive signature text
-    doc.fillColor("#6b7280").font("Courier-BoldOblique").fontSize(12).text(corp.authorizedSignatory, 400, footerY + 15, { width: 140, align: "center" });
-    doc.fillColor("#374151").font("Helvetica-Bold").fontSize(7.5).text("Authorized Signatory", 400, footerY + 42, { width: 140, align: "center" });
-    doc.restore();
+    const contactLineParts = [];
+    if (!isValEmpty(corpEmail)) contactLineParts.push(`Customer Support: ${corpEmail}`);
+    if (!isValEmpty(corpPhone)) contactLineParts.push(`Contact: ${corpPhone}`);
+    if (contactLineParts.length > 0) {
+      doc.fillColor("#4b5563").font("Helvetica").fontSize(7).text(contactLineParts.join("  |  "), 48, curY);
+    }
 
-    // Terms & Conditions below footer box
-    doc.save();
-    const termsY = footerY + 68;
-    doc.fillColor("#2f1618").font("Helvetica-Bold").fontSize(8.5).text("Terms & Conditions:", 40, termsY);
-    doc.fillColor("#6b7280").font("Helvetica").fontSize(7).text("1. All items listed belong to their respective registered sellers on the Samagran Marketplace.", 40, termsY + 12);
-    doc.text("2. Tax rates are applied in accordance with GST compliance guidelines as provided by the sellers.", 40, termsY + 21);
-    doc.text("3. For any customer support or refund queries, contact the support email or chat within 30 days of the purchase date.", 40, termsY + 30);
-    doc.restore();
-  } else {
-    // If hidden, we can still render Terms & Conditions below the totals
-    doc.save();
-    const termsY = totalsY + 45;
-    doc.fillColor("#2f1618").font("Helvetica-Bold").fontSize(8.5).text("Terms & Conditions:", 40, termsY);
-    doc.fillColor("#6b7280").font("Helvetica").fontSize(7).text("1. All items listed belong to their respective registered sellers on the Samagran Marketplace.", 40, termsY + 12);
-    doc.text("2. Tax rates are applied in accordance with GST compliance guidelines as provided by the sellers.", 40, termsY + 21);
-    doc.text("3. For any customer support or refund queries, contact the support email or chat within 30 days of the purchase date.", 40, termsY + 30);
+    // Signatory
+    if (!isValEmpty(corpSignatory)) {
+      doc.moveTo(380, footerY)
+         .lineTo(380, footerY + 65)
+         .strokeColor("#d1d5db")
+         .stroke();
+
+      doc.fillColor("#6b7280").font("Courier-BoldOblique").fontSize(12).text(corpSignatory, 400, footerY + 16, { width: 140, align: "center" });
+      doc.fillColor("#374151").font("Helvetica-Bold").fontSize(7.5).text("AUTHORIZED SIGNATORY", 400, footerY + 45, { width: 140, align: "center" });
+    }
     doc.restore();
   }
+
+  // Terms & Conditions below footer box
+  doc.save();
+  const termsY = hasCorpData ? footerY + 72 : totalsY + 30;
+  doc.fillColor("#2f1618").font("Helvetica-Bold").fontSize(8.5).text("Terms & Conditions:", 40, termsY);
+  doc.fillColor("#6b7280").font("Helvetica").fontSize(6.5);
+  doc.text("• All products sold on Samagran are offered by Lal Bhandar under the brand name \"Samagran\" and may be fulfilled directly or through authorised fulfilment partners.", 40, termsY + 10);
+  doc.text("• Applicable taxes (including GST, if any) are reflected on this invoice.", 40, termsY + 19);
+  doc.text("• Any product-related issue must be reported within 24 hours of delivery.", 40, termsY + 27);
+  doc.text("• Refunds, replacements and cancellations are subject to Samagran's applicable policies.", 40, termsY + 35);
+  doc.text("• Certain consumable, edible, customised and puja-related products may not be eligible for return or replacement unless received in a damaged, defective or incorrect condition.", 40, termsY + 43, { width: 515 });
+  doc.restore();
 
   doc.end();
 };

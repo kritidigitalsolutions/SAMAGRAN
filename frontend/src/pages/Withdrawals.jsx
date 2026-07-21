@@ -179,7 +179,7 @@ export default function Withdrawals() {
               </div>
               <div>
                 <label className="text-xs font-semibold uppercase tracking-wider text-[var(--admin-muted)]">Method</label>
-                <select name="method" value={form.method} onChange={handleChange} className="mt-2 w-full rounded-xl border border-[var(--admin-border)] bg-transparent px-3 py-2 text-sm">
+                <select name="method" value={form.method} onChange={handleChange} className="mt-2 w-full rounded-xl border border-[var(--admin-border)] bg-transparent px-3 dark:text-white dark:bg-[#0f1218] py-2 text-sm">
                   <option value="bank">Bank Transfer</option>
                   <option value="upi">UPI</option>
                 </select>

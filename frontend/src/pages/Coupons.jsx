@@ -723,7 +723,7 @@ export default function Coupons() {
           <div className="space-y-6">
             <div className="grid gap-6 md:grid-cols-2">
               <div className="space-y-2">
-                <label className="text-sm font-semibold">Select Coupon to Send</label>
+                <label className="text-sm font-semibold">Select Coupon to Send (Only Supper Admin can send coupons)</label>
                 <select
                   value={selectedSendCouponId}
                   onChange={(e) => setSelectedSendCouponId(e.target.value)}
@@ -884,7 +884,7 @@ export default function Coupons() {
         <section className="rounded-3xl border border-[var(--admin-border)] bg-[var(--admin-surface)] p-6 shadow-[var(--admin-shadow)]">
           <div className="mb-4 flex items-center justify-between">
             <h3 className="text-xl font-bold">
-              {editingId ? "Edit Coupon" : "Create New Coupon"}
+              {editingId ? "Edit Coupon" : "Create New Coupon"} <span className="text-sm font-normal">(Coupons should be related to existing Offers)</span>
             </h3>
             <button onClick={closeForm} className="p-1" title="Close form">
               <FiX size={24} />

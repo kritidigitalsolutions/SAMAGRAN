@@ -31,39 +31,47 @@ export const ensureZoomMeetingForBooking = async (bookingDocOrId) => {
 
     if (!bookingDoc) return null;
 
-    if (bookingDoc.bookingMode !== "onlinePooja") {
+    const normalizedMode = String(bookingDoc.bookingMode || "").trim().toLowerCase();
+    const isOnlineMode = ["online", "onlinepooja", "online-pooja", "online_pooja", "onlinevisit"].includes(normalizedMode);
+
+    if (!isOnlineMode) {
       console.log(`Booking ${String(bookingDoc._id)} mode is '${bookingDoc.bookingMode}'; skipping Zoom creation`);
       return null;
     }
 
-    if (bookingDoc.zoomMeeting && bookingDoc.zoomMeeting.join_url) return bookingDoc.zoomMeeting;
+    if (bookingDoc.zoomMeeting && bookingDoc.zoomMeeting.join_url && String(bookingDoc.zoomMeeting.join_url).trim().length > 0) {
+      return bookingDoc.zoomMeeting;
+    }
 
     const slotRows = Array.isArray(bookingDoc?.dateAndTime?.dateAndTime)
       ? bookingDoc.dateAndTime.dateAndTime
+      : Array.isArray(bookingDoc?.dateAndTime)
+      ? bookingDoc.dateAndTime
       : [];
-    const primary = slotRows[0] || {};
-    if (!primary?.date || !primary?.time) return null;
+    const primary = slotRows[0] || (typeof bookingDoc?.dateAndTime === "object" ? bookingDoc.dateAndTime : {});
 
-    // parse time — handle formats like '4:22 PM - 6:22 PM' by taking first part
-    const rawTime = String(primary.time || "");
-    const timePart = rawTime.split("-")[0].trim();
-    const dateStr = String(bookingDoc.bookingDate || primary.date || "").trim();
+    let dateStr = String(bookingDoc.bookingDate || primary?.date || "").trim();
+    let timeStr = String(primary?.time || primary?.slotTime || bookingDoc?.timeSlot || "").trim();
+    if (typeof bookingDoc?.timeSlot === "object" && bookingDoc.timeSlot?.time) {
+      timeStr = String(bookingDoc.timeSlot.time).trim();
+    }
+
+    const timePart = timeStr ? timeStr.split("-")[0].trim() : "";
 
     console.log("Zoom meeting input:", {
       bookingId: String(bookingDoc._id),
       bookingDate: bookingDoc.bookingDate,
-      slotDate: primary.date,
-      slotTime: primary.time,
+      slotDate: primary?.date,
+      slotTime: primary?.time,
       timePart,
       dateStr,
     });
 
     const parseStartTime = (dateText, timeText) => {
-      if (!dateText || !timeText) return null;
-
-      const parseTimePart = (timeStr) => {
-        const timeMatch = String(timeStr).trim().match(/(\d{1,2}):(\d{2})\s*([AaPp][Mm])?/);
-        let hour = 0,
+      const parseTimePart = (tStr) => {
+        if (!tStr) return { hour: 10, minute: 0 };
+        const timeMatch = String(tStr).trim().match(/(\d{1,2}):(\d{2})\s*([AaPp][Mm])?/);
+        let hour = 10,
           minute = 0;
         if (timeMatch) {
           hour = Number(timeMatch[1]);
@@ -72,62 +80,57 @@ export const ensureZoomMeetingForBooking = async (bookingDocOrId) => {
           if (ampm === "PM" && hour < 12) hour += 12;
           if (ampm === "AM" && hour === 12) hour = 0;
         } else {
-          const parts = String(timeStr).split(":");
-          hour = Number(parts[0] || 0);
+          const parts = String(tStr).split(":");
+          hour = Number(parts[0] || 10);
           minute = Number(parts[1] || 0);
         }
         return { hour, minute };
       };
 
-      // 1) Try ISO YYYY-MM-DD first
+      const { hour, minute } = parseTimePart(timeText);
+
+      // 1) Try ISO YYYY-MM-DD
       if (/^\d{4}-\d{2}-\d{2}$/.test(String(dateText).trim())) {
         const [y, m, d] = String(dateText).split("-").map(Number);
-        if (![y, m, d].every(Number.isFinite)) return null;
-        const { hour, minute } = parseTimePart(timeText);
-        const dt = new Date(Date.UTC(y, (m || 1) - 1, d, hour, minute, 0));
-        return new Date(dt.getTime());
+        if ([y, m, d].every(Number.isFinite)) {
+          return new Date(Date.UTC(y, m - 1, d, hour, minute, 0));
+        }
       }
 
-      // 2) Try human-readable like '26 Jun 2026' or '26 June 2026'
+      // 2) Try DD-MM-YYYY or DD/MM/YYYY
+      if (/^\d{1,2}[-/]\d{1,2}[-/]\d{4}$/.test(String(dateText).trim())) {
+        const parts = String(dateText).split(/[-/]/).map(Number);
+        if (parts.length === 3 && parts.every(Number.isFinite)) {
+          const [d, m, y] = parts;
+          return new Date(Date.UTC(y, m - 1, d, hour, minute, 0));
+        }
+      }
+
+      // 3) Try human-readable like '26 Jun 2026' or '26 June 2026'
       const humanMatch = String(dateText).trim().match(/(\d{1,2})\s+([A-Za-z]+)\s*,?\s*(\d{4})/);
       if (humanMatch) {
         const day = Number(humanMatch[1]);
-        const monthName = humanMatch[2].toLowerCase();
+        const monthName = humanMatch[2].toLowerCase().slice(0, 3);
         const year = Number(humanMatch[3]);
         const months = {
           jan: 0,
-          january: 0,
           feb: 1,
-          february: 1,
           mar: 2,
-          march: 2,
           apr: 3,
-          april: 3,
           may: 4,
           jun: 5,
-          june: 5,
           jul: 6,
-          july: 6,
           aug: 7,
-          august: 7,
           sep: 8,
-          sept: 8,
-          september: 8,
           oct: 9,
-          october: 9,
           nov: 10,
-          november: 10,
           dec: 11,
-          december: 11,
         };
-        const monthIndex = months[monthName.slice(0, 3)] ?? months[monthName] ?? null;
-        if (monthIndex === null || !Number.isFinite(day) || !Number.isFinite(year)) return null;
-        const { hour, minute } = parseTimePart(timeText);
-        const dt = new Date(Date.UTC(year, monthIndex, day, hour, minute, 0));
-        return new Date(dt.getTime());
+        const monthIndex = months[monthName] ?? 0;
+        return new Date(Date.UTC(year, monthIndex, day, hour, minute, 0));
       }
 
-      // 3) Fallback: try native Date parsing of combined string
+      // 4) Fallback: native Date parse
       try {
         const combined = `${String(dateText).trim()} ${String(timeText).trim()}`;
         const parsed = new Date(combined);
@@ -136,35 +139,33 @@ export const ensureZoomMeetingForBooking = async (bookingDocOrId) => {
         // ignore
       }
 
-      // couldn't parse
-      console.warn("parseStartTime: unable to parse date/time", { dateText, timeText });
-      return null;
+      // Default fallback if time/date parsing fails
+      return new Date(Date.now() + 3600000);
     };
 
-    const startTime = parseStartTime(dateStr, timePart);
+    const startTime = parseStartTime(dateStr, timePart) || new Date(Date.now() + 3600000);
     console.log("Zoom meeting parsed startTime:", {
       bookingId: String(bookingDoc._id),
       startTime: startTime ? startTime.toISOString() : null,
     });
-    if (!startTime || Number.isNaN(startTime.getTime())) return null;
 
     const durationHours = Number(bookingDoc.ritualRef?.durationHours || bookingDoc.ritual?.durationHours || 1);
-    const durationMinutes = Math.max(1, Math.round(durationHours * 60));
+    const durationMinutes = Math.max(15, Math.round(durationHours * 60));
 
     const hostEmail = process.env.ZOOM_HOST_EMAIL || (bookingDoc.user && bookingDoc.user.email) || "";
 
     const meeting = await createMeeting({
-      topic: `Pooja: ${bookingDoc.ritual?.name || bookingDoc.ritual?.title || "Pooja"}`,
+      topic: `Pooja: ${bookingDoc.ritual?.name || bookingDoc.ritual?.title || "Online Pooja"}`,
       startTime,
       durationMinutes,
       hostEmail,
     });
 
     bookingDoc.zoomMeeting = {
-      meetingId: meeting.id || meeting.uuid || null,
-      join_url: meeting.join_url || null,
-      start_url: meeting.start_url || null,
-      password: meeting.password || meeting.pswd || null,
+      meetingId: String(meeting.id || meeting.uuid || ""),
+      join_url: String(meeting.join_url || ""),
+      start_url: String(meeting.start_url || ""),
+      password: String(meeting.password || meeting.pswd || ""),
     };
 
     await bookingDoc.save();
@@ -2013,21 +2014,80 @@ export const rejectPanditBooking = async (req, res) => {
       ? `${booking.notes}\n${rejectSummary}\nPandit note: ${effectiveNote}`
       : `${rejectSummary}\nPandit note: ${effectiveNote}`;
 
+    // Wallet refund logic for user when booking is rejected by pandit
+    let refundCredited = false;
+    let refundAmount = 0;
+
+    const isPaid =
+      String(booking.payment?.status || "").toLowerCase() === "paid" ||
+      String(booking.paymentStatus || "").toLowerCase() === "paid";
+
+    if (isPaid && booking.payment?.status !== "refunded") {
+      const userId = booking.user?._id || booking.user;
+      refundAmount = Number(booking.bookingAmount || booking.dakshinaAmount || booking.price || 0);
+
+      if (userId && refundAmount > 0) {
+        let wallet = await Wallet.findOne({ user: userId });
+        if (!wallet) {
+          wallet = await Wallet.create({ user: userId, balance: 0 });
+        }
+
+        wallet.balance = Number((wallet.balance + refundAmount).toFixed(2));
+        await wallet.save();
+
+        await WalletTransaction.create({
+          wallet: wallet._id,
+          user: userId,
+          type: "credit",
+          source: "refund",
+          amount: refundAmount,
+          balanceAfter: wallet.balance,
+          reference: `REFUND_${booking._id}`,
+          notes: `Refund for Pandit booking rejected by pandit: ${booking.ritual?.name || booking.ritualRef?.title || "Ritual"}`,
+          meta: {
+            bookingId: booking._id,
+            reason: "pandit_rejected",
+            rejectReasonType: resolvedReasonType,
+          },
+        });
+
+        booking.payment = booking.payment || {};
+        booking.payment.status = "refunded";
+        refundCredited = true;
+
+        try {
+          await Complaint.create({
+            user: userId,
+            subject: "Pandit Booking Rejection Refund",
+            details: `Refund of ₹${refundAmount} credited to user wallet for Pandit-rejected booking. Ritual: "${booking.ritual?.name || booking.ritualRef?.title || "Ritual"}".`,
+            status: "Resolved",
+            adminResponse: `Refunded ₹${refundAmount} directly to user's wallet upon rejection by Pandit.`,
+          });
+        } catch (complaintErr) {
+          console.error("Error logging pandit rejection refund complaint:", complaintErr.message || complaintErr);
+        }
+      }
+    }
+
     await booking.save();
 
     // Send notification to user about booking cancellation
     await notifyPanditBookingStatusUpdate(
-      booking.user._id,
+      booking.user?._id || booking.user,
       booking._id,
       "cancelled",
       { _id: req.pandit._id, name: req.pandit.fullName || "Pandit" },
-      booking.ritualRef?.title || "Ritual"
+      booking.ritualRef?.title || booking.ritual?.name || "Ritual"
     );
 
     return res.json({
       success: true,
-      message: "Appointment rejected successfully",
+      message: refundCredited
+        ? `Appointment rejected and ₹${refundAmount} refunded to user's wallet`
+        : "Appointment rejected successfully",
       data: booking,
+      refundCredited,
+      refundAmount,
     });
   } catch (err) {
     return res.status(500).json({
@@ -2077,6 +2137,12 @@ export const cancelPanditBookingByUser = async (req, res) => {
       });
     }
 
+    const previousStatus = booking.bookingStatus;
+    const isAcceptedByPandit =
+      previousStatus === "confirmed" ||
+      previousStatus === "completed" ||
+      Boolean(booking.panditDecision?.decidedAt && !booking.panditDecision?.rejectReasonType);
+
     booking.bookingStatus = "cancelled";
     booking.cancellationRequests = booking.cancellationRequests || [];
     booking.cancellationRequests.push({
@@ -2086,53 +2152,59 @@ export const cancelPanditBookingByUser = async (req, res) => {
       requestedAt: new Date(),
     });
 
-    // 2. Refund money to user's wallet if paid
+    // 2. Refund money to user's wallet ONLY IF paid AND booking was NOT accepted by pandit
     let refundCredited = false;
     let refundAmount = 0;
-    if (booking.payment?.status === "paid" && (booking.bookingAmount > 0 || booking.dakshinaAmount > 0)) {
+    const isPaid =
+      String(booking.payment?.status || "").toLowerCase() === "paid" ||
+      String(booking.paymentStatus || "").toLowerCase() === "paid";
+
+    if (!isAcceptedByPandit && isPaid && (booking.bookingAmount > 0 || booking.dakshinaAmount > 0 || booking.price > 0)) {
       const userId = booking.user;
-      
+
       let wallet = await Wallet.findOne({ user: userId });
       if (!wallet) {
         wallet = await Wallet.create({ user: userId, balance: 0 });
       }
 
-      refundAmount = Number(booking.bookingAmount || booking.dakshinaAmount || 0);
-      wallet.balance = Number((wallet.balance + refundAmount).toFixed(2));
-      await wallet.save();
+      refundAmount = Number(booking.bookingAmount || booking.dakshinaAmount || booking.price || 0);
+      if (refundAmount > 0) {
+        wallet.balance = Number((wallet.balance + refundAmount).toFixed(2));
+        await wallet.save();
 
-      await WalletTransaction.create({
-        wallet: wallet._id,
-        user: userId,
-        type: "credit",
-        source: "refund",
-        amount: refundAmount,
-        balanceAfter: wallet.balance,
-        reference: `REFUND_${booking._id}`,
-        notes: `Refund for cancelled Pandit booking: ${booking.ritual?.name || "Ritual"}`,
-        meta: {
-          bookingId: booking._id,
-          reason: "user_cancelled",
-        },
-      });
-
-      try {
-        await Complaint.create({
+        await WalletTransaction.create({
+          wallet: wallet._id,
           user: userId,
-          booking: booking._id,
-          issue: "Pandit Booking Cancellation Refund",
-          details: `Refund of ₹${refundAmount} credited to user wallet for cancelled Pandit booking. Ritual: "${booking.ritual?.name || "Ritual"}".`,
-          status: "Resolved",
-          adminResponse: `Refunded ₹${refundAmount} directly to user's wallet upon cancellation.`,
+          type: "credit",
+          source: "refund",
+          amount: refundAmount,
+          balanceAfter: wallet.balance,
+          reference: `REFUND_${booking._id}`,
+          notes: `Refund for unaccepted cancelled Pandit booking: ${booking.ritual?.name || "Ritual"}`,
+          meta: {
+            bookingId: booking._id,
+            reason: "user_cancelled_unaccepted",
+          },
         });
-      } catch (complaintErr) {
-        console.error("Error logging user cancellation refund complaint:", complaintErr.message || complaintErr);
-      }
 
-      if (booking.payment) {
-        booking.payment.status = "refunded";
+        try {
+          await Complaint.create({
+            user: userId,
+            booking: booking._id,
+            issue: "Pandit Booking Cancellation Refund",
+            details: `Refund of ₹${refundAmount} credited to user wallet for cancelled unaccepted Pandit booking. Ritual: "${booking.ritual?.name || "Ritual"}".`,
+            status: "Resolved",
+            adminResponse: `Refunded ₹${refundAmount} directly to user's wallet upon cancellation of unaccepted booking.`,
+          });
+        } catch (complaintErr) {
+          console.error("Error logging user cancellation refund complaint:", complaintErr.message || complaintErr);
+        }
+
+        if (booking.payment) {
+          booking.payment.status = "refunded";
+        }
+        refundCredited = true;
       }
-      refundCredited = true;
     }
 
     await booking.save();
@@ -2159,14 +2231,22 @@ export const cancelPanditBookingByUser = async (req, res) => {
         eventType: "pandit.booking.cancelled",
         bookingId: String(booking._id),
         userId: String(req.user._id),
-        refundRequested: true,
+        refundRequested: !isAcceptedByPandit && isPaid,
       },
     }).catch((error) => console.error("PANDIT BOOKING CANCEL NOTIFICATION ERROR:", error.message));
 
     return res.json({
       success: true,
-      message: refundCredited ? `Booking cancelled and ₹${refundAmount} refunded to your wallet` : "Booking cancelled successfully",
-      note: refundCredited ? "Your money has been refunded to your wallet." : "Your money will be refunded to your wallet within 48 hours.",
+      message: refundCredited
+        ? `Booking cancelled and ₹${refundAmount} refunded to your wallet`
+        : isAcceptedByPandit
+        ? "Booking cancelled. Since the booking was already accepted by Pandit Ji, no refund is applicable."
+        : "Booking cancelled successfully",
+      note: refundCredited
+        ? "Your money has been refunded to your wallet."
+        : isAcceptedByPandit
+        ? "No refund applicable as Pandit Ji had already accepted this booking."
+        : "Booking cancelled.",
       data: booking,
     });
   } catch (err) {
