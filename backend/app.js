@@ -20,6 +20,7 @@ const allowedOrigins = [
   process.env.ADMIN_FRONTEND_URL,
   process.env.CORS_ORIGINS,
   "https://samagran-admin.vercel.app",
+  "https://samangrah-website.vercel.app",
 ].flatMap((value) => parseOriginList(value));
 
 const isOriginAllowed = (origin) => {
@@ -298,7 +299,7 @@ app.use("/api/sub-categories", userSubCategoryRoutes);
 app.use("/api/brands", brand);
 app.use("/api/delivery-charge", deliveryPriceGet)
 app.use("/api", partnerRoutes);
-app.use("/api/user", partnerRoutes);
+// app.use("/api/user", partnerRoutes);
 
 
 app.use((err, req, res, next) => {

@@ -392,8 +392,8 @@ export default function Kits() {
   const handleSubmit = async (event) => {
     event.preventDefault();
 
-    if (!form.name.trim() || !form.kitPrice || !selectedList.length) {
-      setError("Name, kit price and at least one product are required.");
+    if (!form.name.trim() || !selectedList.length) {
+      setError("Name and at least one product are required.");
       setSuccess("");
       return;
     }
@@ -407,7 +407,7 @@ export default function Kits() {
       formData.append("name", form.name.trim());
       formData.append("description", form.description.trim());
       formData.append("category", form.category.trim());
-      formData.append("kitPrice", Number(form.kitPrice));
+      formData.append("kitPrice", form.kitPrice ? String(Number(form.kitPrice)) : "");
       formData.append("status", form.status);
       formData.append("items", JSON.stringify(selectedList));
       formData.append("ritual", form.ritual || "");
@@ -570,8 +570,8 @@ export default function Kits() {
 
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-2">
-                <label className="text-sm font-medium">Kit Price</label>
-                <input type="number" min="0" name="kitPrice" value={form.kitPrice} onChange={handleFormChange} className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-[#16181d] dark:text-white text-black" required />
+                <label className="text-sm font-medium">Kit Price (optional)</label>
+                <input type="number" min="0" name="kitPrice" value={form.kitPrice} onChange={handleFormChange} className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-[#16181d] dark:text-white text-black" />
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium">Status</label>

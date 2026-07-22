@@ -6,6 +6,8 @@ backend/.env
 frontend/.env
 dist
 build
+uploads
+backend/uploads
 *.log
 
 

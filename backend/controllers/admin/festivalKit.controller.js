@@ -24,40 +24,57 @@ const resolveVendorIdForCreate = (req) => {
 
 const parseKitItems = (items) => (typeof items === "string" ? JSON.parse(items) : items);
 
-const buildKitItems = async (items, vendorFilter = {}) => {
-  const productIds = items.map((i) => i.product);
-  const products = await Item.find({ _id: { $in: productIds }, ...vendorFilter });
+const resolveProductId = (productRef) => {
+  if (!productRef) return "";
+  if (typeof productRef === "string") return productRef.trim();
+  if (typeof productRef === "object") {
+    return String(productRef._id || productRef.id || "").trim();
+  }
+  return String(productRef).trim();
+};
 
-  if (products.length !== items.length) {
-    const error = new Error("Some products are invalid");
-    error.statusCode = 400;
-    throw error;
+const buildKitItems = async (items) => {
+  if (!Array.isArray(items) || !items.length) {
+    const err = new Error("At least one product is required");
+    err.statusCode = 400;
+    throw err;
   }
 
-  let totalPrice = 0;
+  const productIds = items
+    .map((i) => resolveProductId(i.product || i.id || i._id))
+    .filter((id) => mongoose.Types.ObjectId.isValid(id));
 
-  const formattedItems = items.map((i) => {
-    const product = products.find((p) => p._id.toString() === i.product);
+  if (!productIds.length) {
+    const err = new Error("At least one valid product is required");
+    err.statusCode = 400;
+    throw err;
+  }
+
+  const products = await Item.find({ _id: { $in: productIds } });
+
+  let totalPrice = 0;
+  const formattedItems = [];
+
+  for (const entry of items) {
+    const rawId = resolveProductId(entry.product || entry.id || entry._id);
+    const product = products.find((p) => String(p._id) === rawId);
 
     if (!product) {
-      throw new Error(`Product not found: ${i.product}`);
+      const err = new Error(`Product not found: ${rawId || "invalid ID"}`);
+      err.statusCode = 400;
+      throw err;
     }
 
-    const price = product.pricing?.price;
-
-    if (typeof price !== "number") {
-      throw new Error(`Invalid price for product: ${product._id}`);
-    }
-
-    const qty = Number(i.quantity) || 1;
+    const price = Number(product.pricing?.price ?? product.price ?? 0);
+    const qty = Math.max(1, Number(entry.quantity || 1));
 
     totalPrice += price * qty;
 
-    return {
+    formattedItems.push({
       product: product._id,
       quantity: qty,
-    };
-  });
+    });
+  }
 
   return { formattedItems, totalPrice };
 };
@@ -99,16 +116,21 @@ export const createKit = async (req, res) => {
       : "";
     const items = parseKitItems(req.body.items);
 
-    if (!name || !items?.length || !kitPrice) {
+    if (!name || !items?.length) {
       return res.status(400).json({
         success: false,
-        message: "Name, items and kitPrice are required"
+        message: "Name and at least one product are required"
       });
     }
 
-    const { formattedItems, totalPrice } = await buildKitItems(items, resolveVendorFilter(req));
+    const { formattedItems, totalPrice } = await buildKitItems(items);
 
-    const savings = totalPrice - kitPrice;
+    const numKitPrice = Number(kitPrice);
+    const resolvedKitPrice = Number.isFinite(numKitPrice) && numKitPrice > 0
+      ? numKitPrice
+      : totalPrice;
+
+    const savings = Math.max(totalPrice - resolvedKitPrice, 0);
 
     const kit = await FestivalKit.create({
       vendorId: resolveVendorIdForCreate(req),
@@ -122,7 +144,7 @@ export const createKit = async (req, res) => {
       isPanditApproved: toBoolean(isPanditApproved),
       items: formattedItems,
       totalPrice,
-      kitPrice,
+      kitPrice: resolvedKitPrice,
       savings,
       festivalType,
       status,
@@ -303,15 +325,17 @@ export const updateKit = async (req, res) => {
         });
       }
 
-      const computed = await buildKitItems(items, resolveVendorFilter(req));
+      const computed = await buildKitItems(items);
       nextItems = computed.formattedItems;
       nextTotalPrice = computed.totalPrice;
     }
 
-    const normalizedKitPrice = Number(kitPrice);
-    const resolvedKitPrice = Number.isFinite(normalizedKitPrice)
-      ? normalizedKitPrice
-      : kit.kitPrice;
+    const numKitPrice = Number(kitPrice);
+    const resolvedKitPrice = Number.isFinite(numKitPrice) && numKitPrice > 0
+      ? numKitPrice
+      : (kitPrice === "" || kitPrice === null || typeof kitPrice === "undefined"
+          ? nextTotalPrice
+          : kit.kitPrice || nextTotalPrice);
 
     kit.name = String(name || "").trim();
     kit.kitType = SAMAGRAN_KIT_TYPE;
@@ -325,7 +349,7 @@ export const updateKit = async (req, res) => {
     kit.kitPrice = resolvedKitPrice;
     kit.items = nextItems;
     kit.totalPrice = nextTotalPrice;
-    kit.savings = nextTotalPrice - resolvedKitPrice;
+    kit.savings = Math.max(nextTotalPrice - resolvedKitPrice, 0);
     kit.ritual = ritual === "" || ritual === "null" || !ritual ? null : ritual;
 
     if (req.file) {

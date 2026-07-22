@@ -30,54 +30,59 @@ const parseItems = (items) => {
   return typeof items === "string" ? JSON.parse(items) : items;
 };
 
-const buildKitItems = async (items, vendorFilter = {}) => {
+const resolveProductId = (productRef) => {
+  if (!productRef) return "";
+  if (typeof productRef === "string") return productRef.trim();
+  if (typeof productRef === "object") {
+    return String(productRef._id || productRef.id || "").trim();
+  }
+  return String(productRef).trim();
+};
+
+const buildKitItems = async (items) => {
   if (!Array.isArray(items) || !items.length) {
     const err = new Error("At least one product is required");
     err.statusCode = 400;
     throw err;
   }
 
-  const productIds = items.map((item) => item.product);
-  const products = await Item.find({
-    _id: { $in: productIds },
-    // status: "active",
-    ...vendorFilter,
-  });
+  const productIds = items
+    .map((item) => resolveProductId(item.product || item.id || item._id))
+    .filter((id) => mongoose.Types.ObjectId.isValid(id));
 
-  if (products.length !== items.length) {
-    const err = new Error("Some selected products are invalid or inactive");
+  if (!productIds.length) {
+    const err = new Error("At least one valid product is required");
     err.statusCode = 400;
     throw err;
   }
 
-  let totalPrice = 0;
+  const products = await Item.find({
+    _id: { $in: productIds },
+  });
 
-  const formattedItems = items.map((entry) => {
-    const product = products.find((p) => p._id.toString() === String(entry.product));
+  let totalPrice = 0;
+  const formattedItems = [];
+
+  for (const entry of items) {
+    const rawId = resolveProductId(entry.product || entry.id || entry._id);
+    const product = products.find((p) => String(p._id) === rawId);
 
     if (!product) {
-      const err = new Error(`Product not found: ${entry.product}`);
+      const err = new Error(`Product not found: ${rawId || "invalid ID"}`);
       err.statusCode = 400;
       throw err;
     }
 
-    const quantity = Number(entry.quantity || 1);
-
-    if (quantity < 1) {
-      const err = new Error("Each quantity must be at least 1");
-      err.statusCode = 400;
-      throw err;
-    }
-
-    const price = Number(product.pricing?.price || 0);
+    const quantity = Math.max(1, Number(entry.quantity || 1));
+    const price = Number(product.pricing?.price ?? product.price ?? 0);
 
     totalPrice += price * quantity;
 
-    return {
+    formattedItems.push({
       product: product._id,
       quantity,
-    };
-  });
+    });
+  }
 
   return { formattedItems, totalPrice };
 };
@@ -115,15 +120,19 @@ export const createDefaultKit = async (req, res) => {
     } = req.body;
     const items = parseItems(req.body.items);
 
-    if (!name || typeof kitPrice === "undefined") {
+    if (!name || !items?.length) {
       return res.status(400).json({
         success: false,
-        message: "Name and kitPrice are required",
+        message: "Name and at least one item are required",
       });
     }
 
-    const { formattedItems, totalPrice } = await buildKitItems(items, resolveVendorFilter(req));
-    const normalizedKitPrice = Number(kitPrice);
+    const { formattedItems, totalPrice } = await buildKitItems(items);
+
+    const numKitPrice = Number(kitPrice);
+    const resolvedKitPrice = Number.isFinite(numKitPrice) && numKitPrice > 0
+      ? numKitPrice
+      : totalPrice;
 
     const imageUrl = req.file
       ? await uploadFileToFirebase(req.file, { folder: "default-kits" })
@@ -141,8 +150,8 @@ export const createDefaultKit = async (req, res) => {
       isPanditApproved: toBoolean(isPanditApproved),
       items: formattedItems,
       totalPrice,
-      kitPrice: normalizedKitPrice,
-      savings: Math.max(totalPrice - normalizedKitPrice, 0),
+      kitPrice: resolvedKitPrice,
+      savings: Math.max(totalPrice - resolvedKitPrice, 0),
       status,
       ritual: ritual && mongoose.Types.ObjectId.isValid(ritual) ? ritual : null,
     });
@@ -258,17 +267,22 @@ export const updateDefaultKit = async (req, res) => {
     let nextTotalPrice = kit.totalPrice;
 
     if (parsedItems) {
-      const computed = await buildKitItems(parsedItems, resolveVendorFilter(req));
+      const computed = await buildKitItems(parsedItems);
       nextItems = computed.formattedItems;
       nextTotalPrice = computed.totalPrice;
     }
 
-    const normalizedKitPrice = Number(kitPrice);
+    const numKitPrice = Number(kitPrice);
+    const resolvedKitPrice = Number.isFinite(numKitPrice) && numKitPrice > 0
+      ? numKitPrice
+      : (kitPrice === "" || kitPrice === null || typeof kitPrice === "undefined"
+          ? nextTotalPrice
+          : kit.kitPrice || nextTotalPrice);
 
     kit.name = name.trim();
     kit.kitType = CUSTOMIZE_KIT_TYPE;
     kit.description = description.trim();
-    kit.kitPrice = normalizedKitPrice;
+    kit.kitPrice = resolvedKitPrice;
     kit.status = status;
     // kit.category = String(category || "").trim();
     kit.isMostPopularKit = toBoolean(isMostPopularKit, kit.isMostPopularKit);
@@ -276,7 +290,7 @@ export const updateDefaultKit = async (req, res) => {
     kit.isPanditApproved = toBoolean(isPanditApproved, kit.isPanditApproved);
     kit.items = nextItems;
     kit.totalPrice = nextTotalPrice;
-    kit.savings = Math.max(nextTotalPrice - normalizedKitPrice, 0);
+    kit.savings = Math.max(nextTotalPrice - resolvedKitPrice, 0);
     kit.ritual = ritual === "" || ritual === "null" || !ritual ? null : ritual;
 
     if (req.file) {

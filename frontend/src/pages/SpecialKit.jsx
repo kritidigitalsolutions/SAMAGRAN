@@ -235,13 +235,113 @@ export default function SpecialKit() {
     setImageFile(null);
     setItemSearchTerm("");
     setSelectedItems({});
+    } finally {
+      setLoading(false);
+    }
+  }, [festivalFilter, searchTerm]);
+
+  const fetchItems = useCallback(async (searchValue = "") => {
+    try {
+      setItemsLoading(true);
+
+      const res = await API.get("/items", {
+        params: {
+          limit: 100,
+          ...(searchValue.trim() ? { search: searchValue.trim() } : {}),
+        },
+      });
+
+      const products = res.data?.data?.products || [];
+
+      setItems(products);
+      setItemCatalog((currentCatalog) => {
+        const nextCatalog = { ...currentCatalog };
+        products.forEach((item) => {
+          nextCatalog[item._id] = item;
+        });
+        return nextCatalog;
+      });
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to load items for kits.");
+    } finally {
+      setItemsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const searchTimer = setTimeout(() => {
+      fetchItems(itemSearchTerm);
+    }, 350);
+
+    return () => clearTimeout(searchTimer);
+  }, [fetchItems, itemSearchTerm]);
+
+  useEffect(() => {
+    return () => {
+      if (imageFile && previewImageUrl) {
+        URL.revokeObjectURL(previewImageUrl);
+      }
+    };
+  }, [imageFile, previewImageUrl]);
+
+  useEffect(() => {
+    return () => {
+      if (editImageFile && editPreviewImageUrl) {
+        URL.revokeObjectURL(editPreviewImageUrl);
+      }
+    };
+  }, [editImageFile, editPreviewImageUrl]);
+
+  useEffect(() => {
+    const searchTimer = setTimeout(fetchKits, 350);
+
+    return () => clearTimeout(searchTimer);
+  }, [fetchKits]);
+
+  const handleFormChange = (event) => {
+    const { name, value } = event.target;
+
+    setForm((currentForm) => ({
+      ...currentForm,
+      [name]: value,
+    }));
+  };
+
+  const handleQuantityChange = (itemId, value) => {
+    setSelectedItems((currentItems) => ({
+      ...currentItems,
+      [itemId]: value,
+    }));
+  };
+
+  const handleEditFormChange = (event) => {
+    const { name, value } = event.target;
+
+    setEditForm((currentForm) => ({
+      ...currentForm,
+      [name]: value,
+    }));
+  };
+
+  const handleEditQuantityChange = (itemId, value) => {
+    setEditSelectedItems((currentItems) => ({
+      ...currentItems,
+      [itemId]: value,
+    }));
+  };
+
+  const resetForm = () => {
+    setForm(emptyForm);
+    setImageFile(null);
+    setItemSearchTerm("");
+    setSelectedItems({});
   };
 
   const handleCreateKit = async (event) => {
     event.preventDefault();
 
-    if (!form.name.trim() || !form.kitPrice || !selectedKitItems.length) {
-      setError("Name, kit price, and at least one item are required.");
+    if (!form.name.trim() || !selectedKitItems.length) {
+      setError("Name and at least one item are required.");
       return;
     }
 
@@ -255,7 +355,7 @@ export default function SpecialKit() {
       formData.append("name", form.name.trim());
       formData.append("description", form.description.trim());
       formData.append("festivalType", form.festivalType.trim());
-      formData.append("kitPrice", Number(form.kitPrice));
+      formData.append("kitPrice", form.kitPrice ? String(Number(form.kitPrice)) : "");
       formData.append("items", JSON.stringify(selectedKitItems));
 
       if (imageFile) {
@@ -373,8 +473,8 @@ export default function SpecialKit() {
   const handleUpdateKit = async (event) => {
     event.preventDefault();
 
-    if (!editForm.name.trim() || !editForm.kitPrice || !editKitItems.length) {
-      setError("Name, kit price, and at least one item are required.");
+    if (!editForm.name.trim() || !editKitItems.length) {
+      setError("Name and at least one item are required.");
       return;
     }
 
@@ -390,7 +490,7 @@ export default function SpecialKit() {
       formData.append("name", editForm.name.trim());
       formData.append("description", editForm.description.trim());
       formData.append("festivalType", editForm.festivalType.trim());
-      formData.append("kitPrice", Number(editForm.kitPrice));
+      formData.append("kitPrice", editForm.kitPrice ? String(Number(editForm.kitPrice)) : "");
       formData.append("items", JSON.stringify(editKitItems));
 
       if (editImageFile) {
@@ -492,7 +592,7 @@ export default function SpecialKit() {
             </label>
 
             <label>
-              Kit price
+              Kit price (optional)
               <input
                 type="number"
                 name="kitPrice"
@@ -500,7 +600,6 @@ export default function SpecialKit() {
                 onChange={handleFormChange}
                 placeholder="999"
                 min="0"
-                required
               />
             </label>
 
@@ -727,114 +826,6 @@ export default function SpecialKit() {
             <div className="special-kit-modal-head">
               <div>
                 <p className="special-kit-eyebrow">{viewKit.festivalType || "Samagran Kit"}</p>
-                <h3>{viewKit.name}</h3>
-              </div>
-              <button type="button" className="special-kit-modal-close" onClick={closeViewKit}>
-                <FiX />
-              </button>
-            </div>
-
-            <div className="special-kit-view-body">
-              <div className="special-kit-view-image">
-                {viewKit.image ? (
-                  <img src={formatImageUrl(viewKit.image)} alt={viewKit.name} />
-                ) : (
-                  <span>{viewKit.name?.charAt(0)?.toUpperCase() || "K"}</span>
-                )}
-              </div>
-
-              <div className="special-kit-view-content">
-                <p>{viewKit.description || "Curated kit for festival orders."}</p>
-
-                <div className="special-kit-view-stats">
-                  <div>
-                    <span>Total item value</span>
-                    <strong>{formatCurrency(viewKit.totalPrice)}</strong>
-                  </div>
-                  <div>
-                    <span>Kit price</span>
-                    <strong>{formatCurrency(viewKit.kitPrice)}</strong>
-                  </div>
-                  <div>
-                    <span>Saved price</span>
-                    <strong>{formatCurrency(Math.max(viewKit.savings || 0, 0))}</strong>
-                  </div>
-                </div>
-
-                <div className="special-kit-view-items">
-                  <h4>Included items</h4>
-                  {viewKit.items?.length ? (
-                    viewKit.items.map((item) => (
-                      <div className="special-kit-view-item" key={item.id || item.product?._id || item.product}>
-                        <div>
-                          <strong>{item.name || item.product?.title || "Kit item"}</strong>
-                          <span>{formatCurrency(item.price || item.product?.pricing?.price)}</span>
-                        </div>
-                        <em>Qty {item.quantity || 1}</em>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="special-kit-state">No item details available.</div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </section>
-        </div>
-      )}
-
-      {editKit && (
-        <div className="special-kit-modal-backdrop" role="presentation">
-          <form className="special-kit-modal special-kit-edit-modal" onSubmit={handleUpdateKit}>
-            <div className="special-kit-modal-head">
-              <div>
-                <p className="special-kit-eyebrow">Edit kit</p>
-                <h3>{editKit.name}</h3>
-              </div>
-              <button type="button" className="special-kit-modal-close" onClick={closeEditKit}>
-                <FiX />
-              </button>
-            </div>
-
-            <div className="special-kit-modal-grid">
-              <label>
-                Kit name
-                <input
-                  name="name"
-                  value={editForm.name}
-                  onChange={handleEditFormChange}
-                  placeholder="Diwali essentials"
-                  required
-                />
-              </label>
-
-              <label>
-                Festival type
-                <input
-                  name="festivalType"
-                  value={editForm.festivalType}
-                  onChange={handleEditFormChange}
-                  placeholder="Diwali"
-                />
-              </label>
-
-              <label>
-                Kit price
-                <input
-                  type="number"
-                  name="kitPrice"
-                  value={editForm.kitPrice}
-                  onChange={handleEditFormChange}
-                  placeholder="999"
-                  min="0"
-                  required
-                />
-              </label>
-
-              <label>
-                Replace kit image
-                <input
-                  type="file"
                   accept="image/*"
                   onChange={(event) => setEditImageFile(event.target.files?.[0] || null)}
                 />
