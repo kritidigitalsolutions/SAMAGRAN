@@ -156,6 +156,7 @@ import userComplaintRoutes from "./routes/user/complaint.routes.js";
 import userSupportSettingRoutes from "./routes/user/supportSetting.routes.js";
 import panditComplaintRoutes from "./routes/pandit/complaint.routes.js";
 import adminPanditComplaintRoutes from "./routes/admin/panditComplaint.routes.js";
+import partnerRoutes from "./routes/partner.routes.js";
 import { handleSseConnection } from "./utils/sse.js";
 
 
@@ -296,6 +297,8 @@ app.use("/api/category", categories)
 app.use("/api/sub-categories", userSubCategoryRoutes);
 app.use("/api/brands", brand);
 app.use("/api/delivery-charge", deliveryPriceGet)
+app.use("/api", partnerRoutes);
+app.use("/api/user", partnerRoutes);
 
 
 app.use((err, req, res, next) => {
