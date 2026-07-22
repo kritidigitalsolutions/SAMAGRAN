@@ -146,14 +146,20 @@ const resolveAddressForCheckout = async ({
   return resolvedAddress;
 };
 
-const calculateDynamicDeliveryFee = async (vendorId, address, inputFee, itemTotal = 0) => {
-  // Check if free delivery threshold applies
+const resolveDeliveryAndCodCharges = async (
+  vendorId,
+  address,
+  inputFee,
+  inputCodCharge = 0,
+  itemTotal = 0,
+  paymentMethod = "COD",
+) => {
+  const isCod = String(paymentMethod || "COD").trim().toUpperCase() === "COD";
+
+  // Check if free delivery threshold applies to delivery fee
   const bpSettings = await BookingPricing.findOne({ isActive: true }).lean();
   const freeDeliveryThreshold = Number(bpSettings?.freeDeliveryThreshold || 0);
-
-  if (freeDeliveryThreshold > 0 && itemTotal >= freeDeliveryThreshold) {
-    return 0;
-  }
+  const isFreeDelivery = freeDeliveryThreshold > 0 && itemTotal >= freeDeliveryThreshold;
 
   let matchedPricing = null;
 
@@ -176,18 +182,37 @@ const calculateDynamicDeliveryFee = async (vendorId, address, inputFee, itemTota
     }
   }
 
+  let deliveryFee = 0;
+  let codCharge = 0;
+  const parsedInputCod = Number(inputCodCharge);
+  const safeInputCod = Number.isFinite(parsedInputCod) ? parsedInputCod : 0;
+
   if (matchedPricing) {
     const deliveryCharge = Number(matchedPricing.deliveryCharge || 0);
-    const codCharge = Number(matchedPricing.codCharge || 0);
+    const matchedCodCharge = Number(matchedPricing.codCharge || 0);
+
+    deliveryFee = isFreeDelivery ? 0 : deliveryCharge;
+    codCharge = isCod ? (matchedCodCharge || safeInputCod) : 0;
 
     // Rule: "agar delivery charge nhi hai to COD hoga uski jagah"
-    if (deliveryCharge <= 0 && codCharge > 0) {
-      return codCharge;
+    if (!isFreeDelivery && deliveryCharge <= 0 && matchedCodCharge > 0 && isCod) {
+      deliveryFee = matchedCodCharge;
+      codCharge = matchedCodCharge;
     }
-    return deliveryCharge;
+  } else {
+    deliveryFee = isFreeDelivery ? 0 : getDeliveryFee(inputFee);
+    codCharge = isCod ? safeInputCod : 0;
   }
 
-  return getDeliveryFee(inputFee);
+  return {
+    deliveryFee: toMoney(deliveryFee),
+    codCharge: toMoney(codCharge),
+  };
+};
+
+const calculateDynamicDeliveryFee = async (vendorId, address, inputFee, itemTotal = 0) => {
+  const result = await resolveDeliveryAndCodCharges(vendorId, address, inputFee, 0, itemTotal, "ONLINE");
+  return result.deliveryFee;
 };
 
 const normalizePaymentMethod = (value = "COD") => {
@@ -848,6 +873,7 @@ export const createRazorpayOrder = async (req, res) => {
     const {
       items = null,
       deliveryFee,
+      codCharge,
       couponCode,
       offerId,
       walletAmount,
@@ -882,12 +908,14 @@ export const createRazorpayOrder = async (req, res) => {
       }
     }
 
-    const finalDeliveryFee = await calculateDynamicDeliveryFee(
-      vendorId,
-      resolvedAddress,
-      deliveryFee,
-      itemTotal,
-    );
+    const { deliveryFee: finalDeliveryFee, codCharge: finalCodCharge } =
+      await resolveDeliveryAndCodCharges(
+        vendorId,
+        resolvedAddress,
+        deliveryFee,
+        codCharge,
+        itemTotal,
+      );
     const totalAmount = toMoney(itemTotal + finalDeliveryFee);
 
     if (totalAmount <= 0) {
@@ -924,6 +952,7 @@ export const createRazorpayOrder = async (req, res) => {
           keyId: null,
           itemTotal,
           deliveryFee: finalDeliveryFee,
+          codCharge: finalCodCharge,
           totalAmount,
           couponCode: coupon?.code || null,
           offerId: offer?._id || null,
@@ -969,6 +998,7 @@ export const createRazorpayOrder = async (req, res) => {
         keyId,
         itemTotal,
         deliveryFee: finalDeliveryFee,
+        codCharge: finalCodCharge,
         totalAmount,
         couponCode: coupon?.code || null,
         offerId: offer?._id || null,
@@ -1003,6 +1033,7 @@ export const placeOrder = async (req, res) => {
       addressLabel,
       items = null,
       deliveryFee,
+      codCharge,
       couponCode,
       offerId,
       walletAmount,
@@ -1072,13 +1103,27 @@ export const placeOrder = async (req, res) => {
       }
     }
 
-    const finalDeliveryFee = await calculateDynamicDeliveryFee(
-      vendorId,
-      finalAddress,
-      deliveryFee,
-      itemTotal,
+    const rawCodCharge =
+      req.body.codCharge ??
+      req.body.cod_charge ??
+      req.body.codFee ??
+      req.body.codAmount ??
+      req.body.amountBreakup?.codCharge;
+
+    const { deliveryFee: finalDeliveryFee, codCharge: finalCodCharge } =
+      await resolveDeliveryAndCodCharges(
+        vendorId,
+        finalAddress,
+        deliveryFee,
+        rawCodCharge,
+        itemTotal,
+        normalizedPaymentMethod,
+      );
+    const totalAmount = toMoney(
+      itemTotal +
+        finalDeliveryFee +
+        (finalDeliveryFee > 0 && finalDeliveryFee === finalCodCharge ? 0 : finalCodCharge),
     );
-    const totalAmount = toMoney(itemTotal + finalDeliveryFee);
 
     let coupon = null;
     let offer = null;
@@ -1199,10 +1244,12 @@ export const placeOrder = async (req, res) => {
       vendorId: vendorId || null,
       items: orderItems,
       totalAmount,
+      codCharge: finalCodCharge,
       addressType: finalAddress.addressType || null,
       amountBreakup: {
         itemTotal,
         deliveryFee: finalDeliveryFee,
+        codCharge: finalCodCharge,
         couponDiscount,
         offerDiscount,
         walletUsed,
@@ -1605,27 +1652,35 @@ export const getMyOrders = async (req, res) => {
       reviews.map((r) => String(r.product))
     );
 
-    const formattedOrders = populatedOrders.map((order) => ({
-      ...order,
-      tracking: buildTrackingPayload(order),
-      itemCount: Array.isArray(order.items)
-        ? order.items.length
-        : 0,
+    const formattedOrders = populatedOrders.map((order) => {
+      const codChargeVal = Number(order?.codCharge ?? order?.amountBreakup?.codCharge ?? 0);
+      return {
+        ...order,
+        codCharge: codChargeVal,
+        amountBreakup: {
+          ...(order.amountBreakup || {}),
+          codCharge: codChargeVal,
+        },
+        tracking: buildTrackingPayload(order),
+        itemCount: Array.isArray(order.items)
+          ? order.items.length
+          : 0,
 
-      items: (order.items || []).map((item) => {
-        const productId =
-          item?.product?._id ||
-          item?.productId ||
-          item?._id;
+        items: (order.items || []).map((item) => {
+          const productId =
+            item?.product?._id ||
+            item?.productId ||
+            item?._id;
 
-        return {
-          ...item,
-          isUserReview:
-            productId &&
-            reviewedProducts.has(String(productId)),
-        };
-      }),
-    }));
+          return {
+            ...item,
+            isUserReview:
+              productId &&
+              reviewedProducts.has(String(productId)),
+          };
+        }),
+      };
+    });
 
     return res.json({
       success: true,

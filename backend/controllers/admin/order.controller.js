@@ -126,14 +126,16 @@ const normalizeOrderItems = (items = []) => {
   });
 };
 
-const getAmountBreakupFromItems = (items = [], deliveryFeeInput = 0) => {
+const getAmountBreakupFromItems = (items = [], deliveryFeeInput = 0, codChargeInput = 0) => {
   const itemTotal = toMoney(items.reduce((sum, item) => sum + toMoney(item.price) * Number(item.quantity || 1), 0));
   const deliveryFee = toMoney(deliveryFeeInput);
-  const totalAmount = toMoney(itemTotal + deliveryFee);
+  const codCharge = toMoney(codChargeInput);
+  const totalAmount = toMoney(itemTotal + deliveryFee + codCharge);
 
   return {
     itemTotal,
     deliveryFee,
+    codCharge,
     totalAmount,
   };
 };
@@ -465,6 +467,7 @@ export const updateOrderByAdmin = async (req, res) => {
       items,
       address,
       deliveryFee,
+      codCharge,
       paymentMethod,
       paymentStatus,
       paymentGateway,
@@ -542,15 +545,23 @@ export const updateOrderByAdmin = async (req, res) => {
       order.razorpaySignature = razorpaySignature ? String(razorpaySignature).trim() : null;
     }
 
+    if (codCharge !== undefined) {
+      order.codCharge = Number(codCharge || 0);
+    }
+
     const computedBreakup = getAmountBreakupFromItems(
       order.items,
-      deliveryFee !== undefined ? deliveryFee : order.amountBreakup?.deliveryFee
+      deliveryFee !== undefined ? deliveryFee : order.amountBreakup?.deliveryFee,
+      codCharge !== undefined ? codCharge : (order.amountBreakup?.codCharge ?? order.codCharge ?? 0)
     );
 
     order.amountBreakup = {
+      ...(order.amountBreakup || {}),
       itemTotal: computedBreakup.itemTotal,
       deliveryFee: computedBreakup.deliveryFee,
+      codCharge: computedBreakup.codCharge,
     };
+    order.codCharge = computedBreakup.codCharge;
     order.totalAmount = computedBreakup.totalAmount;
 
     await order.save();
