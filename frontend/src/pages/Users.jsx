@@ -15,7 +15,7 @@
 // } from "react-icons/fi";
 // import { MdDelete } from "react-icons/md";
 
-// const apiOrigin = (API.defaults.baseURL || "http://localhost:8000/api").replace(/\/api\/?$/, "");
+// const apiOrigin = (API.defaults.baseURL || "http://localhost:5000/api").replace(/\/api\/?$/, "");
 
 
 // const formatImageUrl = (path) => {
@@ -965,18 +965,7 @@ import {
 } from "react-icons/fi";
 import { MdDelete } from "react-icons/md";
 
-const apiOrigin = (API.defaults.baseURL || "http://localhost:8000/api").replace(/\/api\/?$/, "");
-
-
-const formatImageUrl = (path) => {
-  if (!path || typeof path !== "string") return "";
-  if (/^(https?:|data:|blob:)/i.test(path)) return path;
-
-  const cleanPath = path.replace(/\\/g, "/").replace(/^\/+/, "").replace(/^backend\//i, "");
-  const uploadPath = cleanPath.includes("/") ? cleanPath : `uploads/${cleanPath}`;
-
-  return encodeURI(`${apiOrigin}/${uploadPath}`);
-};
+import { formatImageUrl } from "../utils/imageUrl";
 
 const getProfileImage = (user = {}) => {
   const image =

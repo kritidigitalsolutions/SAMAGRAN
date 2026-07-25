@@ -5,13 +5,7 @@ import TablePagination from "../components/TablePagination";
 import TableMenuPopover from "../components/TableMenuPopover";
 import { getAdminRole } from "../utils/auth";
 
-const apiOrigin = (API.defaults.baseURL || "http://localhost:8000/api").replace(/\/api\/?$/, "");
-
-const formatImageUrl = (path) => {
-  if (!path) return "";
-  if (/^(https?:|data:|blob:)/i.test(path)) return path;
-  return `${apiOrigin}/${path.replace(/\\/g, "/").replace(/^\/+/, "")}`;
-};
+import { formatImageUrl } from "../utils/imageUrl";
 
 const initialForm = {
   name: "",

@@ -6,7 +6,8 @@ import TablePagination from "../components/TablePagination";
 import TableMenuPopover from "../components/TableMenuPopover";
 import { getStoredAdmin } from "../utils/auth";
 
-const apiOrigin = (API.defaults.baseURL || "http://localhost:8000/api").replace(/\/api\/?$/, "");
+import { formatImageUrl } from "../utils/imageUrl";
+
 const CUSTOMIZE_KIT_TYPE = "Customize";
 const SAMAGRAN_KIT_TYPE = "Samagran kit";
 const CUSTOMIZE_KIT_TYPES = [CUSTOMIZE_KIT_TYPE, "default"];
@@ -22,12 +23,6 @@ const buildForm = () => ({
   festivalType: "",
   ritual: "",
 });
-
-const formatImageUrl = (path) => {
-  if (!path) return "";
-  if (/^(https?:|data:|blob:)/i.test(path)) return path;
-  return `${apiOrigin}/${path.replace(/\\/g, "/").replace(/^\/+/, "")}`;
-};
 
 const formatCurrency = (value) =>
   new Intl.NumberFormat("en-IN", {

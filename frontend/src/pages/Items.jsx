@@ -17,10 +17,7 @@ import {
   FiX,
 } from "react-icons/fi";
 
-const apiOrigin = (API.defaults.baseURL || "http://localhost:8000/api").replace(
-  /\/api\/?$/,
-  "",
-);
+import { formatImageUrl } from "../utils/imageUrl";
 
 const buildItemForm = () => ({
   title: "",
@@ -63,11 +60,6 @@ const buildItemForm = () => ({
   isRitualItems: false,
 });
 
-const formatImageUrl = (path) => {
-  if (!path) return "";
-  if (/^https?:\/\//i.test(path)) return path;
-  return `${apiOrigin}/${path.replace(/\\/g, "/").replace(/^\/+/, "")}`;
-};
 
 const formatCurrency = (value, currency = "INR") =>
   new Intl.NumberFormat("en-IN", {

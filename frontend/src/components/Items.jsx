@@ -1,5 +1,6 @@
-  import { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
   import API from "../api/axios";
+  import { formatImageUrl } from "../utils/imageUrl";
 
   function ImageSlider({ images = [] }) {
     const [idx, setIdx] = useState(0);
@@ -11,7 +12,7 @@
 
     return (
       <div className="slider">
-        <img src={`http://localhost:8000/${images[idx]}`} alt="" />
+        <img src={formatImageUrl(images[idx])} alt="" />
 
         {images.length > 1 && (
           <>

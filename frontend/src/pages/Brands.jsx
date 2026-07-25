@@ -5,19 +5,13 @@ import TablePagination from "../components/TablePagination";
 import TableMenuPopover from "../components/TableMenuPopover";
 import { getAdminRole } from "../utils/auth";
 
-const apiOrigin = (API.defaults.baseURL || "http://localhost:8000/api").replace(/\/api\/?$/, "");
+import { formatImageUrl } from "../utils/imageUrl";
 
 const initialForm = {
   name: "",
   description: "",
   subBrand: "",
   status: "active",
-};
-
-const formatImageUrl = (path) => {
-  if (!path) return "";
-  if (/^(https?:|data:|blob:)/i.test(path)) return path;
-  return `${apiOrigin}/${path.replace(/\\/g, "/").replace(/^\/+/, "")}`;
 };
 
 export default function Brands() {

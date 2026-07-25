@@ -11,7 +11,7 @@ import {
 } from "react-icons/fi";
 import API from "../api/axios";
 
-const apiOrigin = (API.defaults.baseURL || "http://localhost:8000/api").replace(/\/api\/?$/, "");
+import { formatImageUrl } from "../utils/imageUrl";
 
 const formatCurrency = (value) =>
   new Intl.NumberFormat("en-IN", {
@@ -30,16 +30,6 @@ const formatDate = (value) => {
     hour: "2-digit",
     minute: "2-digit",
   }).format(new Date(value));
-};
-
-const formatImageUrl = (path) => {
-  if (!path || typeof path !== "string") return "";
-  if (/^(https?:|data:|blob:)/i.test(path)) return path;
-
-  const cleanPath = path.replace(/\\/g, "/").replace(/^\/+/, "").replace(/^backend\//i, "");
-  const uploadPath = cleanPath.includes("/") ? cleanPath : `uploads/${cleanPath}`;
-
-  return encodeURI(`${apiOrigin}/${uploadPath}`);
 };
 
 export default function UserKit() {

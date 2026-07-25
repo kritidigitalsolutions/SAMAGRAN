@@ -1,7 +1,7 @@
 import "dotenv/config";
 import app, { bootstrapApp } from "./app.js";
 
-const PORT = process.env.PORT || 8000;
+const PORT = process.env.PORT || 5000;
 
 const startServer = async () => {
   await bootstrapApp();

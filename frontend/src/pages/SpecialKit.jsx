@@ -2,8 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { FiEdit, FiEye, FiPlus, FiRefreshCw, FiSearch, FiTrash2, FiX } from "react-icons/fi";
 import API from "../api/axios";
 import "./SpecialKit.css";
-
-const apiOrigin = (API.defaults.baseURL || "http://localhost:8000/api").replace(/\/api\/?$/, "");
+import { formatImageUrl } from "../utils/imageUrl";
 
 const emptyForm = {
   name: "",
@@ -12,16 +11,8 @@ const emptyForm = {
   description: "",
 };
 
-const formatImageUrl = (path) => {
-  if (!path) return "";
-  if (/^(https?:|data:|blob:)/i.test(path)) return path;
-
-  return `${apiOrigin}/${path.replace(/\\/g, "/").replace(/^\/+/, "")}`;
-};
-
 const formatCurrency = (value) =>
   new Intl.NumberFormat("en-IN", {
-    style: "currency",
     currency: "INR",
     maximumFractionDigits: 0,
   }).format(Number(value || 0));

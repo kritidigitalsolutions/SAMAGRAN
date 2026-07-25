@@ -7,12 +7,7 @@ import { getStoredAdmin } from "../utils/auth";
 import TableMenuPopover from "../components/TableMenuPopover";
 import { useAutoRefresh } from "../utils/realtime";
 
-const apiOrigin = (API.defaults.baseURL || "http://localhost:8000/api").replace(/\/api\/?$/, "");
-const formatImageUrl = (path) => {
-  if (!path) return "";
-  if (/^(https?:|data:|blob:)/i.test(path)) return path;
-  return `${apiOrigin}/${String(path).replace(/\\/g, "/").replace(/^\/+/, "")}`;
-};
+import { formatImageUrl } from "../utils/imageUrl";
 
 const EMPTY_FORM = {
   user: "",

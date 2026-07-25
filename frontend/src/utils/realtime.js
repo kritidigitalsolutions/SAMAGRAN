@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import API from "../api/axios";
+import { getApiOrigin } from "./imageUrl";
 
 // Custom hook to listen to specific global events and trigger refresh
 export function useAutoRefresh(eventName, onRefresh) {
@@ -18,7 +18,7 @@ export function useAutoRefresh(eventName, onRefresh) {
 
 // Setup global SSE connections to broadcast as custom window events
 export function setupRealtimeUpdates() {
-  const apiOrigin = (API.defaults.baseURL || "http://localhost:8000/api").replace(/\/api\/?$/, "");
+  const apiOrigin = getApiOrigin();
   const eventSource = new EventSource(`${apiOrigin}/api/admin/updates`);
 
   eventSource.addEventListener("orders_update", () => {
