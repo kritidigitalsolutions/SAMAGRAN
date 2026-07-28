@@ -25,6 +25,79 @@ const generatePanditToken = (panditId) => {
 };
 
 const buildOtp = () => Math.floor(100000 + Math.random() * 900000).toString();
+const DEMO_PANDIT_PHONE = process.env.DEMO_PANDIT_PHONE || "8888888888";
+const DEMO_PANDIT_OTP = process.env.DEMO_PANDIT_OTP || "123456";
+
+const ensureDemoPanditExists = async (phone) => {
+  const existingPandit = await Pandit.findOne({ phone });
+  if (existingPandit) {
+    let changed = false;
+    if (!existingPandit.isPhoneVerified) {
+      existingPandit.isPhoneVerified = true;
+      changed = true;
+    }
+    if (!existingPandit.isVerified) {
+      existingPandit.isVerified = true;
+      changed = true;
+    }
+    if (!existingPandit.isProfileComplete) {
+      existingPandit.isProfileComplete = true;
+      changed = true;
+    }
+    if (existingPandit.status !== "active") {
+      existingPandit.status = "active";
+      changed = true;
+    }
+    return changed ? existingPandit.save() : existingPandit;
+  }
+
+  return Pandit.create({
+    phone,
+    fullName: "Demo Pandit",
+    bio: "Demo pandit account for app review and testing.",
+    status: "active",
+    isPhoneVerified: true,
+    isVerified: true,
+    isProfileComplete: true,
+    address: {
+      line1: "Demo Pandit Address",
+      city: "Demo City",
+      state: "Demo State",
+      pinCode: "000000",
+    },
+    yearsOfExperience: 5,
+    templeAssociated: "Demo Temple",
+    languagesSpoken: ["Hindi", "English"],
+    aadhaar: {
+      number: "000000000000",
+      frontImage: "demo-aadhaar-front",
+      backImage: "demo-aadhaar-back",
+      consentGiven: true,
+    },
+    serviceTypes: {
+      onlinePooja: true,
+      homeVisit: true,
+      atTemple: true,
+      detectedLocation: {
+        city: "Demo City",
+        state: "Demo State",
+      },
+      serviceDistance: {
+        selected: "within10",
+        customKm: 10,
+      },
+    },
+    poojaOfferings: [
+      {
+        name: "Demo Puja",
+        description: "Default demo ritual offering.",
+        isSelected: true,
+        durationHours: 2,
+        standardSamagri: true,
+      },
+    ],
+  });
+};
 
 const parseJsonIfString = (value, fallback = null) => {
   if (value === undefined || value === null || value === "") {
@@ -226,10 +299,14 @@ export const requestPanditOtp = async (req, res) => {
       });
     }
 
+    if (phone === DEMO_PANDIT_PHONE) {
+      await ensureDemoPanditExists(phone);
+    }
+
     const existingPandit = await Pandit.findOne({ phone });
     const authType = existingPandit ? "login" : "signup";
 
-    const otp = buildOtp();
+    const otp = phone === DEMO_PANDIT_PHONE ? DEMO_PANDIT_OTP : buildOtp();
 
     await PanditOTP.findOneAndUpdate(
       { phone, type: authType },
@@ -247,8 +324,9 @@ export const requestPanditOtp = async (req, res) => {
 
     await PanditOTP.deleteMany({ phone, type: authType === "signup" ? "login" : "signup" });
 
-    // 📱 Send OTP via SMS Gateway
-    const smsSent = await sendOtpSms(phone, otp, "pandit");
+    const smsSent = phone === DEMO_PANDIT_PHONE
+      ? { success: true }
+      : await sendOtpSms(phone, otp, "pandit");
 
     res.json({
       success: true,
@@ -298,6 +376,22 @@ export const verifyPanditOtp = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "Invalid OTP type",
+      });
+    }
+
+    if (phone === DEMO_PANDIT_PHONE && String(otp) === DEMO_PANDIT_OTP) {
+      const pandit = await ensureDemoPanditExists(phone);
+      await PanditOTP.deleteMany({ phone });
+
+      return res.json({
+        success: true,
+        isNewPandit: false,
+        message: "Login verified successfully",
+        data: {
+          flow: "login",
+          token: generatePanditToken(pandit._id),
+          pandit,
+        },
       });
     }
 

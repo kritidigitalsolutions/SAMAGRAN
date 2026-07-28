@@ -335,6 +335,23 @@ const verifyBookingIntentToken = (token = "") => {
   }
 };
 
+const attachRazorpayKeyToBooking = (booking, keyId = "") => {
+  const bookingObject = booking?.toObject ? booking.toObject() : { ...(booking || {}) };
+  const resolvedKeyId = String(keyId || "").trim();
+
+  if (!resolvedKeyId) {
+    return bookingObject;
+  }
+
+  return {
+    ...bookingObject,
+    payment: {
+      ...(bookingObject.payment || {}),
+      keyId: resolvedKeyId,
+    },
+  };
+};
+
 const verifyRazorpaySignature = ({ razorpayOrderId, razorpayPaymentId, razorpaySignature }) => {
   const { keySecret } = getRazorpayCredentials();
   const expectedSignature = crypto
@@ -1003,6 +1020,7 @@ export const createPanditBooking = async (req, res) => {
       .populate("recommendedKit", "name image kitPrice");
 
     let razorpayOrder = null;
+    let razorpayKeyId = "";
     // Log booking creation details for debugging
     try {
       const primaryTime = getPrimaryBookingTime(booking.dateAndTime) || "";
@@ -1034,6 +1052,7 @@ export const createPanditBooking = async (req, res) => {
     }
     if (amountDue > 0) {
       const { keyId, keySecret } = getRazorpayCredentials();
+      razorpayKeyId = keyId;
       const razorpay = new Razorpay({ key_id: keyId, key_secret: keySecret });
       razorpayOrder = await razorpay.orders.create({
         amount: Math.round(amountDue * 100),
@@ -1077,7 +1096,7 @@ export const createPanditBooking = async (req, res) => {
       success: true,
       message: amountDue <= 0 ? "Booking successful with wallet payment" : "Booking initiated",
       data: {
-        booking,
+        booking: attachRazorpayKeyToBooking(booking, razorpayKeyId),
         walletUsed,
         amountDue,
         razorpayOrder,
@@ -1159,6 +1178,7 @@ export const createPanditBookingRazorpayOrder = async (req, res) => {
       data: {
         bookingId: booking._id,
         keyId,
+        booking: attachRazorpayKeyToBooking(booking, keyId),
         amount,
         currency: "INR",
         razorpayOrder,

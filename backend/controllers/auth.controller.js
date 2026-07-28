@@ -18,6 +18,40 @@ const validatePhone = (phone) => {
 const WELCOME_COUPON_PERCENT = 10;
 const WELCOME_COUPON_MAX = 100;
 
+const DEMO_USER_PHONE = process.env.DEMO_USER_PHONE || "9999999999";
+const DEMO_USER_OTP = process.env.DEMO_USER_OTP || "123456";
+
+
+const ensureDemoUserExists = async (phone) => {
+  const existingUser = await User.findOne({ phone });
+  if (existingUser) {
+    if (existingUser.isDeleted) {
+      existingUser.isDeleted = false;
+      existingUser.deletedAt = null;
+      existingUser.deleteReason = "";
+      existingUser.deleteReasonNotes = "";
+      await existingUser.save();
+    }
+    return existingUser;
+  }
+
+
+
+  // while (await User.findOne({ username })) {
+  //   suffix += 1;
+  //   username = `${baseUsername}${suffix}`;
+  // }
+
+  return User.create({
+    phone,
+    // username,
+    name: "Demo User",
+    email: "demo.user@samagran.local",
+    address: "Demo User Address",
+    isProfileComplete: true,
+    // userType: "INDIVIDUAL"
+  });
+};
 // 🎁 Super admin ke globally created welcome coupon ko user ko assign karta hai
 // Per-user unique coupon banana band kiya — ab ek global welcome coupon hoga jo admin control karta hai
 const createWelcomeCouponForUser = async (user) => {
@@ -117,7 +151,6 @@ export const signup = async (req, res) => {
         message: "Phone number must be 10 digits",
       });
     }
-
     const existingUser = await User.findOne({ phone });
 
     if (existingUser) {
@@ -206,6 +239,9 @@ export const login = async (req, res) => {
         message: "Invalid phone number",
       });
     }
+    if (phone === DEMO_USER_PHONE) {
+      await ensureDemoUserExists(phone);
+    }
 
     const user = await User.findOne({ phone, isDeleted: { $ne: true } });
 
@@ -217,7 +253,7 @@ export const login = async (req, res) => {
       });
     }
 
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otp = phone === DEMO_USER_PHONE ? DEMO_USER_OTP : Math.floor(100000 + Math.random() * 900000).toString();
 
     await OTP.findOneAndUpdate(
       { phone },
@@ -230,8 +266,9 @@ export const login = async (req, res) => {
       { upsert: true, returnDocument: "after" }
     );
 
-    // 📱 Send OTP via SMS Gateway
-    const smsSent = await sendOtpSms(phone, otp, "user");
+    const smsSent = phone === DEMO_USER_PHONE
+      ? { success: true }
+      : await sendOtpSms(phone, otp, "user");
     
     res.json({
       success: true,
@@ -260,7 +297,52 @@ export const verifyOtp = async (req, res) => {
       fcmToken || firebaseToken || deviceToken || ""
     ).trim();
 
+    if (!phone || !otp) {
+      return res.status(400).json({
+        success: false,
+        message: "phone and otp are required",
+      });
+    }
+
     phone = phone.trim();
+
+    if (!validatePhone(phone)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid phone number",
+      });
+    }
+
+    if (phone === DEMO_USER_PHONE && String(otp) === DEMO_USER_OTP) {
+      let user = await ensureDemoUserExists(phone);
+      let isFcmTokenUpdated = false;
+
+      if (incomingFcmToken) {
+        const updatedUser = await updateDeviceToken({
+          Model: User,
+          id: user._id,
+          token: incomingFcmToken,
+        });
+
+        if (updatedUser) {
+          user = updatedUser;
+          isFcmTokenUpdated = true;
+        }
+      }
+
+      await OTP.deleteOne({ phone });
+
+      return res.json({
+        success: true,
+        isNewUser: false,
+        message: "Verified successfully",
+        data: {
+          token: generateToken(user._id),
+          fcmTokenUpdated: isFcmTokenUpdated,
+          user,
+        },
+      });
+    }
 
     const otpDoc = await OTP.findOne({ phone });
 
@@ -277,7 +359,6 @@ export const verifyOtp = async (req, res) => {
         message: "Invalid OTP",
       });
     }
-
     console.log("📋 OTP verified, found OTP doc:", {
       phone: otpDoc.phone,
       hasProfileImage: !!otpDoc.profileImage,
@@ -478,6 +559,10 @@ export const resendOtp = async (req, res) => {
       });
     }
 
+    if (phone === DEMO_USER_PHONE) {
+      await ensureDemoUserExists(phone);
+    }
+
     const user = await User.findOne({ phone });
 
     if (!user) {
@@ -487,7 +572,7 @@ export const resendOtp = async (req, res) => {
       });
     }
 
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otp = phone === DEMO_USER_PHONE ? DEMO_USER_OTP : Math.floor(100000 + Math.random() * 900000).toString();
 
     // Save to OTP collection with type="login" for resend
     await OTP.findOneAndUpdate(
@@ -500,8 +585,9 @@ export const resendOtp = async (req, res) => {
       { upsert: true, returnDocument: "after" }
     );
 
-    // 📱 Send OTP via SMS Gateway
-    const smsSent = await sendOtpSms(phone, otp, "user");
+    const smsSent = phone === DEMO_USER_PHONE
+      ? { success: true }
+      : await sendOtpSms(phone, otp, "user");
 
     console.log("RESEND OTP:", otp);
 
