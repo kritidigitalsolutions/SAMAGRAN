@@ -42,19 +42,24 @@ export const updateCorporateDetails = async (req, res) => {
       authorizedSignatory,
     } = req.body || {};
 
-    const admin = await Admin.findOne({ role: "super" });
+    const admin = await Admin.findOne({ role: "super" }).lean();
     if (!admin) {
       return res.status(404).json({ success: false, message: "Super admin account not found" });
     }
 
     let finalLogoUrl = admin.corporateDetails?.logoUrl || "";
     if (req.file) {
-      finalLogoUrl = await uploadFileToFirebase(req.file, { folder: "corporate" });
+      try {
+        finalLogoUrl = await uploadFileToFirebase(req.file, { folder: "corporate" });
+      } catch (uploadErr) {
+        console.error("❌ Failed to upload logo in updateCorporateDetails:", uploadErr);
+        return res.status(500).json({ success: false, message: `Logo upload failed: ${uploadErr.message}` });
+      }
     } else if (logoUrl !== undefined) {
       finalLogoUrl = String(logoUrl).trim();
     }
 
-    admin.corporateDetails = {
+    const newCorporateDetails = {
       companyName: String(companyName !== undefined ? companyName : (admin.corporateDetails?.companyName || "")).trim(),
       logoUrl: finalLogoUrl,
       address: String(address !== undefined ? address : (admin.corporateDetails?.address || "")).trim(),
@@ -66,10 +71,15 @@ export const updateCorporateDetails = async (req, res) => {
       authorizedSignatory: String(authorizedSignatory !== undefined ? authorizedSignatory : (admin.corporateDetails?.authorizedSignatory || "")).trim(),
     };
 
-    await admin.save();
+    const updatedAdmin = await Admin.findOneAndUpdate(
+      { role: "super" },
+      { $set: { corporateDetails: newCorporateDetails } },
+      { new: true, runValidators: false }
+    );
 
-    return res.json({ success: true, message: "Corporate details updated successfully", data: admin.corporateDetails });
+    return res.json({ success: true, message: "Corporate details updated successfully", data: updatedAdmin.corporateDetails });
   } catch (error) {
+    console.error("❌ Error updating corporate details:", error);
     return res.status(500).json({ success: false, message: error.message || "Failed to update corporate details" });
   }
 };

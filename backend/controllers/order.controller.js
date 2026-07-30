@@ -2,7 +2,8 @@ import crypto from "crypto";
 import Razorpay from "razorpay";
 import mongoose from "mongoose";
 import Order from "../models/order.model.js";
-import { generateInvoicePdf } from "../utils/invoiceGenerator.js";
+import { generateInvoicePdf, generateInvoiceHtml } from "../utils/invoiceGenerator.js";
+import { sendVendorOrderEmail } from "../utils/email.service.js";
 import Cart from "../models/cart.model.js";
 import Item from "../models/product.model.js";
 import FestivalKit from "../models/festivalKit.model.js";
@@ -1332,6 +1333,25 @@ export const placeOrder = async (req, res) => {
       .populate(ORDER_ITEMS_POPULATE)
       .lean();
 
+    if (vendorId) {
+      void Vendor.findById(vendorId)
+        .select("name businessName contactPerson email")
+        .lean()
+        .then((vendor) => {
+          if (!vendor?.email) {
+            return null;
+          }
+
+          return sendVendorOrderEmail({
+            vendor,
+            order: populatedOrder,
+          });
+        })
+        .catch((error) => {
+          console.error("VENDOR ORDER EMAIL ERROR:", error?.message || error);
+        });
+    }
+
     void notifyAdmins({
       title: "New order placed",
       body: `${req.user.name || req.user.phone || "A user"} placed an order${coupon?.code ? ` with coupon ${coupon.code}` : ""}`,
@@ -1937,6 +1957,7 @@ export const rescheduleOrderByUser = async (req, res) => {
 export const getOrderInvoicePdf = async (req, res) => {
   try {
     const { orderId } = req.params;
+    const { format, download } = req.query;
 
     if (!mongoose.Types.ObjectId.isValid(orderId)) {
       return res.status(400).json({
@@ -1957,11 +1978,19 @@ export const getOrderInvoicePdf = async (req, res) => {
       });
     }
 
-    // Set headers for PDF download
+    // Serve responsive HTML if requested
+    if (format === "html" || req.headers.accept?.includes("text/html")) {
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
+      const html = await generateInvoiceHtml(order);
+      return res.send(html);
+    }
+
+    // Set headers for PDF download/inline preview
     res.setHeader("Content-Type", "application/pdf");
+    const disposition = download === "true" ? "attachment" : "inline";
     res.setHeader(
       "Content-Disposition",
-      `attachment; filename=invoice-${orderId}.pdf`,
+      `${disposition}; filename=invoice-${orderId}.pdf`,
     );
 
     // Generate PDF and pipe to response

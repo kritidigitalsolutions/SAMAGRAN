@@ -747,18 +747,14 @@ export const updatePanditProfile = async (req, res) => {
     pandit.isProfileComplete = isPanditProfileComplete(pandit);
     if (pandit.isProfileComplete) {
       pandit.isPhoneVerified = true;
-      pandit.isVerified = true;
-      if (pandit.status === "pending") {
-        pandit.status = "active";
-      }
     }
     await pandit.save();
 
     // 📢 Notify admins only when new pandit completes profile
     if (isNewPandit && pandit.isProfileComplete) {
       void notifyAdmins({
-        title: "New pandit account created",
-        body: `${pandit.fullName || pandit.phone || "A pandit"} completed their profile`,
+        title: "New Pandit Registration 🕉️",
+        body: `${pandit.fullName || pandit.phone || "A new pandit"} has registered and is pending admin verification.`,
         data: {
           eventType: "pandit.signup",
           panditId: String(pandit._id),

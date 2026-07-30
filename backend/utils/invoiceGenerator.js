@@ -2,6 +2,7 @@ import PDFDocument from "pdfkit";
 import mongoose from "mongoose";
 import axios from "axios";
 import fs from "fs";
+import path from "path";
 
 const isValEmpty = (val) => {
   if (!val) return true;
@@ -78,9 +79,11 @@ export const generateInvoicePdf = async (order, stream) => {
   // Retrieve Super Admin's corporateDetails dynamically
   let corporateDetails = {};
   try {
-    const Admin = mongoose.model("Admin");
-    const superAdmin = await Admin.findOne({ role: "super" }).lean();
-    corporateDetails = superAdmin?.corporateDetails || {};
+    const Admin = mongoose.models && mongoose.models.Admin;
+    if (Admin) {
+      const superAdmin = await Admin.findOne({ role: "super" }).lean();
+      corporateDetails = superAdmin?.corporateDetails || {};
+    }
   } catch (err) {
     console.error("Failed to load corporateDetails in invoiceGenerator:", err);
   }
@@ -97,12 +100,17 @@ export const generateInvoicePdf = async (order, stream) => {
   const invoiceNumber = buildInvoiceNumber(order);
 
   // 1. Header Section
-  // Fetch custom uploaded logo image if available
   let logoBuffer = null;
   const logoUrlToFetch = order.invoiceDetails?.logoUrl || corp.logoUrl;
   if (!isValEmpty(logoUrlToFetch)) {
     try {
-      if (logoUrlToFetch.startsWith("http://") || logoUrlToFetch.startsWith("https://")) {
+      if (logoUrlToFetch.includes("/uploads/")) {
+        const relPath = logoUrlToFetch.substring(logoUrlToFetch.indexOf("/uploads/"));
+        const localPath = path.join(process.cwd(), relPath);
+        if (fs.existsSync(localPath)) {
+          logoBuffer = fs.readFileSync(localPath);
+        }
+      } else if (logoUrlToFetch.startsWith("http://") || logoUrlToFetch.startsWith("https://")) {
         const resp = await axios.get(logoUrlToFetch, { responseType: "arraybuffer", timeout: 5000 });
         logoBuffer = Buffer.from(resp.data);
       } else if (fs.existsSync(logoUrlToFetch)) {
@@ -118,39 +126,39 @@ export const generateInvoicePdf = async (order, stream) => {
   doc.save();
   if (logoBuffer) {
     try {
-      doc.image(logoBuffer, 40, 42, { fit: [90, 40] });
+      doc.image(logoBuffer, 40, 40, { fit: [40, 40] });
       doc.fillColor("#8B1E3F")
-         .fontSize(20)
+         .fontSize(15)
          .font("Helvetica-Bold")
-         .text(headerTitle, 140, 48, { width: 200, ellipsis: true });
+         .text(headerTitle, 88, 50, { width: 260, height: 24, ellipsis: true });
     } catch (imgErr) {
       console.error("Failed to render logo image buffer in PDFKit:", imgErr.message);
-      doc.circle(58, 60, 18).fillColor("#8B1E3F").fill();
-      doc.fillColor("#ffffff").font("Helvetica-Bold").fontSize(16).text("S", 52, 53);
-      doc.fillColor("#8B1E3F").fontSize(22).font("Helvetica-Bold").text(headerTitle, 84, 46, { width: 250, ellipsis: true });
+      doc.circle(56, 60, 16).fillColor("#8B1E3F").fill();
+      doc.fillColor("#ffffff").font("Helvetica-Bold").fontSize(14).text("S", 51, 53);
+      doc.fillColor("#8B1E3F").fontSize(15).font("Helvetica-Bold").text(headerTitle, 80, 50, { width: 260, height: 24, ellipsis: true });
     }
   } else {
-    doc.circle(58, 60, 18).fillColor("#8B1E3F").fill();
-    doc.fillColor("#ffffff").font("Helvetica-Bold").fontSize(16).text("S", 52, 53);
-    doc.fillColor("#8B1E3F").fontSize(22).font("Helvetica-Bold").text(headerTitle, 84, 46, { width: 250, ellipsis: true });
+    doc.circle(56, 60, 16).fillColor("#8B1E3F").fill();
+    doc.fillColor("#ffffff").font("Helvetica-Bold").fontSize(14).text("S", 51, 53);
+    doc.fillColor("#8B1E3F").fontSize(15).font("Helvetica-Bold").text(headerTitle, 80, 50, { width: 260, height: 24, ellipsis: true });
   }
 
-  // Tax Invoice Title on Right
+  // Tax Invoice Title on Right (Explicit width=200 starting at 355 ends at 555)
   doc.fillColor("#2f1618")
-     .fontSize(22)
+     .fontSize(18)
      .font("Helvetica-Bold")
-     .text("Tax Invoice", 350, 48, { align: "right" });
+     .text("Tax Invoice", 355, 48, { width: 200, align: "right" });
   doc.restore();
 
   // Divider Line
   doc.strokeColor("#e5e7eb")
      .lineWidth(1)
-     .moveTo(40, 92)
-     .lineTo(555, 92)
+     .moveTo(40, 90)
+     .lineTo(555, 90)
      .stroke();
 
   // 2. Top Box: Seller Details & Invoice Metadata
-  const sellerY = 100;
+  const sellerY = 98;
   doc.save();
   // Draw outer box
   doc.rect(40, sellerY, 515, 115)
@@ -182,9 +190,9 @@ export const generateInvoicePdf = async (order, stream) => {
   const sellerEmail = order.invoiceDetails?.sellerEmail || vendor.email || "";
   const sellerPhone = order.invoiceDetails?.sellerPhone || vendor.phone || "";
 
-  doc.fillColor("#8B1E3F").font("Helvetica-Bold").fontSize(9.5).text("Sold By / Seller:", 50, sellerY + 8);
-  doc.fillColor("#1a1a1a").font("Helvetica-Bold").fontSize(10.5).text(sellerName, 50, sellerY + 22, { width: 270, height: 14, ellipsis: true });
-  doc.fillColor("#4b5563").font("Helvetica").fontSize(8).text(sellerAddress, 50, sellerY + 37, { width: 270, height: 26, ellipsis: true });
+  doc.fillColor("#8B1E3F").font("Helvetica-Bold").fontSize(9.5).text("Sold By / Seller:", 48, sellerY + 8);
+  doc.fillColor("#1a1a1a").font("Helvetica-Bold").fontSize(10).text(sellerName, 48, sellerY + 22, { width: 275, height: 14, ellipsis: true });
+  doc.fillColor("#4b5563").font("Helvetica").fontSize(8).text(sellerAddress, 48, sellerY + 37, { width: 275, height: 26, ellipsis: true });
 
   // Seller tax credentials
   const credentialParts = [];
@@ -205,33 +213,33 @@ export const generateInvoicePdf = async (order, stream) => {
   let credY = sellerY + 66;
   doc.fillColor("#374151").fontSize(7.5);
   if (credentialLine1) {
-    doc.text(credentialLine1, 50, credY);
+    doc.text(credentialLine1, 48, credY, { width: 275, ellipsis: true });
     credY += 11;
   }
   if (credentialLine2) {
-    doc.text(credentialLine2, 50, credY);
+    doc.text(credentialLine2, 48, credY, { width: 275, ellipsis: true });
     credY += 11;
   }
   if (contactLine) {
-    doc.text(contactLine, 50, credY);
+    doc.text(contactLine, 48, credY, { width: 275, ellipsis: true });
   }
 
-  // Invoice Details (Right Column - NO QR CODE)
+  // Invoice Details (Right Column)
   doc.fillColor("#374151").font("Helvetica-Bold").fontSize(8.5);
-  doc.text(`Invoice No:`, 340, sellerY + 15);
+  doc.text(`Invoice No:`, 338, sellerY + 12);
   doc.fillColor("#1a1a1a").font("Helvetica").fontSize(8.5);
-  doc.text(invoiceNumber, 340, sellerY + 26);
+  doc.text(invoiceNumber, 338, sellerY + 23, { width: 210, ellipsis: true });
 
   doc.fillColor("#374151").font("Helvetica-Bold").fontSize(8);
-  doc.text("Reverse Charge Payable:", 340, sellerY + 45);
-  doc.font("Helvetica").text("No", 340, sellerY + 55);
+  doc.text("Reverse Charge Payable:", 338, sellerY + 42);
+  doc.font("Helvetica").text("No", 338, sellerY + 52);
 
-  doc.font("Helvetica-Bold").text("Marketplace Platform:", 340, sellerY + 72);
-  doc.font("Helvetica").text("Samagran Marketplace", 340, sellerY + 82);
+  doc.font("Helvetica-Bold").text("Marketplace Platform:", 338, sellerY + 69);
+  doc.font("Helvetica").text("Samagran Marketplace", 338, sellerY + 79);
   doc.restore();
 
   // 3. Middle Box: Customer Details & Order details
-  const customerY = 222;
+  const customerY = 220;
   doc.save();
   // Draw outer box
   doc.rect(40, customerY, 515, 95)
@@ -256,52 +264,52 @@ export const generateInvoicePdf = async (order, stream) => {
   const customerPhone = order.user?.phone || order.address?.phone || "—";
   const customerEmail = order.user?.email || "—";
 
-  doc.fillColor("#8B1E3F").font("Helvetica-Bold").fontSize(9.5).text("Invoice To:", 50, customerY + 8);
-  doc.fillColor("#1a1a1a").font("Helvetica-Bold").fontSize(10.5).text(customerName, 50, customerY + 22, { width: 270, height: 14, ellipsis: true });
-  doc.fillColor("#4b5563").font("Helvetica").fontSize(8).text(customerAddress, 50, customerY + 36, { width: 270, height: 26, ellipsis: true });
+  doc.fillColor("#8B1E3F").font("Helvetica-Bold").fontSize(9.5).text("Invoice To:", 48, customerY + 8);
+  doc.fillColor("#1a1a1a").font("Helvetica-Bold").fontSize(10).text(customerName, 48, customerY + 22, { width: 275, height: 14, ellipsis: true });
+  doc.fillColor("#4b5563").font("Helvetica").fontSize(8).text(customerAddress, 48, customerY + 36, { width: 275, height: 26, ellipsis: true });
   
   doc.fillColor("#374151").fontSize(7.5);
-  doc.text(`Phone: ${customerPhone}  |  Email: ${customerEmail}`, 50, customerY + 68);
+  doc.text(`Phone: ${customerPhone}  |  Email: ${customerEmail}`, 48, customerY + 68, { width: 275, ellipsis: true });
 
   // Order details (Right Column)
   doc.fillColor("#374151").font("Helvetica-Bold").fontSize(8);
   
-  doc.text("Order ID:", 340, customerY + 12);
-  doc.font("Helvetica").text(String(order._id), 425, customerY + 12);
+  doc.text("Order ID:", 338, customerY + 12);
+  doc.font("Helvetica").text(String(order._id), 425, customerY + 12, { width: 125, ellipsis: true });
 
-  doc.font("Helvetica-Bold").text("Invoice Date:", 340, customerY + 27);
-  doc.font("Helvetica").text(fmtDate(order.createdAt), 425, customerY + 27);
+  doc.font("Helvetica-Bold").text("Invoice Date:", 338, customerY + 27);
+  doc.font("Helvetica").text(fmtDate(order.createdAt), 425, customerY + 27, { width: 125, ellipsis: true });
 
-  doc.font("Helvetica-Bold").text("Place of Supply:", 340, customerY + 42);
-  doc.font("Helvetica").text(order.address?.state || "Maharashtra", 425, customerY + 42);
+  doc.font("Helvetica-Bold").text("Place of Supply:", 338, customerY + 42);
+  doc.font("Helvetica").text(order.address?.state || "Maharashtra", 425, customerY + 42, { width: 125, ellipsis: true });
 
-  doc.font("Helvetica-Bold").text("Payment Method:", 340, customerY + 57);
-  doc.font("Helvetica").text(order.paymentMethod || "COD", 425, customerY + 57);
+  doc.font("Helvetica-Bold").text("Payment Method:", 338, customerY + 57);
+  doc.font("Helvetica").text(order.paymentMethod || "COD", 425, customerY + 57, { width: 125, ellipsis: true });
   
-  doc.font("Helvetica-Bold").text("Payment Status:", 340, customerY + 72);
-  doc.font("Helvetica-Bold").fillColor(order.paymentStatus === "Paid" ? "#16a34a" : "#d97706").text(order.paymentStatus || "Pending", 425, customerY + 72);
+  doc.font("Helvetica-Bold").text("Payment Status:", 338, customerY + 72);
+  doc.font("Helvetica-Bold").fillColor(order.paymentStatus === "Paid" ? "#16a34a" : "#d97706").text(order.paymentStatus || "Pending", 425, customerY + 72, { width: 125, ellipsis: true });
   doc.restore();
 
   // 4. Product Table Header
-  const tableY = 325;
+  const tableY = 323;
   doc.save();
   // Draw header fill
   doc.rect(40, tableY, 515, 22)
      .fill("#8B1E3F");
 
-  // Columns coordinates (Sum of widths = 515, matching left margin 40 to right 555)
+  // Columns coordinates with 5pt right safety margin (Sum ends at 550, table border at 555)
   const cols = [
-    { name: "Sr. No.", x: 40, w: 28, align: "center" },
-    { name: "SKU/UPC", x: 68, w: 60, align: "left" },
-    { name: "Item Description", x: 128, w: 110, align: "left" },
-    { name: "HSN/SAC", x: 238, w: 42, align: "left" },
+    { name: "Sr.", x: 42, w: 22, align: "center" },
+    { name: "SKU/UPC", x: 66, w: 58, align: "left" },
+    { name: "Item Description", x: 126, w: 108, align: "left" },
+    { name: "HSN/SAC", x: 236, w: 42, align: "left" },
     { name: "MRP", x: 280, w: 36, align: "right" },
-    { name: "Discount", x: 316, w: 38, align: "right" },
-    { name: "Qty", x: 354, w: 24, align: "center" },
+    { name: "Discount", x: 318, w: 36, align: "right" },
+    { name: "Qty", x: 356, w: 20, align: "center" },
     { name: "Taxable", x: 378, w: 42, align: "right" },
-    { name: "GST (%)", x: 420, w: 32, align: "center" },
-    { name: "GST Amt", x: 452, w: 45, align: "right" },
-    { name: "Total", x: 497, w: 58, align: "right" }
+    { name: "GST %", x: 422, w: 30, align: "center" },
+    { name: "GST Amt", x: 454, w: 42, align: "right" },
+    { name: "Total", x: 498, w: 52, align: "right" }
   ];
 
   doc.fillColor("#ffffff").font("Helvetica-Bold").fontSize(7);
@@ -359,7 +367,7 @@ export const generateInvoicePdf = async (order, stream) => {
     doc.text(nameStr, cols[2].x, y + 8, { width: cols[2].w, align: cols[2].align, height: 14, ellipsis: true });
     doc.fillColor("#374151").font("Helvetica");
     // HSN
-    doc.text(hsnStr, cols[3].x, y + 8, { width: cols[3].w, align: cols[3].align });
+    doc.text(hsnStr, cols[3].x, y + 8, { width: cols[3].w, align: cols[3].align, ellipsis: true });
     // MRP
     doc.text(unitMRP.toFixed(2), cols[4].x, y + 8, { width: cols[4].w, align: cols[4].align });
     // Discount
@@ -372,7 +380,7 @@ export const generateInvoicePdf = async (order, stream) => {
     doc.text(`${gstPercent}%`, cols[8].x, y + 8, { width: cols[8].w, align: cols[8].align });
     // GST Amt
     doc.text(gstAmount.toFixed(2), cols[9].x, y + 8, { width: cols[9].w, align: cols[9].align });
-    // Total
+    // Total (ends at 498 + 52 = 550, 5pt gap before right border at 555)
     doc.font("Helvetica-Bold").fillColor("#8B1E3F");
     doc.text(totalAmount.toFixed(2), cols[10].x, y + 8, { width: cols[10].w, align: cols[10].align });
 
@@ -403,10 +411,10 @@ export const generateInvoicePdf = async (order, stream) => {
   doc.fillColor("#8B1E3F").font("Helvetica-Bold").fontSize(8.5).text("Amount in Words:", 45, totalsY);
   doc.fillColor("#1a1a1a").font("Helvetica-Oblique").fontSize(8).text(formatRupeesInWords(grandTotal), 45, totalsY + 12, { width: 250 });
 
-  // Right Side: Totals breakdown
+  // Right Side: Totals breakdown (valX=470, valW=80 -> 470 + 80 = 550)
   const rightX = 330;
-  const valX = 490;
-  const valW = 60;
+  const valX = 470;
+  const valW = 80;
   doc.fillColor("#4b5563").font("Helvetica").fontSize(8);
   
   doc.text("Subtotal (MRP Total):", rightX, totalsY);
@@ -522,4 +530,297 @@ export const generateInvoicePdf = async (order, stream) => {
   doc.restore();
 
   doc.end();
+};
+
+/**
+ * Generates a mobile-responsive HTML invoice string for WebViews or mobile browser display.
+ * 
+ * @param {object} order - Mongoose Order document
+ * @returns {Promise<string>} HTML string
+ */
+export const generateInvoiceHtml = async (order) => {
+  let corporateDetails = {};
+  try {
+    const Admin = mongoose.models && mongoose.models.Admin;
+    if (Admin) {
+      const superAdmin = await Admin.findOne({ role: "super" }).lean();
+      corporateDetails = superAdmin?.corporateDetails || {};
+    }
+  } catch (err) {
+    console.error("Failed to load corporateDetails in generateInvoiceHtml:", err);
+  }
+
+  const corp = corporateDetails || {};
+
+  const fmtDate = (v) => v ? new Date(v).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—";
+  const fmtCurrency = (num) => `₹${Number(num || 0).toFixed(2)}`;
+  const shortId = (id) => String(id).slice(-8).toUpperCase();
+  const buildInvoiceNumber = (order) => {
+    const d = new Date(order.createdAt || Date.now());
+    const ymd = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
+    return `INV-${ymd}-${shortId(order._id)}`;
+  };
+  const invoiceNumber = buildInvoiceNumber(order);
+
+  const headerTitle = !isValEmpty(corp.companyName) ? corp.companyName : "Samagran";
+  const rawLogoUrl = order.invoiceDetails?.logoUrl || corp.logoUrl || "";
+  let logoHtml = `<div class="brand-icon">S</div>`;
+
+  if (!isValEmpty(rawLogoUrl)) {
+    let finalSrc = rawLogoUrl;
+    try {
+      if (rawLogoUrl.includes("/uploads/")) {
+        const relPath = rawLogoUrl.substring(rawLogoUrl.indexOf("/uploads/"));
+        const localPath = path.join(process.cwd(), relPath);
+        if (fs.existsSync(localPath)) {
+          const fileBuf = fs.readFileSync(localPath);
+          const ext = path.extname(localPath).replace(".", "").toLowerCase() || "png";
+          const mime = ext === "svg" ? "image/svg+xml" : `image/${ext === "jpg" ? "jpeg" : ext}`;
+          finalSrc = `data:${mime};base64,${fileBuf.toString("base64")}`;
+        }
+      }
+    } catch (err) {
+      console.error("Failed to convert logo to data URI for HTML invoice:", err.message);
+    }
+    if (finalSrc) {
+      logoHtml = `<img src="${finalSrc}" alt="Logo" class="brand-logo" />`;
+    }
+  }
+
+  // Seller Details
+  const vendor = order.vendorId || {};
+  const sellerName = order.invoiceDetails?.sellerName || vendor.businessName || vendor.name || "Samagran Ventures LLP";
+  const sellerAddress = order.invoiceDetails?.sellerAddress || [
+    vendor.address?.line1,
+    vendor.address?.line2,
+    vendor.address?.city,
+    vendor.address?.state,
+    vendor.address?.pincode
+  ].filter(Boolean).join(", ") || "Godown, Patlipada, Near Ramnath Tabela, Thane (M.Corp)-400607, Maharashtra";
+  
+  const sellerGstin = order.invoiceDetails?.sellerGstin || vendor.kyc?.gst || vendor.gstin || "";
+  const sellerFssai = order.invoiceDetails?.sellerFssai || vendor.kyc?.fssai || vendor.fssai || "";
+  const sellerPan = order.invoiceDetails?.sellerPan || vendor.kyc?.pan || vendor.pan || "";
+  const sellerEmail = order.invoiceDetails?.sellerEmail || vendor.email || "";
+  const sellerPhone = order.invoiceDetails?.sellerPhone || vendor.phone || "";
+
+  // Customer Details
+  const customerName = order.user?.name || order.address?.name || "Customer";
+  const customerAddress = [
+    order.address?.fullAddress,
+    order.address?.city,
+    order.address?.state,
+    order.address?.pincode
+  ].filter(Boolean).join(", ") || "Address not provided";
+  const customerPhone = order.user?.phone || order.address?.phone || "—";
+  const customerEmail = order.user?.email || "—";
+
+  // Items & Calculations
+  const items = order.items || [];
+  let totalTaxableValue = 0;
+  let totalGstAmount = 0;
+  let totalMRP = 0;
+  let totalDiscountVal = 0;
+
+  const tableRowsHtml = items.map((item, idx) => {
+    const p = item.product;
+    const nameStr = p ? (p.title || p.name || p.kitName || item.productType || "Product") : (item.productType || "Product");
+    const skuStr = p?.itemCode || (p?.slug ? `KIT-${p.slug.toUpperCase()}` : `PROD-${String(item._id).slice(-6).toUpperCase()}`);
+    const hsnStr = p?.compliance?.hsnCode || "—";
+    
+    const unitMRP = p?.pricing?.mrp || item.price || 0;
+    const unitPrice = item.price || 0;
+    const unitDiscount = Math.max(0, unitMRP - unitPrice);
+    const qty = item.quantity || 1;
+    const totalAmount = unitPrice * qty;
+    const gstIncluded = p?.pricing?.priceIncludesGst ?? true;
+    const gstPercent = gstIncluded ? (p?.pricing?.gstPercent || 0) : 0;
+    const taxableValue = totalAmount / (1 + gstPercent / 100);
+    const gstAmount = totalAmount - taxableValue;
+
+    totalTaxableValue += taxableValue;
+    totalGstAmount += gstAmount;
+    totalMRP += unitMRP * qty;
+    totalDiscountVal += unitDiscount * qty;
+
+    return `
+      <tr>
+        <td style="text-align:center;">${idx + 1}</td>
+        <td>${skuStr}</td>
+        <td style="font-weight:600; color:#8B1E3F;">${nameStr}</td>
+        <td>${hsnStr}</td>
+        <td style="text-align:right;">${unitMRP.toFixed(2)}</td>
+        <td style="text-align:right;">${unitDiscount.toFixed(2)}</td>
+        <td style="text-align:center;">${qty}</td>
+        <td style="text-align:right;">${taxableValue.toFixed(2)}</td>
+        <td style="text-align:center;">${gstPercent}%</td>
+        <td style="text-align:right;">${gstAmount.toFixed(2)}</td>
+        <td style="text-align:right; font-weight:700; color:#8B1E3F;">${totalAmount.toFixed(2)}</td>
+      </tr>
+    `;
+  }).join("");
+
+  const deliveryFee = Number(order.amountBreakup?.deliveryFee || 0);
+  const couponDiscount = Number(order.amountBreakup?.couponDiscount || 0);
+  const offerDiscount = Number(order.amountBreakup?.offerDiscount || 0);
+  const orderLevelDiscount = couponDiscount + offerDiscount;
+
+  const grandTotal = Number(order.totalAmount || (totalTaxableValue + totalGstAmount + deliveryFee - orderLevelDiscount));
+
+  return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Invoice - ${invoiceNumber}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f4f6f8; color: #1f2937; line-height: 1.5; padding: 12px; }
+    .invoice-card { max-width: 800px; margin: 0 auto; background: #ffffff; border-radius: 12px; box-shadow: 0 4px 16px rgba(0,0,0,0.06); padding: 20px; overflow: hidden; }
+    
+    .header-bar { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f3f4f6; padding-bottom: 16px; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; }
+    .brand-box { display: flex; align-items: center; gap: 8px; }
+    .brand-logo { max-height: 40px; max-width: 100px; object-fit: contain; }
+    .brand-icon { width: 36px; height: 36px; border-radius: 50%; background: #8B1E3F; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 16px; }
+    .company-title { font-size: 15px; font-weight: 700; color: #8B1E3F; }
+    .invoice-title { font-size: 20px; font-weight: 800; color: #2f1618; text-transform: uppercase; letter-spacing: 0.5px; }
+
+    .grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-bottom: 20px; }
+    .info-box { background: #fafafa; border: 1px solid #e5e7eb; border-radius: 8px; padding: 14px; }
+    .info-box h3 { font-size: 12px; text-transform: uppercase; color: #8B1E3F; font-weight: 700; margin-bottom: 6px; letter-spacing: 0.5px; }
+    .info-box p { font-size: 13px; color: #4b5563; margin-bottom: 4px; word-break: break-word; }
+    .info-box .name { font-size: 14px; font-weight: 700; color: #111827; }
+
+    .table-container { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; border: 1px solid #e5e7eb; border-radius: 8px; margin-bottom: 20px; }
+    table { width: 100%; min-width: 680px; border-collapse: collapse; font-size: 12px; }
+    th { background-color: #8B1E3F; color: #ffffff; font-weight: 700; padding: 10px 8px; text-align: left; }
+    td { padding: 10px 8px; border-bottom: 1px solid #f3f4f6; color: #374151; }
+    tr:nth-child(even) { background-color: #fcf8f6; }
+
+    .totals-container { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 20px; margin-bottom: 20px; background: #fafafa; padding: 16px; border-radius: 8px; border: 1px solid #e5e7eb; }
+    .words-section { flex: 1; min-width: 240px; }
+    .words-title { font-size: 12px; font-weight: 700; color: #8B1E3F; text-transform: uppercase; margin-bottom: 4px; }
+    .words-text { font-size: 13px; font-style: italic; color: #1f2937; }
+
+    .breakdown-section { width: 280px; }
+    .row { display: flex; justify-content: space-between; font-size: 13px; color: #4b5563; padding: 3px 0; }
+    .row.grand { border-top: 2px solid #8B1E3F; padding-top: 8px; margin-top: 6px; font-weight: 800; font-size: 16px; color: #2f1618; }
+    .row.grand .val { color: #8B1E3F; }
+
+    .terms-box { border-top: 1px solid #e5e7eb; padding-top: 14px; font-size: 11px; color: #6b7280; line-height: 1.6; }
+    .terms-box h4 { font-size: 12px; color: #2f1618; font-weight: 700; margin-bottom: 4px; }
+
+    .no-print { display: flex; justify-content: center; gap: 12px; margin-top: 20px; }
+    .btn { background: #8B1E3F; color: #ffffff; border: none; padding: 10px 20px; font-size: 14px; font-weight: 600; border-radius: 6px; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
+    .btn-outline { background: transparent; color: #8B1E3F; border: 1px solid #8B1E3F; }
+
+    @media print {
+      body { background: #fff; padding: 0; }
+      .invoice-card { box-shadow: none; border-radius: 0; max-width: 100%; padding: 0; }
+      .no-print { display: none !important; }
+      .table-container { border: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="invoice-card">
+    <div class="header-bar">
+      <div class="brand-box">
+        ${logoHtml}
+        <div class="company-title">${headerTitle}</div>
+      </div>
+      <div class="invoice-title">Tax Invoice</div>
+    </div>
+
+    <div class="grid-2">
+      <div class="info-box">
+        <h3>Sold By / Seller</h3>
+        <p class="name">${sellerName}</p>
+        <p>${sellerAddress}</p>
+        ${sellerGstin ? `<p><strong>GSTIN:</strong> ${sellerGstin}</p>` : ''}
+        ${sellerPan ? `<p><strong>PAN:</strong> ${sellerPan}</p>` : ''}
+        ${sellerEmail ? `<p><strong>Email:</strong> ${sellerEmail}</p>` : ''}
+        ${sellerPhone ? `<p><strong>Contact:</strong> ${sellerPhone}</p>` : ''}
+      </div>
+
+      <div class="info-box">
+        <h3>Invoice Details</h3>
+        <p><strong>Invoice No:</strong> ${invoiceNumber}</p>
+        <p><strong>Order ID:</strong> ${order._id}</p>
+        <p><strong>Invoice Date:</strong> ${fmtDate(order.createdAt)}</p>
+        <p><strong>Payment Method:</strong> ${order.paymentMethod || 'COD'}</p>
+        <p><strong>Payment Status:</strong> <span style="color:${order.paymentStatus === 'Paid' ? '#16a34a' : '#d97706'}; font-weight:700;">${order.paymentStatus || 'Pending'}</span></p>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div class="info-box">
+        <h3>Invoice To</h3>
+        <p class="name">${customerName}</p>
+        <p>${customerAddress}</p>
+        <p><strong>Phone:</strong> ${customerPhone} | <strong>Email:</strong> ${customerEmail}</p>
+      </div>
+
+      <div class="info-box">
+        <h3>Marketplace Info</h3>
+        <p><strong>Platform:</strong> Samagran Marketplace</p>
+        <p><strong>Place of Supply:</strong> ${order.address?.state || 'Maharashtra'}</p>
+        <p><strong>Reverse Charge:</strong> No</p>
+      </div>
+    </div>
+
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th style="text-align:center;">Sr.</th>
+            <th>SKU/UPC</th>
+            <th>Item Description</th>
+            <th>HSN/SAC</th>
+            <th style="text-align:right;">MRP</th>
+            <th style="text-align:right;">Discount</th>
+            <th style="text-align:center;">Qty</th>
+            <th style="text-align:right;">Taxable</th>
+            <th style="text-align:center;">GST %</th>
+            <th style="text-align:right;">GST Amt</th>
+            <th style="text-align:right;">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${tableRowsHtml}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="totals-container">
+      <div class="words-section">
+        <div class="words-title">Amount in Words</div>
+        <div class="words-text">${formatRupeesInWords(grandTotal)}</div>
+      </div>
+      <div class="breakdown-section">
+        <div class="row"><span>Subtotal (MRP Total):</span><span>${fmtCurrency(totalMRP)}</span></div>
+        <div class="row"><span>Product Discount:</span><span>-${fmtCurrency(totalDiscountVal)}</span></div>
+        ${orderLevelDiscount > 0 ? `<div class="row"><span>Coupon/Offer Discount:</span><span>-${fmtCurrency(orderLevelDiscount)}</span></div>` : ''}
+        <div class="row"><span>Total Taxable Value:</span><span>${fmtCurrency(totalTaxableValue)}</span></div>
+        <div class="row"><span>Total GST Amount:</span><span>${fmtCurrency(totalGstAmount)}</span></div>
+        <div class="row"><span>Delivery Charges:</span><span>${fmtCurrency(deliveryFee)}</span></div>
+        <div class="row grand"><span>Grand Total:</span><span class="val">${fmtCurrency(grandTotal)}</span></div>
+      </div>
+    </div>
+
+    <div class="terms-box">
+      <h4>Terms & Conditions:</h4>
+      <p>• All products sold on Samagran are offered by Lal Bhandar under the brand name "Samagran" and fulfilled through authorised partners.</p>
+      <p>• Applicable taxes (including GST) are reflected on this invoice.</p>
+      <p>• Any product-related issue must be reported within 24 hours of delivery.</p>
+    </div>
+
+    <div class="no-print">
+      <button onclick="window.print()" class="btn">Print / Save PDF</button>
+    </div>
+  </div>
+</body>
+</html>
+  `;
 };

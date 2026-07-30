@@ -3,11 +3,11 @@ import API from "../api/axios";
 /**
  * Get dynamic API origin from environment variable or axios baseURL.
  * In production: reads process.env.REACT_APP_API_URL / REACT_APP_BASE_URL or API.defaults.baseURL
- * Fallback: "http://localhost:5000"
+ * Fallback: "http://localhost:8000"
  */
 export const getApiOrigin = () => {
   const envUrl = process.env.REACT_APP_API_URL || process.env.REACT_APP_BASE_URL || "";
-  const baseURL = envUrl || API.defaults.baseURL || "http://localhost:5000/api";
+  const baseURL = envUrl || API.defaults.baseURL || "http://localhost:8000/api";
   return String(baseURL).replace(/\/api\/?$/, "").replace(/\/+$/, "");
 };
 

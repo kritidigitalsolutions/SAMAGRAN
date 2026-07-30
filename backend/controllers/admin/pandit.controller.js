@@ -305,7 +305,13 @@ export const updatePanditByAdmin = async (req, res) => {
       pandit.status = String(status || "").trim();
     }
 
-    if (isVerified !== undefined) pandit.isVerified = Boolean(isVerified);
+    const previousVerified = pandit.isVerified;
+    if (isVerified !== undefined) {
+      pandit.isVerified = Boolean(isVerified);
+      if (!previousVerified && pandit.isVerified && pandit.status === "pending") {
+        pandit.status = "active";
+      }
+    }
     if (isPhoneVerified !== undefined) pandit.isPhoneVerified = Boolean(isPhoneVerified);
     if (isProfileComplete !== undefined) pandit.isProfileComplete = Boolean(isProfileComplete);
 
@@ -333,6 +339,18 @@ export const updatePanditByAdmin = async (req, res) => {
     }
 
     await pandit.save();
+
+    if (isVerified !== undefined && !previousVerified && pandit.isVerified) {
+      void notifyPanditById({
+        panditId: pandit._id,
+        title: "Account Verified 🌟",
+        body: "Your pandit profile has been verified by the admin! You can now receive booking requests.",
+        data: {
+          eventType: "pandit.verified",
+          isVerified: "true",
+        },
+      }).catch((err) => console.error("Pandit verification notification error:", err.message));
+    }
 
     return res.json({
       success: true,

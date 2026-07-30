@@ -1,4 +1,3 @@
-// routes/admin.routes.js
 import express from "express";
 import {
 	adminLogin,
@@ -7,10 +6,13 @@ import {
 	updateAdminFcmToken,
 	updateVendorFcmToken,
 } from "../../controllers/auth/admin.auth.controller.js";
+import { checkTokenStatus } from "../../controllers/auth.controller.js";
 import { protectAdmin } from "../../middleware/admin.middleware.js";
 
 const router = express.Router();
 
+// router.get("/check-token", checkTokenStatus);
+router.get("/verify-token", checkTokenStatus);
 router.post("/login", adminLogin);
 router.post("/forgot-password", requestAdminPasswordReset);
 router.post("/reset-password", resetAdminPassword);

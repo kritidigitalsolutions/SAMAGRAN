@@ -5,11 +5,14 @@ import {
   verifyOtp,
   resendOtp,
   updateUserFcmToken,
+  checkTokenStatus,
 } from "../../controllers/auth.controller.js";
 import protect, { protectUserOrPandit } from "../../middleware/auth.middleware.js";
 
 const router = express.Router();
 import { upload } from "../../middleware/upload.js";
+
+router.get("/verify-token", checkTokenStatus);
 
 router.post("/signup", upload.single("profileImage"), signup);
 

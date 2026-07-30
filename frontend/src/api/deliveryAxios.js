@@ -5,7 +5,7 @@ import {
   isDeliveryTokenValid,
 } from "../utils/deliveryAuth";
 
-const baseURL = process.env.REACT_APP_API_URL || "http://localhost:5000/api";
+const baseURL = process.env.REACT_APP_API_URL || "http://localhost:8000/api";
 
 const DeliveryAPI = axios.create({
   baseURL,

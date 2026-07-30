@@ -5,6 +5,15 @@ import { getAdminRole, setStoredAdmin } from "../utils/auth";
 import { toast } from "react-toastify";
 import { FiEye, FiEyeOff, FiUpload, FiImage } from "react-icons/fi";
 
+const getImageUrl = (url) => {
+  if (!url) return "";
+  if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("data:") || url.startsWith("blob:")) {
+    return url;
+  }
+  const backendBase = (process.env.REACT_APP_API_URL || "http://localhost:8000/api").replace(/\/api\/?$/, "");
+  return `${backendBase}${url.startsWith("/") ? "" : "/"}${url}`;
+};
+
 const defaultCorporateDetails = {
   companyName: "",
   logoUrl: "",
@@ -440,7 +449,7 @@ export default function SuperAdminSettings() {
                       <div className="flex items-center gap-4 p-3 rounded-2xl border border-[var(--admin-border)] bg-[var(--admin-surface-soft)]">
                         <div className="h-14 w-14 rounded-xl border border-[var(--admin-border)] bg-white flex items-center justify-center overflow-hidden shrink-0 shadow-sm">
                           {logoPreview ? (
-                            <img src={logoPreview} alt="Logo" className="h-full w-full object-contain p-1" />
+                            <img src={getImageUrl(logoPreview)} alt="Logo" className="h-full w-full object-contain p-1" />
                           ) : (
                             <FiImage className="h-6 w-6 text-gray-400" />
                           )}
@@ -449,7 +458,7 @@ export default function SuperAdminSettings() {
                           <input
                             type="file"
                             id="logoUpload"
-                            accept="image/*"
+                            accept="image/*,.png,.jpg,.jpeg,.webp,.svg,.gif,.bmp,.avif"
                             onChange={handleLogoChange}
                             className="hidden"
                           />

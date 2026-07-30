@@ -11,6 +11,15 @@ const isValEmpty = (val) => {
   return clean === "" || clean === "—" || clean === "-" || clean === "null" || clean === "undefined";
 };
 
+const getImageUrl = (url) => {
+  if (!url) return "";
+  if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("data:") || url.startsWith("blob:")) {
+    return url;
+  }
+  const backendBase = (process.env.REACT_APP_API_URL || "http://localhost:8000/api").replace(/\/api\/?$/, "");
+  return `${backendBase}${url.startsWith("/") ? "" : "/"}${url}`;
+};
+
 const fmt = (v) =>
   Number(v || 0).toLocaleString("en-IN", {
     style: "currency",
@@ -356,7 +365,7 @@ function InvoicePreview({ order, onClose, onUpdated }) {
         : "";
 
     const logoHtml = invoiceData.logoUrl
-      ? `<img src="${invoiceData.logoUrl}" alt="Logo" style="height:44px;max-width:160px;object-fit:contain;" />`
+      ? `<img src="${getImageUrl(invoiceData.logoUrl)}" alt="Logo" style="height:44px;max-width:160px;object-fit:contain;" />`
       : `<div style="width:40px;height:40px;border-radius:50%;background-color:#8B1E3F;display:flex;align-items:center;justify-content:center;color:#fff;font-size:18px;font-weight:bold;box-shadow:0 2px 4px rgba(0,0,0,0.1);">S</div>`;
 
     const corpTaxParts = [];
@@ -408,8 +417,7 @@ function InvoicePreview({ order, onClose, onUpdated }) {
     <div style="display:flex;align-items:center;gap:12px;">
       ${logoHtml}
       <div>
-        <span style="font-size:20px;font-weight:800;color:#8B1E3F;letter-spacing:-0.5px;">Samagran</span>
-        <p style="font-size:10px;color:#6b7280;font-weight:500;margin-top:1px;">Marketplace Portal</p>
+        <span style="font-size:20px;font-weight:800;color:#8B1E3F;letter-spacing:-0.5px;">${invoiceData.companyName || "Samagran"}</span>
       </div>
     </div>
     <div style="text-align:right;">

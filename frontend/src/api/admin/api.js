@@ -1,7 +1,7 @@
 import axios from "axios";
 import { getAdminToken } from "../../utils/auth";
 
-const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000/api";
+const API_URL = process.env.REACT_APP_API_URL || "http://localhost:8000/api";
 
 export const adminApi = axios.create({
   baseURL: `${API_URL}/admin`,

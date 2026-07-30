@@ -1,3 +1,4 @@
+import jwt from "jsonwebtoken";
 import User from "../models/user.model.js";
 import Pandit from "../models/pandit.model.js";
 import generateToken from "../utils/generateToken.js";
@@ -666,6 +667,84 @@ export const updateUserFcmToken = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: error.message || "Unable to update FCM token",
+    });
+  }
+};
+
+export const checkTokenStatus = async (req, res) => {
+  try {
+    let token = null;
+
+    if (req.headers.authorization) {
+      if (req.headers.authorization.startsWith("Bearer ")) {
+        token = req.headers.authorization.split(" ")[1];
+      } else {
+        token = req.headers.authorization.trim();
+      }
+    } else if (req.query.token) {
+      token = String(req.query.token).trim();
+    } else if (req.headers["x-access-token"]) {
+      token = String(req.headers["x-access-token"]).trim();
+    } else if (req.headers["x-auth-token"]) {
+      token = String(req.headers["x-auth-token"]).trim();
+    }
+
+    if (!token) {
+      return res.status(200).json({
+        success: true,
+        valid: false,
+        expired: false,
+        message: "Token is missing",
+        data: null,
+      });
+    }
+
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+      const nowInSeconds = Math.floor(Date.now() / 1000);
+      const isExpired = decoded.exp ? decoded.exp < nowInSeconds : false;
+
+      return res.status(200).json({
+        success: true,
+        valid: !isExpired,
+        expired: isExpired,
+        message: isExpired ? "Token has expired" : "Token is valid",
+        data: {
+          id: decoded.id || decoded._id || decoded.userId || decoded.panditId || null,
+          role: decoded.role || "user",
+          isAdmin: Boolean(decoded.isAdmin),
+          issuedAt: decoded.iat ? new Date(decoded.iat * 1000).toISOString() : null,
+          expiresAt: decoded.exp ? new Date(decoded.exp * 1000).toISOString() : null,
+        },
+      });
+    } catch (jwtErr) {
+      if (jwtErr.name === "TokenExpiredError") {
+        return res.status(200).json({
+          success: true,
+          valid: false,
+          expired: true,
+          message: "Token has expired",
+          expiredAt: jwtErr.expiredAt ? new Date(jwtErr.expiredAt).toISOString() : null,
+          data: null,
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        valid: false,
+        expired: false,
+        message: jwtErr.message || "Invalid token",
+        data: null,
+      });
+    }
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      valid: false,
+      expired: false,
+      message: error.message || "Server error while checking token status",
+      data: null,
     });
   }
 };

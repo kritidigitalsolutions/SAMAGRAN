@@ -19,6 +19,7 @@ const allowedOrigins = [
   process.env.FRONTEND_URL,
   process.env.ADMIN_FRONTEND_URL,
   process.env.CORS_ORIGINS,
+  "http://localhost:3001",
   "https://samagran-admin.vercel.app",
   "https://samangrah-website.vercel.app",
 ].flatMap((value) => parseOriginList(value));

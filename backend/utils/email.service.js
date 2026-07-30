@@ -14,6 +14,45 @@ const createTransporter = () => {
   });
 };
 
+const ensureEmailConfigured = () => {
+  const user = process.env.EMAIL_USER;
+  const pass = process.env.EMAIL_PASS;
+
+  if (!user || !pass) {
+    throw new Error("Email not configured: EMAIL_USER and EMAIL_PASS must be set in .env");
+  }
+
+  if (pass.includes("@")) {
+    throw new Error("EMAIL_PASS must be a Gmail App Password, not an email address");
+  }
+
+  return { user, pass };
+};
+
+const escapeHtml = (value = "") =>
+  String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
+const formatCurrency = (value = 0) => `Rs. ${Number(value || 0).toFixed(2)}`;
+
+const getOrderDisplayId = (order = {}) =>
+  String(order._id || order.id || "").slice(-6).toUpperCase();
+
+const getProductName = (item = {}) => {
+  const product = item.product || {};
+  return (
+    product.title ||
+    product.name ||
+    product.itemCode ||
+    product.slug ||
+    "Product"
+  );
+};
+
 /**
  * Send OTP email to admin
  * @param {string} to        - recipient email
@@ -23,19 +62,7 @@ const createTransporter = () => {
  */
 export const sendAdminOtpEmail = async (to, otp, purpose, adminName = "Admin") => {
   // Guard: ensure email credentials are properly configured
-  const user = process.env.EMAIL_USER;
-  const pass = process.env.EMAIL_PASS;
-
-  if (!user || !pass) {
-    throw new Error("Email not configured: EMAIL_USER and EMAIL_PASS must be set in .env");
-  }
-  // Detect common mistake: EMAIL_PASS set to an email address instead of App Password
-  if (pass.includes("@")) {
-    throw new Error(
-      "EMAIL_PASS looks like an email address. It must be a Gmail App Password (16-char code). " +
-      "Go to: Google Account → Security → 2-Step Verification → App Passwords"
-    );
-  }
+  ensureEmailConfigured();
 
   const transporter = createTransporter();
 
@@ -110,6 +137,149 @@ export const sendAdminOtpEmail = async (to, otp, purpose, adminName = "Admin") =
   });
 
   console.log(`📧 OTP email sent to ${to} for ${purpose}`);
+};
+
+
+/**
+ * Send new order email to the registered vendor email address.
+ * The caller should pass the order after product population.
+ */
+export const sendVendorOrderEmail = async ({ vendor, order }) => {
+  ensureEmailConfigured();
+
+  const vendorEmail = String(vendor?.email || "").trim().toLowerCase();
+  if (!vendorEmail) {
+    throw new Error("Vendor email not found");
+  }
+
+  const vendorName =
+    vendor?.businessName || vendor?.name || vendor?.contactPerson || "Vendor";
+  const orderId = getOrderDisplayId(order);
+  const address = order?.address || {};
+  const items = Array.isArray(order?.items) ? order.items : [];
+  const vendorId = vendor?._id ? String(vendor._id) : "";
+  const visibleItems = items.filter((item) => {
+    const productVendorId = item?.product?.vendorId
+      ? String(item.product.vendorId)
+      : "";
+    const orderVendorId = order?.vendorId ? String(order.vendorId) : "";
+
+    if (productVendorId && vendorId) {
+      return productVendorId === vendorId;
+    }
+
+    return vendorId && orderVendorId === vendorId;
+  });
+
+  if (!visibleItems.length) {
+    throw new Error("No vendor items found for order email");
+  }
+
+  const itemRows = visibleItems
+    .map((item, index) => {
+      const quantity = Number(item.quantity || 1);
+      const price = Number(item.price || 0);
+      const lineTotal = quantity * price;
+      return `
+        <tr>
+          <td style="padding:10px;border-bottom:1px solid #e5e7eb;">${index + 1}</td>
+          <td style="padding:10px;border-bottom:1px solid #e5e7eb;">${escapeHtml(getProductName(item))}</td>
+          <td style="padding:10px;border-bottom:1px solid #e5e7eb;text-align:center;">${quantity}</td>
+          <td style="padding:10px;border-bottom:1px solid #e5e7eb;text-align:right;">${formatCurrency(price)}</td>
+          <td style="padding:10px;border-bottom:1px solid #e5e7eb;text-align:right;">${formatCurrency(lineTotal)}</td>
+        </tr>
+      `;
+    })
+    .join("");
+
+  const textItems = visibleItems
+    .map((item, index) => {
+      const quantity = Number(item.quantity || 1);
+      const price = Number(item.price || 0);
+      return `${index + 1}. ${getProductName(item)} - Qty: ${quantity}, Price: ${formatCurrency(price)}, Total: ${formatCurrency(quantity * price)}`;
+    })
+    .join("\n");
+
+  const customerAddress = [
+    address.name,
+    address.phone,
+    address.fullAddress,
+    address.city,
+    address.state,
+    address.pincode,
+  ]
+    .filter(Boolean)
+    .join(", ");
+
+  const text = `Hi ${vendorName},
+
+A new order has been placed for your product(s).
+
+Order ID: #${orderId}
+Payment Method: ${order?.paymentMethod || "N/A"}
+Payment Status: ${order?.paymentStatus || "N/A"}
+Order Status: ${order?.orderStatus || "Placed"}
+
+Items:
+${textItems}
+
+Delivery Address:
+${customerAddress || "N/A"}
+
+Please process this order from your Samagran vendor panel.`;
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8" />
+      <title>New Vendor Order</title>
+    </head>
+    <body style="margin:0;padding:0;background:#f5f5f5;font-family:Arial,sans-serif;color:#1f2937;">
+      <table width="100%" cellpadding="0" cellspacing="0" style="padding:32px 0;">
+        <tr>
+          <td align="center">
+            <table width="640" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:10px;overflow:hidden;border:1px solid #e5e7eb;">
+              <tr>
+                <td style="background:#8B1E3F;padding:24px 32px;color:#ffffff;">
+                  <h1 style="margin:0;font-size:22px;">New Order Received</h1>
+                  <p style="margin:8px 0 0;font-size:14px;">Order #${escapeHtml(orderId)}</p>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding:28px 32px;">
+                  <p style="margin:0 0 18px;">Hi <strong>${escapeHtml(vendorName)}</strong>,</p>
+                  <p style="margin:0 0 22px;">A new order has been placed for your product(s).</p>
+                  <table width="100%" cellpadding="8" cellspacing="0" style="border-collapse:collapse;margin-bottom:22px;background:#fafafa;border:1px solid #e5e7eb;">
+                    <tr><td style="font-weight:bold;">Payment Method</td><td>${escapeHtml(order?.paymentMethod || "N/A")}</td><td style="font-weight:bold;">Payment Status</td><td>${escapeHtml(order?.paymentStatus || "N/A")}</td></tr>
+                    <tr><td style="font-weight:bold;">Order Status</td><td>${escapeHtml(order?.orderStatus || "Placed")}</td><td style="font-weight:bold;">Order Total</td><td>${formatCurrency(order?.totalAmount || 0)}</td></tr>
+                  </table>
+                  <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border:1px solid #e5e7eb;font-size:14px;">
+                    <thead><tr style="background:#f9fafb;"><th align="left" style="padding:10px;border-bottom:1px solid #e5e7eb;">#</th><th align="left" style="padding:10px;border-bottom:1px solid #e5e7eb;">Product</th><th align="center" style="padding:10px;border-bottom:1px solid #e5e7eb;">Qty</th><th align="right" style="padding:10px;border-bottom:1px solid #e5e7eb;">Price</th><th align="right" style="padding:10px;border-bottom:1px solid #e5e7eb;">Total</th></tr></thead>
+                    <tbody>${itemRows}</tbody>
+                  </table>
+                  <h2 style="font-size:16px;margin:24px 0 8px;">Delivery Address</h2>
+                  <p style="margin:0;line-height:1.5;">${escapeHtml(customerAddress || "N/A")}</p>
+                </td>
+              </tr>
+              <tr><td style="background:#f9fafb;padding:16px 32px;text-align:center;border-top:1px solid #e5e7eb;"><p style="margin:0;color:#6b7280;font-size:12px;">Samagran Vendor Order Notification</p></td></tr>
+            </table>
+          </td>
+        </tr>
+      </table>
+    </body>
+    </html>
+  `;
+
+  await createTransporter().sendMail({
+    from: `"Samagran Orders" <${process.env.EMAIL_USER}>`,
+    to: vendorEmail,
+    subject: `New Samagran Order #${orderId}`,
+    text,
+    html,
+  });
+
+  console.log(`Vendor order email sent to ${vendorEmail} for order ${orderId}`);
 };
 
 /**

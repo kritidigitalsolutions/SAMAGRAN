@@ -7,11 +7,13 @@ import {
   updatePanditFcmToken,
   verifyPanditOtp,
 } from "../../controllers/pandit/pandit.auth.controller.js";
+import { checkTokenStatus } from "../../controllers/auth.controller.js";
 import { protectPandit } from "../../middleware/pandit.middleware.js";
 import { upload } from "../../middleware/upload.js";
 
 const router = express.Router();
 
+router.get("/verify-token", checkTokenStatus);
 router.post("/send-otp", requestPanditOtp);
 router.post("/verify-otp", verifyPanditOtp);
 router.patch("/fcm-token", protectPandit, updatePanditFcmToken);
