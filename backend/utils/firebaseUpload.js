@@ -1,85 +1,48 @@
 import { randomUUID } from "crypto";
 import { unlink } from "fs/promises";
-import fs from "fs";
 import path from "path";
 import { firebaseBucket, isFirebaseReady } from "../config/firebase.js";
 
+const DEFAULT_BUCKET_NAME = process.env.FIREBASE_STORAGE_BUCKET || "samagran-80a19.firebasestorage.app";
+
 const buildPublicUrl = (bucketName, destination) => {
+  const targetBucket = bucketName || DEFAULT_BUCKET_NAME;
   const encodedPath = destination
     .split("/")
     .map((segment) => encodeURIComponent(segment))
     .join("/");
 
-  return `https://storage.googleapis.com/${bucketName}/${encodedPath}`;
+  return `https://storage.googleapis.com/${targetBucket}/${encodedPath}`;
 };
 
-const saveBufferLocally = (file, folder = "uploads") => {
-  try {
-    const safeFolder = String(folder || "uploads").replace(/^\/+|\/+$/g, "");
-    const uploadDir = path.join(process.cwd(), "uploads", safeFolder);
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-    const ext = path.extname(file.originalname || file.path || "") || ".png";
-    const filename = `${Date.now()}-${randomUUID()}${ext}`;
-    const filePath = path.join(uploadDir, filename);
-    fs.writeFileSync(filePath, file.buffer);
-    const backendHost = process.env.BACKEND_URL || "http://localhost:8000";
-    const relativeUrl = `${backendHost.replace(/\/+$/, "")}/uploads/${safeFolder}/${filename}`;
-    console.log("📁 Saved file buffer to local disk fallback:", relativeUrl);
-    return relativeUrl;
-  } catch (err) {
-    console.error("❌ Failed to save buffer locally:", err.message);
-    if (file.buffer && file.mimetype) {
-      return `data:${file.mimetype};base64,${file.buffer.toString("base64")}`;
-    }
-    return "";
-  }
-};
-
+/**
+ * Uploads a file directly to Firebase Storage bucket.
+ * NO local disk uploads or local file persistence are allowed.
+ */
 export const uploadFileToFirebase = async (file, { folder = "uploads" } = {}) => {
   if (!file) {
-    console.warn("⚠️  uploadFileToFirebase: No file provided");
+    console.warn("⚠️ uploadFileToFirebase: No file provided");
     return "";
   }
 
   const safeFolder = String(folder || "uploads").replace(/^\/+|\/+$/g, "");
-
-  console.log("📤 uploadFileToFirebase called with:", {
-    hasBuffer: !!file.buffer,
-    hasPath: !!file.path,
-    filename: file.originalname,
-    size: file.size,
-    mimetype: file.mimetype,
-  });
-
-  if (!isFirebaseReady || !firebaseBucket) {
-    console.warn("⚠️  Firebase not ready/configured:", {
-      isFirebaseReady,
-      hasBucket: !!firebaseBucket,
-    });
-    if (file.buffer) {
-      return saveBufferLocally(file, safeFolder);
-    }
-    if (file?.path) {
-      const fileName = path.basename(file.path);
-      const fallbackPath = `/uploads/${fileName}`;
-      console.log("📁 Using FALLBACK local path:", fallbackPath);
-      return fallbackPath;
-    }
-    console.warn("⚠️  No file buffer or path available, returning empty string");
-    return "";
-  }
-
   const extension = path.extname(file.originalname || file.path || "") || "";
   const destination = `${safeFolder}/${Date.now()}-${randomUUID()}${extension}`;
-  
-  console.log("📤 Firebase upload started:", {
+
+  console.log("📤 Firebase upload starting for:", {
     folder: safeFolder,
     destination,
     mimetype: file.mimetype,
     size: file?.buffer?.length || file?.size,
   });
+
+  const bucketName = firebaseBucket?.name || DEFAULT_BUCKET_NAME;
+
+  if (!isFirebaseReady || !firebaseBucket) {
+    console.error("❌ Firebase Storage is not configured or ready! Cannot upload file.");
+    // Strictly no local fallback saving allowed
+    return "";
+  }
 
   const uploadOptions = {
     destination,
@@ -89,34 +52,29 @@ export const uploadFileToFirebase = async (file, { folder = "uploads" } = {}) =>
     },
   };
 
-  if (file.buffer) {
-    console.log("📤 Uploading from buffer...");
-    try {
+  try {
+    if (file.buffer) {
+      console.log("📤 Uploading buffer directly to Firebase Storage bucket...");
       const cloudFile = firebaseBucket.file(destination);
       await cloudFile.save(file.buffer, uploadOptions);
       try {
         await cloudFile.makePublic();
       } catch (aclErr) {
-        console.warn("⚠️  Could not set ACL makePublic:", aclErr.message);
+        console.warn("⚠️ Could not set ACL makePublic:", aclErr.message);
       }
-      const publicUrl = buildPublicUrl(firebaseBucket.name, destination);
-      console.log("✅ Firebase upload successful:", publicUrl.substring(0, 100));
+      const publicUrl = buildPublicUrl(bucketName, destination);
+      console.log("✅ Firebase upload successful:", publicUrl);
       return publicUrl;
-    } catch (bufferUploadError) {
-      console.error("❌ Firebase buffer upload failed, switching to local disk fallback:", bufferUploadError.message);
-      return saveBufferLocally(file, safeFolder);
     }
-  }
 
-  if (file.path) {
-    console.log("📤 Uploading from file path...");
-    try {
+    if (file.path) {
+      console.log("📤 Uploading file path directly to Firebase Storage bucket...");
       await firebaseBucket.upload(file.path, uploadOptions);
       const cloudFile = firebaseBucket.file(destination);
       try {
         await cloudFile.makePublic();
       } catch (aclErr) {
-        console.warn("⚠️  Could not set ACL makePublic:", aclErr.message);
+        console.warn("⚠️ Could not set ACL makePublic:", aclErr.message);
       }
 
       try {
@@ -125,16 +83,21 @@ export const uploadFileToFirebase = async (file, { folder = "uploads" } = {}) =>
         // ignore temp file cleanup errors
       }
 
-      const publicUrl = buildPublicUrl(firebaseBucket.name, destination);
-      console.log("✅ Firebase upload successful:", publicUrl.substring(0, 100));
+      const publicUrl = buildPublicUrl(bucketName, destination);
+      console.log("✅ Firebase upload successful:", publicUrl);
       return publicUrl;
-    } catch (pathUploadError) {
-      console.error("❌ Firebase file path upload failed, returning fallback path:", pathUploadError.message);
-      const fileName = path.basename(file.path);
-      return `/uploads/${fileName}`;
     }
-  }
 
-  console.error("❌ Invalid file payload: no buffer or path");
-  return "";
+    console.error("❌ Invalid file payload: no buffer or path");
+    return "";
+  } catch (error) {
+    if (error.message && error.message.includes("invalid_grant")) {
+      console.error("❌ Firebase upload failed due to invalid/revoked service account key in backend/.env!");
+      console.error("👉 Please generate a fresh Service Account Private Key from Firebase Console (Project Settings -> Service Accounts) and update FIREBASE_PRIVATE_KEY and FIREBASE_PRIVATE_KEY_ID in backend/.env.");
+    } else {
+      console.error("❌ Firebase upload failed:", error.message);
+    }
+    // Strictly no local fallback saving allowed
+    return "";
+  }
 };

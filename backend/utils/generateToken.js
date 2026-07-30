@@ -5,7 +5,7 @@ const generateToken = (userId, isAdmin = false, extraPayload = {}) => {
     { id: userId, isAdmin, ...extraPayload },
     process.env.JWT_SECRET,
     {
-      expiresIn: process.env.JWT_EXPIRE || "1m",
+      expiresIn: process.env.JWT_EXPIRE || "30d",
     }
   );
 };

@@ -64,7 +64,7 @@ export default function Pandits() {
   const [availableCities, setAvailableCities] = useState([]);
   const [pincodeFilter, setPincodeFilter] = useState("");
   const [availablePincodes, setAvailablePincodes] = useState([]);
-  const [activeTab, setActiveTab] = useState("all");
+  // const [activeTab, setActiveTab] = useState("all");
   const [selectedPandit, setSelectedPandit] = useState(null);
   const [panditBookings, setPanditBookings] = useState([]);
   const [bookingsModalPandit, setBookingsModalPandit] = useState(null);
@@ -125,9 +125,9 @@ export default function Pandits() {
     return () => clearTimeout(timer);
   }, [fetchPandits, searchTerm, statusFilter, cityFilter, pincodeFilter]);
 
-  useEffect(() => {
-    setActiveTab(statusFilter === "pending" ? "requests" : "all");
-  }, [statusFilter]);
+  // useEffect(() => {
+  //   setActiveTab(statusFilter === "pending" ? "requests" : "all");
+  // }, [statusFilter]);
 
   useEffect(() => {
     const handleClick = (event) => {
@@ -189,10 +189,10 @@ export default function Pandits() {
     setSuccess("");
   };
 
-  const handleTabChange = (tabKey) => {
-    setActiveTab(tabKey);
-    setStatusFilter(tabKey === "requests" ? "pending" : "all");
-  };
+  // const handleTabChange = (tabKey) => {
+  //   setActiveTab(tabKey);
+  //   setStatusFilter(tabKey === "requests" ? "pending" : "all");
+  // };
 
   const openEdit = (pandit) => {
     setForm({
@@ -485,10 +485,10 @@ export default function Pandits() {
             <span className="rounded-full bg-red-100 px-3 py-1 font-semibold text-red-700 dark:bg-red-500/20 dark:text-red-200">Blocked {summary.blocked}</span>
           </div>
           <div className="flex items-center gap-3">
-            <div className="inline-flex rounded-xl border border-[#d8c4a5] bg-white/70 p-1 text-sm dark:border-white/10 dark:bg-white/5">
+            {/* <div className="inline-flex rounded-xl border border-[#d8c4a5] bg-white/70 p-1 text-sm dark:border-white/10 dark:bg-white/5">
               {[
-                { key: "all", label: "All" },
-                { key: "requests", label: "Requests" },
+                // { key: "all", label: "All" },
+                // { key: "requests", label: "Requests" },
               ].map((tab) => (
                 <button
                   key={tab.key}
@@ -502,7 +502,7 @@ export default function Pandits() {
                   {tab.label}
                 </button>
               ))}
-            </div>
+            </div> */}
             <button
               type="button"
               onClick={openCreate}

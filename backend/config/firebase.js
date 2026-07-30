@@ -11,13 +11,26 @@ const hasFirebaseCredentials =
 
 const hasFirebaseStorageBucket = Boolean(process.env.FIREBASE_STORAGE_BUCKET);
 
+const formatPrivateKey = (rawKey) => {
+  if (!rawKey) return "";
+  let key = String(rawKey).trim();
+  if ((key.startsWith('"') && key.endsWith('"')) || (key.startsWith("'") && key.endsWith("'"))) {
+    key = key.slice(1, -1).trim();
+  }
+  key = key.replace(/\\n/g, "\n");
+  key = key.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  key = key.replace(/\n+/g, "\n").trim();
+  return key;
+};
+
 if (hasFirebaseCredentials) {
   try {
+    const formattedPrivateKey = formatPrivateKey(process.env.FIREBASE_PRIVATE_KEY);
     const serviceAccount = {
       type: "service_account",
       project_id: process.env.FIREBASE_PROJECT_ID,
       private_key_id: process.env.FIREBASE_PRIVATE_KEY_ID,
-      private_key: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n"),
+      private_key: formattedPrivateKey,
       client_email: process.env.FIREBASE_CLIENT_EMAIL,
       client_id: process.env.FIREBASE_CLIENT_ID,
       auth_uri: "https://accounts.google.com/o/oauth2/auth",
