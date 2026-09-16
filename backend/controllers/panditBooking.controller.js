@@ -1639,6 +1639,10 @@ const normalizeSamagriType = (value = "") => {
     return "customize";
   }
 
+  if (["none", "no", "no_samagri", "without_samagri"].includes(normalized)) {
+    return "none";
+  }
+
   return "";
 };
 
@@ -1797,7 +1801,7 @@ export const approvePanditBooking = async (req, res) => {
     if (!resolvedSamagriType) {
       return res.status(400).json({
         success: false,
-        message: "samagriType is required and must be standard or customize",
+        message: "samagriType is required and must be standard, customize, or none",
       });
     }
 
