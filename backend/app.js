@@ -19,9 +19,9 @@ const allowedOrigins = [
   process.env.FRONTEND_URL,
   process.env.ADMIN_FRONTEND_URL,
   process.env.CORS_ORIGINS,
-  "http://localhost:3001",
-  "https://samagran-admin.vercel.app",
-  "https://samangrah-website.vercel.app",
+  "http://localhost:3000",
+  "https://admin.samagran.com/",
+  // "https://samangrah-website.vercel.app",
 ].flatMap((value) => parseOriginList(value));
 
 const isOriginAllowed = (origin) => {
@@ -259,6 +259,7 @@ app.use("/api/vendor/delivery-charge", deliveryPricingRoute);
 
 app.use("/api/auth", authRoutes);
 app.use("/api/pandit/auth", panditAuthRoutes);
+app.use("/api/pandit", panditAuthRoutes);
 app.use("/api/pandit/availability", panditAvailabilityRoutes);
 app.use("/api/pandit/wallet", panditWalletRoutes);
 app.use("/api/pandit/notifications", panditNotificationRoutes);

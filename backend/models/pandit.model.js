@@ -261,6 +261,33 @@ const panditSchema = new mongoose.Schema(
       // enum: ["pending", "active", "blocked"],
       default: "pending",
     },
+
+    isBlocked: {
+      type: Boolean,
+      default: false,
+    },
+
+    isDeleted: {
+      type: Boolean,
+      default: false,
+    },
+
+    deletedAt: {
+      type: Date,
+      default: null,
+    },
+
+    deleteReason: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+
+    deleteReasonNotes: {
+      type: String,
+      trim: true,
+      default: "",
+    },
   },
   { timestamps: true }
 );

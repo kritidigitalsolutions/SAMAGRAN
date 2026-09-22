@@ -34,6 +34,13 @@ export const protectPandit = async (req, res, next) => {
       });
     }
 
+    if (pandit.status === "blocked" || ((pandit.isBlocked || pandit.isDeleted) && pandit.status !== "active")) {
+      return res.status(403).json({
+        success: false,
+        message: "Your account is blocked. Please contact support.",
+      });
+    }
+
     req.pandit = pandit;
     next();
   } catch (error) {

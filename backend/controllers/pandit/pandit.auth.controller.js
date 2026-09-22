@@ -425,6 +425,22 @@ export const verifyPanditOtp = async (req, res) => {
 
     const pandit = await Pandit.findOne({ phone });
 
+    if (pandit) {
+      if (pandit.status === "active") {
+        if (pandit.isBlocked || pandit.isDeleted) {
+          pandit.isBlocked = false;
+          pandit.isDeleted = false;
+          pandit.deletedAt = null;
+          await pandit.save();
+        }
+      } else if (pandit.status === "blocked" || pandit.isBlocked || pandit.isDeleted) {
+        return res.status(403).json({
+          success: false,
+          message: "Your account has been deleted or blocked. Please contact support.",
+        });
+      }
+    }
+
     otpDoc.isVerified = true;
     otpDoc.verifiedAt = new Date();
     await otpDoc.save();
@@ -829,3 +845,46 @@ export const updatePanditFcmToken = async (req, res) => {
 };
 
 export const completePanditProfile = updatePanditProfile;
+
+export const deletePanditAccount = async (req, res) => {
+  try {
+    const { reason = "", notes = "", acknowledge = false } = req.body || {};
+
+    const normalizedReason = String(reason || "").trim();
+    if (!normalizedReason) {
+      return res.status(400).json({
+        success: false,
+        message: "reason is required",
+      });
+    }
+
+    const pandit = await Pandit.findById(req.pandit._id);
+    if (!pandit) {
+      return res.status(404).json({
+        success: false,
+        message: "Pandit not found",
+      });
+    }
+
+    pandit.isDeleted = true;
+    pandit.isBlocked = true;
+    pandit.status = "blocked";
+    pandit.deletedAt = new Date();
+    pandit.deleteReason = normalizedReason;
+    pandit.deleteReasonNotes = String(notes || "").trim();
+
+    await pandit.save();
+
+    return res.json({
+      success: true,
+      message: "Account deleted successfully",
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+export const deleteAccount = deletePanditAccount;

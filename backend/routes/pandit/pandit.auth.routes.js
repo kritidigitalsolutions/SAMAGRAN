@@ -6,6 +6,7 @@ import {
   updatePanditProfile,
   updatePanditFcmToken,
   verifyPanditOtp,
+  deletePanditAccount,
 } from "../../controllers/pandit/pandit.auth.controller.js";
 import { checkTokenStatus } from "../../controllers/auth.controller.js";
 import { protectPandit } from "../../middleware/pandit.middleware.js";
@@ -19,6 +20,7 @@ router.post("/verify-otp", verifyPanditOtp);
 router.patch("/fcm-token", protectPandit, updatePanditFcmToken);
 
 router.get("/profile", protectPandit, getPanditProfile);
+router.post("/delete-account", protectPandit, deletePanditAccount);
 
 router.post(
   "/complete-profile",

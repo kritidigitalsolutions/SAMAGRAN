@@ -302,7 +302,15 @@ export const updatePanditByAdmin = async (req, res) => {
     }
 
     if (status !== undefined && ["pending", "active", "blocked"].includes(String(status || "").trim())) {
-      pandit.status = String(status || "").trim();
+      const normalizedStatus = String(status || "").trim();
+      pandit.status = normalizedStatus;
+      if (normalizedStatus === "active" || normalizedStatus === "pending") {
+        pandit.isBlocked = false;
+        pandit.isDeleted = false;
+        pandit.deletedAt = null;
+      } else if (normalizedStatus === "blocked") {
+        pandit.isBlocked = true;
+      }
     }
 
     const previousVerified = pandit.isVerified;
@@ -402,6 +410,13 @@ export const updatePanditStatusByAdmin = async (req, res) => {
 
     const previousStatus = panditObj.status;
     panditObj.status = normalizedStatus;
+    if (normalizedStatus === "active" || normalizedStatus === "pending") {
+      panditObj.isBlocked = false;
+      panditObj.isDeleted = false;
+      panditObj.deletedAt = null;
+    } else if (normalizedStatus === "blocked") {
+      panditObj.isBlocked = true;
+    }
     const pandit = await panditObj.save();
 
     if (!pandit) {

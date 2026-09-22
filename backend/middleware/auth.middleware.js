@@ -71,6 +71,12 @@ export const protectUserOrPandit = async (req, res, next) => {
       if (!pandit) {
         return res.status(401).json({ message: "Pandit not found" });
       }
+      if (pandit.status === "blocked" || ((pandit.isBlocked || pandit.isDeleted) && pandit.status !== "active")) {
+        return res.status(403).json({
+          success: false,
+          message: "Your account is blocked. Please contact support.",
+        });
+      }
       req.pandit = pandit;
       req.actor = { id: pandit._id, role: "pandit" };
       return next();
