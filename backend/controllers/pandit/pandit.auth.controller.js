@@ -262,7 +262,6 @@ const normalizePoojaOfferingsInput = (body) => {
 const isPanditProfileComplete = (pandit) => {
   const hasBasicInfo =
     Boolean(pandit.fullName?.trim()) &&
-    Boolean(pandit.address?.line1?.trim()) &&
     Boolean(pandit.address?.city?.trim()) &&
     Boolean(pandit.address?.state?.trim()) &&
     Boolean(pandit.address?.pinCode?.trim()) &&
