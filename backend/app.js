@@ -20,8 +20,7 @@ const allowedOrigins = [
   process.env.ADMIN_FRONTEND_URL,
   process.env.CORS_ORIGINS,
   "http://localhost:3000",
-  "https://admin.samagran.com/",
-  // "https://samangrah-website.vercel.app",
+  "https://admin.samagran.com",
 ].flatMap((value) => parseOriginList(value));
 
 const isOriginAllowed = (origin) => {

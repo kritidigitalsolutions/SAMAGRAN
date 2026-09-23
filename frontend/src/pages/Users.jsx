@@ -541,7 +541,7 @@ export default function Users() {
 
         {loading ? (
           <p className="rounded-xl bg-white/60 p-6 text-sm dark:bg-white/5">Loading users...</p>
-        ) : error ? (
+        ) : error && !users.length ? (
           <p className="rounded-xl bg-red-100 p-6 text-sm font-medium text-red-600 dark:bg-red-900/30 dark:text-red-300">{error}</p>
         ) : !users.length ? (
           <p className="rounded-xl bg-white/60 p-6 text-sm dark:bg-white/5">

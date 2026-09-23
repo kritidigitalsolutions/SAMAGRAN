@@ -155,16 +155,19 @@ export const signup = async (req, res) => {
     const existingUser = await User.findOne({ phone });
 
     if (existingUser) {
-      if (existingUser.isDeleted) {
-        // If the user has been soft-deleted, they are registering fresh. WIPE the old user's data!
-        await deleteUserCompleteData(existingUser._id);
-      } else {
-        return res.status(400).json({
+      if (existingUser.isBlocked) {
+        return res.status(403).json({
           success: false,
-          isNewUser: false,
-          message: "User already exists. Please login.",
+          isBlocked: true,
+          message: "You are blocked. Please use a different number.",
         });
       }
+
+      return res.status(400).json({
+        success: false,
+        isNewUser: false,
+        message: "User already exists. Please login.",
+      });
     }
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
@@ -244,7 +247,7 @@ export const login = async (req, res) => {
       await ensureDemoUserExists(phone);
     }
 
-    const user = await User.findOne({ phone, isDeleted: { $ne: true } });
+    const user = await User.findOne({ phone });
 
     if (!user) {
       return res.status(400).json({
@@ -252,6 +255,24 @@ export const login = async (req, res) => {
         isNewUser: true,
         message: "User not found. Please signup.",
       });
+    }
+
+    if (user.isBlocked) {
+      return res.status(403).json({
+        success: false,
+        isBlocked: true,
+        message: "You are blocked. Please use a different number.",
+      });
+    }
+
+    // If user was previously soft-deleted, but is not blocked (or was unblocked by admin),
+    // reactivate their account so they can login smoothly without signup
+    if (user.isDeleted) {
+      user.isDeleted = false;
+      user.deletedAt = null;
+      user.deleteReason = "";
+      user.deleteReasonNotes = "";
+      await user.save();
     }
 
     const otp = phone === DEMO_USER_PHONE ? DEMO_USER_OTP : Math.floor(100000 + Math.random() * 900000).toString();
@@ -368,6 +389,23 @@ export const verifyOtp = async (req, res) => {
     });
 
     let user = await User.findOne({ phone });
+
+    if (user && user.isBlocked) {
+      return res.status(403).json({
+        success: false,
+        isBlocked: true,
+        message: "You are blocked. Please use a different number.",
+      });
+    }
+
+    if (user && user.isDeleted) {
+      user.isDeleted = false;
+      user.deletedAt = null;
+      user.deleteReason = "";
+      user.deleteReasonNotes = "";
+      await user.save();
+    }
+
     let isNewUser = false;
     let isFcmTokenUpdated = false;
 
@@ -567,9 +605,26 @@ export const resendOtp = async (req, res) => {
     const user = await User.findOne({ phone });
 
     if (!user) {
+      const blockedUser = await User.findOne({ phone, isBlocked: true });
+      if (blockedUser) {
+        return res.status(403).json({
+          success: false,
+          isBlocked: true,
+          message: "You are blocked. Please use a different number.",
+        });
+      }
+
       return res.status(400).json({
         success: false,
         message: "User not found",
+      });
+    }
+
+    if (user.isBlocked) {
+      return res.status(403).json({
+        success: false,
+        isBlocked: true,
+        message: "You are blocked. Please use a different number.",
       });
     }
 

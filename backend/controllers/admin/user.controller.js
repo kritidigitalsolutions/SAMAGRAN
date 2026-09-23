@@ -319,7 +319,16 @@ export const toggleUserBlockByAdmin = async (req, res) => {
       });
     }
 
-    user.isBlocked = isBlocked === undefined ? !Boolean(user.isBlocked) : Boolean(isBlocked);
+    const nextBlocked = isBlocked === undefined ? !Boolean(user.isBlocked) : Boolean(isBlocked);
+    user.isBlocked = nextBlocked;
+
+    if (!nextBlocked) {
+      user.isDeleted = false;
+      user.deletedAt = null;
+      user.deleteReason = "";
+      user.deleteReasonNotes = "";
+    }
+
     await user.save();
 
     return res.json({
@@ -328,6 +337,7 @@ export const toggleUserBlockByAdmin = async (req, res) => {
       data: {
         _id: user._id,
         isBlocked: user.isBlocked,
+        isDeleted: user.isDeleted,
       },
     });
   } catch (error) {

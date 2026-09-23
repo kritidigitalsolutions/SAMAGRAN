@@ -8,6 +8,10 @@ import { uploadFileToFirebase } from "../../utils/firebaseUpload.js";
 import { sendOtpSms } from "../../utils/sms.service.js";
 
 const validatePhone = (phone) => /^[6-9]\d{9}$/.test(phone);
+const isPanditBlocked = (p) => {
+  if (!p) return false;
+  return p.status === "blocked" || p.isBlocked === true || (p.isDeleted === true && p.status !== "active");
+};
 const normalizeName = (value = "") => String(value || "").trim().toLowerCase();
 
 const generatePanditToken = (panditId) => {
@@ -304,6 +308,15 @@ export const requestPanditOtp = async (req, res) => {
     }
 
     const existingPandit = await Pandit.findOne({ phone });
+
+    if (isPanditBlocked(existingPandit)) {
+      return res.status(403).json({
+        success: false,
+        isBlocked: true,
+        message: "You are blocked. Please use a different number.",
+      });
+    }
+
     const authType = existingPandit ? "login" : "signup";
 
     const otp = phone === DEMO_PANDIT_PHONE ? DEMO_PANDIT_OTP : buildOtp();
@@ -426,17 +439,17 @@ export const verifyPanditOtp = async (req, res) => {
     const pandit = await Pandit.findOne({ phone });
 
     if (pandit) {
-      if (pandit.status === "active") {
-        if (pandit.isBlocked || pandit.isDeleted) {
-          pandit.isBlocked = false;
+      if (pandit.status === "active" && !pandit.isBlocked) {
+        if (pandit.isDeleted) {
           pandit.isDeleted = false;
           pandit.deletedAt = null;
           await pandit.save();
         }
-      } else if (pandit.status === "blocked" || pandit.isBlocked || pandit.isDeleted) {
+      } else if (isPanditBlocked(pandit)) {
         return res.status(403).json({
           success: false,
-          message: "Your account has been deleted or blocked. Please contact support.",
+          isBlocked: true,
+          message: "You are blocked. Please use a different number.",
         });
       }
     }
@@ -536,6 +549,13 @@ export const updatePanditProfile = async (req, res) => {
 
     if (req.pandit?._id) {
       pandit = await Pandit.findById(req.pandit._id);
+      if (isPanditBlocked(pandit)) {
+        return res.status(403).json({
+          success: false,
+          isBlocked: true,
+          message: "You are blocked. Please use a different number.",
+        });
+      }
     } else {
       let { phone = "" } = body;
       phone = String(phone).replace(/\s+/g, "").trim();
@@ -560,6 +580,14 @@ export const updatePanditProfile = async (req, res) => {
       }
 
       pandit = await Pandit.findOne({ phone });
+
+      if (isPanditBlocked(pandit)) {
+        return res.status(403).json({
+          success: false,
+          isBlocked: true,
+          message: "You are blocked. Please use a different number.",
+        });
+      }
 
       if (!pandit) {
         isNewPandit = true;
