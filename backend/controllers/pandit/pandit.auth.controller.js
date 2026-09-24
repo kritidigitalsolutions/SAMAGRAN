@@ -261,11 +261,15 @@ const normalizePoojaOfferingsInput = (body) => {
 
 const isPanditProfileComplete = (pandit) => {
   if (!pandit) return false;
-  if (pandit.isVerified) return true;
 
   const hasBasicInfo =
     Boolean(pandit.fullName?.trim()) &&
     Number(pandit.yearsOfExperience || 0) > 0;
+
+  const hasAddressInfo =
+    Boolean(pandit.address?.city?.trim()) &&
+    Boolean(pandit.address?.state?.trim()) &&
+    Boolean(pandit.address?.pinCode?.trim());
 
   const hasAadhaarInfo =
     Boolean(pandit.aadhaar?.number?.trim()) &&
@@ -278,7 +282,7 @@ const isPanditProfileComplete = (pandit) => {
     Boolean(pandit.serviceTypes?.atTemple) ||
     Boolean(pandit.serviceTypes?.travelForSpecialPoojas);
 
-  return hasBasicInfo && hasAadhaarInfo && hasServiceSelection;
+  return hasBasicInfo && hasAddressInfo && hasAadhaarInfo && hasServiceSelection;
 };
 
 export const requestPanditOtp = async (req, res) => {
@@ -482,6 +486,7 @@ export const verifyPanditOtp = async (req, res) => {
       });
     } else {
       pandit.isPhoneVerified = true;
+      pandit.isProfileComplete = isPanditProfileComplete(pandit);
       await pandit.save();
       await PanditOTP.deleteMany({ phone: pandit.phone });
     }
@@ -646,20 +651,88 @@ export const updatePanditProfile = async (req, res) => {
       pandit.languagesSpoken = normalizeLanguages(languagesSpoken);
     }
 
-    const parsedAddress = parseJsonIfString(address, {}) || {};
-    const city = parsedAddress.city || body?.city || body?.["address[city]"] || body?.["address.city"] || "";
-    const state = parsedAddress.state || body?.state || body?.["address[state]"] || body?.["address.state"] || "";
-    const pinCode = parsedAddress.pinCode || body?.pinCode || body?.pincode || body?.["address[pinCode]"] || body?.["address.pinCode"] || body?.["address[pincode]"] || "";
-    const line1 = parsedAddress.line1 || body?.line1 || body?.addressLine1 || body?.["address[line1]"] || body?.["address.line1"] || "";
-    const line2 = parsedAddress.line2 || body?.line2 || body?.addressLine2 || body?.["address[line2]"] || body?.["address.line2"] || "";
+    const parsedAddress = parseJsonIfString(address, null);
+    const hasAddressInput =
+      parsedAddress !== null ||
+      body?.city !== undefined ||
+      body?.state !== undefined ||
+      body?.pinCode !== undefined ||
+      body?.pincode !== undefined ||
+      body?.line1 !== undefined ||
+      body?.line2 !== undefined ||
+      body?.["address[city]"] !== undefined ||
+      body?.["address.city"] !== undefined;
 
-    if (city || state || pinCode || line1 || line2 || Object.keys(parsedAddress).length > 0) {
+    if (hasAddressInput) {
+      const city =
+        parsedAddress?.city !== undefined
+          ? String(parsedAddress.city).trim()
+          : body?.city !== undefined
+          ? String(body.city).trim()
+          : body?.["address[city]"] !== undefined
+          ? String(body["address[city]"]).trim()
+          : body?.["address.city"] !== undefined
+          ? String(body["address.city"]).trim()
+          : pandit.address?.city || "";
+
+      const state =
+        parsedAddress?.state !== undefined
+          ? String(parsedAddress.state).trim()
+          : body?.state !== undefined
+          ? String(body.state).trim()
+          : body?.["address[state]"] !== undefined
+          ? String(body["address[state]"]).trim()
+          : body?.["address.state"] !== undefined
+          ? String(body["address.state"]).trim()
+          : pandit.address?.state || "";
+
+      const pinCode =
+        parsedAddress?.pinCode !== undefined
+          ? String(parsedAddress.pinCode).trim()
+          : body?.pinCode !== undefined
+          ? String(body.pinCode).trim()
+          : body?.pincode !== undefined
+          ? String(body.pincode).trim()
+          : body?.["address[pinCode]"] !== undefined
+          ? String(body["address[pinCode]"]).trim()
+          : body?.["address.pinCode"] !== undefined
+          ? String(body["address.pinCode"]).trim()
+          : body?.["address[pincode]"] !== undefined
+          ? String(body["address[pincode]"]).trim()
+          : pandit.address?.pinCode || "";
+
+      const line1 =
+        parsedAddress?.line1 !== undefined
+          ? String(parsedAddress.line1).trim()
+          : body?.line1 !== undefined
+          ? String(body.line1).trim()
+          : body?.addressLine1 !== undefined
+          ? String(body.addressLine1).trim()
+          : body?.["address[line1]"] !== undefined
+          ? String(body["address[line1]"]).trim()
+          : body?.["address.line1"] !== undefined
+          ? String(body["address.line1"]).trim()
+          : pandit.address?.line1 || "";
+
+      const line2 =
+        parsedAddress?.line2 !== undefined
+          ? String(parsedAddress.line2).trim()
+          : body?.line2 !== undefined
+          ? String(body.line2).trim()
+          : body?.addressLine2 !== undefined
+          ? String(body.addressLine2).trim()
+          : body?.["address[line2]"] !== undefined
+          ? String(body["address[line2]"]).trim()
+          : body?.["address.line2"] !== undefined
+          ? String(body["address.line2"]).trim()
+          : pandit.address?.line2 || "";
+
       pandit.address = {
-        line1: line1 ? String(line1).trim() : (pandit.address?.line1 || ""),
-        line2: line2 ? String(line2).trim() : (pandit.address?.line2 || ""),
-        city: city ? String(city).trim() : (pandit.address?.city || ""),
-        state: state ? String(state).trim() : (pandit.address?.state || ""),
-        pinCode: pinCode ? String(pinCode).trim() : (pandit.address?.pinCode || ""),
+        line1,
+        line2,
+        city,
+        state,
+        pinCode,
       };
     }
 
