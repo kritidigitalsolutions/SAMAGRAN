@@ -260,17 +260,16 @@ const normalizePoojaOfferingsInput = (body) => {
 };
 
 const isPanditProfileComplete = (pandit) => {
+  if (!pandit) return false;
+  if (pandit.isVerified) return true;
+
   const hasBasicInfo =
     Boolean(pandit.fullName?.trim()) &&
-    Boolean(pandit.address?.city?.trim()) &&
-    Boolean(pandit.address?.state?.trim()) &&
-    Boolean(pandit.address?.pinCode?.trim()) &&
     Number(pandit.yearsOfExperience || 0) > 0;
 
   const hasAadhaarInfo =
     Boolean(pandit.aadhaar?.number?.trim()) &&
-    Boolean(pandit.aadhaar?.frontImage?.trim()) &&
-    Boolean(pandit.aadhaar?.backImage?.trim()) &&
+    Boolean(pandit.aadhaar?.frontImage?.trim() || pandit.aadhaar?.backImage?.trim()) &&
     Boolean(pandit.aadhaar?.consentGiven);
 
   const hasServiceSelection =
@@ -412,7 +411,12 @@ export const verifyPanditOtp = async (req, res) => {
       otpQuery.type = type;
     }
 
-    const otpDoc = await PanditOTP.findOne(otpQuery).sort({ createdAt: -1 });
+    let otpDoc = await PanditOTP.findOne(otpQuery).sort({ createdAt: -1 });
+
+    if (!otpDoc && type) {
+      // Fallback in case type mismatch occurred between signup/login
+      otpDoc = await PanditOTP.findOne({ phone }).sort({ createdAt: -1 });
+    }
 
     if (!otpDoc) {
       return res.status(400).json({
@@ -435,7 +439,7 @@ export const verifyPanditOtp = async (req, res) => {
       });
     }
 
-    const pandit = await Pandit.findOne({ phone });
+    let pandit = await Pandit.findOne({ phone });
 
     if (pandit) {
       if (pandit.status === "active" && !pandit.isBlocked) {
@@ -464,43 +468,37 @@ export const verifyPanditOtp = async (req, res) => {
       });
     }
 
-    // For signup flows (no existing pandit) we must keep the verified OTP record
-    // until the pandit completes their profile. Deleting it here prevents
-    // `updatePanditProfile` from finding the verified session and causes
-    // "Please verify OTP first" errors. Only remove OTPs for existing pandits.
-    if (pandit) {
-      await PanditOTP.deleteMany({ phone, type: otpDoc.type });
-    }
-
-    // 🔐 For new signup: Don't create Pandit yet, just verify OTP
-    // Pandit record will be created when they complete their profile
+    let isNewPandit = false;
     if (!pandit) {
-      return res.json({
-        success: true,
-        isNewPandit: true,
-        message: "OTP verified successfully! Please complete your profile",
-        data: {
-          phone,
-          flow: "signup",
-          // No token yet - token will be generated after profile completion
-        },
+      // 🔐 New signup: Create pandit record so it is immediately registered & phone verified
+      isNewPandit = true;
+      pandit = await Pandit.create({
+        phone,
+        fullName: otpDoc.fullName || "",
+        status: "active",
+        isPhoneVerified: true,
+        isProfileComplete: false,
+        isVerified: false,
       });
-    }
-
-    let token = null;
-    if (pandit.isPhoneVerified) {
-      token = generatePanditToken(pandit._id);
+    } else {
+      pandit.isPhoneVerified = true;
+      await pandit.save();
       await PanditOTP.deleteMany({ phone: pandit.phone });
     }
-    
+
+    const token = generatePanditToken(pandit._id);
+
     return res.json({
       success: true,
-      isNewPandit: false,
-      message: pandit.isProfileComplete
+      isNewPandit,
+      message: isNewPandit
+        ? "OTP verified successfully! Please complete your profile"
+        : pandit.isProfileComplete
         ? "Login verified successfully"
         : "Login verified, please complete remaining profile details",
       data: {
-        flow: "login",
+        flow: isNewPandit ? "signup" : "login",
+        phone,
         token,
         pandit,
       },
@@ -571,14 +569,14 @@ export const updatePanditProfile = async (req, res) => {
         isVerified: true,
       }).sort({ verifiedAt: -1 });
 
-      if (!validSession) {
+      pandit = await Pandit.findOne({ phone });
+
+      if (!validSession && (!pandit || !pandit.isPhoneVerified)) {
         return res.status(400).json({
           success: false,
           message: "Please verify OTP first",
         });
       }
-
-      pandit = await Pandit.findOne({ phone });
 
       if (isPanditBlocked(pandit)) {
         return res.status(403).json({
@@ -648,15 +646,20 @@ export const updatePanditProfile = async (req, res) => {
       pandit.languagesSpoken = normalizeLanguages(languagesSpoken);
     }
 
-    const parsedAddress = parseJsonIfString(address, {});
-    if (parsedAddress && typeof parsedAddress === "object") {
+    const parsedAddress = parseJsonIfString(address, {}) || {};
+    const city = parsedAddress.city || body?.city || body?.["address[city]"] || body?.["address.city"] || "";
+    const state = parsedAddress.state || body?.state || body?.["address[state]"] || body?.["address.state"] || "";
+    const pinCode = parsedAddress.pinCode || body?.pinCode || body?.pincode || body?.["address[pinCode]"] || body?.["address.pinCode"] || body?.["address[pincode]"] || "";
+    const line1 = parsedAddress.line1 || body?.line1 || body?.addressLine1 || body?.["address[line1]"] || body?.["address.line1"] || "";
+    const line2 = parsedAddress.line2 || body?.line2 || body?.addressLine2 || body?.["address[line2]"] || body?.["address.line2"] || "";
+
+    if (city || state || pinCode || line1 || line2 || Object.keys(parsedAddress).length > 0) {
       pandit.address = {
-        ...pandit.address,
-        line1: parsedAddress.line1 ?? pandit.address?.line1,
-        line2: parsedAddress.line2 ?? pandit.address?.line2,
-        city: parsedAddress.city ?? pandit.address?.city,
-        state: parsedAddress.state ?? pandit.address?.state,
-        pinCode: parsedAddress.pinCode ?? pandit.address?.pinCode,
+        line1: line1 ? String(line1).trim() : (pandit.address?.line1 || ""),
+        line2: line2 ? String(line2).trim() : (pandit.address?.line2 || ""),
+        city: city ? String(city).trim() : (pandit.address?.city || ""),
+        state: state ? String(state).trim() : (pandit.address?.state || ""),
+        pinCode: pinCode ? String(pinCode).trim() : (pandit.address?.pinCode || ""),
       };
     }
 
@@ -787,14 +790,12 @@ export const updatePanditProfile = async (req, res) => {
       pandit.poojaOfferings = [];
     }
 
+    pandit.isPhoneVerified = true;
     pandit.isProfileComplete = isPanditProfileComplete(pandit);
-    if (pandit.isProfileComplete) {
-      pandit.isPhoneVerified = true;
-    }
     await pandit.save();
 
-    // 📢 Notify admins only when new pandit completes profile
-    if (isNewPandit && pandit.isProfileComplete) {
+    // 📢 Notify admins when new pandit completes profile or registers
+    if (isNewPandit) {
       void notifyAdmins({
         title: "New Pandit Registration 🕉️",
         body: `${pandit.fullName || pandit.phone || "A new pandit"} has registered and is pending admin verification.`,
@@ -806,11 +807,8 @@ export const updatePanditProfile = async (req, res) => {
       }).catch((error) => console.error("PANDIT SIGNUP NOTIFICATION ERROR:", error.message));
     }
 
-    let token = null;
-    if (pandit.isProfileComplete) {
-      token = generatePanditToken(pandit._id);
-      await PanditOTP.deleteMany({ phone: pandit.phone });
-    }
+    const token = generatePanditToken(pandit._id);
+    await PanditOTP.deleteMany({ phone: pandit.phone });
 
     res.json({
       success: true,

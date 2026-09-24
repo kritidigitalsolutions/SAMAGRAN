@@ -183,7 +183,7 @@ export const createPanditByAdmin = async (req, res) => {
         ? String(status).trim()
         : "pending",
       isVerified: Boolean(isVerified),
-      isPhoneVerified: Boolean(isPhoneVerified),
+      isPhoneVerified: Boolean(isPhoneVerified) || Boolean(isVerified),
       address: {
         line1: String(address?.line1 || "").trim(),
         line2: String(address?.line2 || "").trim(),
@@ -316,8 +316,11 @@ export const updatePanditByAdmin = async (req, res) => {
     const previousVerified = pandit.isVerified;
     if (isVerified !== undefined) {
       pandit.isVerified = Boolean(isVerified);
-      if (!previousVerified && pandit.isVerified && pandit.status === "pending") {
-        pandit.status = "active";
+      if (pandit.isVerified) {
+        pandit.isPhoneVerified = true;
+        if (!previousVerified && pandit.status === "pending") {
+          pandit.status = "active";
+        }
       }
     }
     if (isPhoneVerified !== undefined) pandit.isPhoneVerified = Boolean(isPhoneVerified);
@@ -414,6 +417,9 @@ export const updatePanditStatusByAdmin = async (req, res) => {
       panditObj.isBlocked = false;
       panditObj.isDeleted = false;
       panditObj.deletedAt = null;
+      if (normalizedStatus === "active") {
+        panditObj.isPhoneVerified = true;
+      }
     } else if (normalizedStatus === "blocked") {
       panditObj.isBlocked = true;
     }
