@@ -271,18 +271,13 @@ const isPanditProfileComplete = (pandit) => {
     Boolean(pandit.address?.state?.trim()) &&
     Boolean(pandit.address?.pinCode?.trim());
 
-  const hasAadhaarInfo =
-    Boolean(pandit.aadhaar?.number?.trim()) &&
-    Boolean(pandit.aadhaar?.frontImage?.trim() || pandit.aadhaar?.backImage?.trim()) &&
-    Boolean(pandit.aadhaar?.consentGiven);
-
   const hasServiceSelection =
     Boolean(pandit.serviceTypes?.onlinePooja) ||
     Boolean(pandit.serviceTypes?.homeVisit) ||
     Boolean(pandit.serviceTypes?.atTemple) ||
     Boolean(pandit.serviceTypes?.travelForSpecialPoojas);
 
-  return hasBasicInfo && hasAddressInfo && hasAadhaarInfo && hasServiceSelection;
+  return hasBasicInfo && hasAddressInfo && hasServiceSelection;
 };
 
 export const requestPanditOtp = async (req, res) => {

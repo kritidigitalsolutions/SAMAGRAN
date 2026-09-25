@@ -289,7 +289,21 @@ const panditSchema = new mongoose.Schema(
       default: "",
     },
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true },
+  }
 );
+
+panditSchema.virtual("profileStatus").get(function () {
+  return this.isProfileComplete ? "COMPLETE" : "INCOMPLETE";
+});
+
+panditSchema.virtual("identityVerificationStatus").get(function () {
+  if (this.isVerified) return "VERIFIED";
+  if (this.aadhaar?.number || this.aadhaar?.frontImage) return "PENDING";
+  return "NOT_SUBMITTED";
+});
 
 export default mongoose.model("Pandit", panditSchema);
