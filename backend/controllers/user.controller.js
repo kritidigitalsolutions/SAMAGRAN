@@ -1,6 +1,7 @@
 import User from "../models/user.model.js";
 import mongoose from "mongoose";
 import { uploadFileToFirebase } from "../utils/firebaseUpload.js";
+import { deleteUserCompleteData } from "./admin/user.controller.js";
 
 const escapeRegex = (value = "") => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const DELETE_REASONS = [
@@ -82,30 +83,6 @@ export const updateUser = async (req, res) => {
 
 export const deleteAccount = async (req, res) => {
   try {
-    const { reason = "", notes = "", acknowledge = false } = req.body || {};
-
-    const normalizedReason = String(reason || "").trim();
-    if (!normalizedReason) {
-      return res.status(400).json({
-        success: false,
-        message: "reason is required",
-      });
-    }
-
-    // if (!DELETE_REASONS.includes(normalizedReason)) {
-    //   return res.status(400).json({
-    //     success: false,
-    //     message: "reason must be a supported value",
-    //   });
-    // }
-
-    // if (!Boolean(acknowledge)) {
-    //   return res.status(400).json({
-    //     success: false,
-    //     message: "acknowledge is required",
-    //   });
-    // }
-
     const user = await User.findById(req.user._id);
     if (!user) {
       return res.status(404).json({
@@ -114,17 +91,11 @@ export const deleteAccount = async (req, res) => {
       });
     }
 
-    user.isDeleted = true;
-    user.isBlocked = true;
-    user.deletedAt = new Date();
-    user.deleteReason = normalizedReason;
-    user.deleteReasonNotes = String(notes || "").trim();
-
-    await user.save();
+    await deleteUserCompleteData(user._id);
 
     return res.json({
       success: true,
-      message: "Account deleted successfully",
+      message: "Account and all associated data permanently deleted",
     });
   } catch (error) {
     return res.status(500).json({

@@ -16,9 +16,10 @@ router.get("/verify-token", checkTokenStatus);
 
 router.post("/signup", upload.single("profileImage"), signup);
 
-// router.post("/signup", signup);
 router.post("/send-otp", login);
+router.post("/login", login);
 router.post("/verify-otp", verifyOtp);
+router.post("/verify", verifyOtp);
 router.post("/resend-otp", resendOtp);
 router.patch("/fcm-token", protectUserOrPandit, updateUserFcmToken);
 

@@ -3,7 +3,8 @@ import cors from "cors";
 import bcrypt from "bcryptjs";
 import Admin from "./models/admin.model.js";
 import connectDB from "./config/db.js";
-// import { testSmsGateway } from "./utils/sms.service.js";
+import { ensureDemoUserExists, DEMO_PHONES } from "./controllers/auth.controller.js";
+import { ensureDemoPanditExists } from "./controllers/pandit/pandit.auth.controller.js";
 
 const app = express();
 app.set("trust proxy", 1);
@@ -193,6 +194,17 @@ export const ensureAdmin = async () => {
   }
 };
 
+export const ensureAllDemoAccounts = async () => {
+  try {
+    for (const phone of DEMO_PHONES) {
+      await ensureDemoUserExists(phone);
+      await ensureDemoPanditExists(phone);
+    }
+  } catch (err) {
+    console.error("Failed to initialize demo accounts:", err.message);
+  }
+};
+
 let bootstrapPromise;
 
 export const bootstrapApp = async () => {
@@ -203,6 +215,7 @@ export const bootstrapApp = async () => {
   bootstrapPromise = (async () => {
     await connectDB();
     await ensureAdmin();
+    await ensureAllDemoAccounts();
   })();
 
   try {

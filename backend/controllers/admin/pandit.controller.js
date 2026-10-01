@@ -1,6 +1,17 @@
 import Pandit from "../../models/pandit.model.js";
 import mongoose from "mongoose";
 import PanditBooking from "../../models/panditBooking.model.js";
+import PanditAvailability from "../../models/panditAvailability.model.js";
+import PanditBookingIntent from "../../models/panditBookingIntent.model.js";
+import PanditComplaint from "../../models/panditComplaint.model.js";
+import PanditPayout from "../../models/panditPayout.model.js";
+import PanditReview from "../../models/panditReview.model.js";
+import PanditWallet from "../../models/panditWallet.model.js";
+import PanditWalletTransaction from "../../models/panditWalletTransaction.model.js";
+import Order from "../../models/order.model.js";
+import Ritual from "../../models/ritual.model.js";
+import PanditOTP from "../../models/panditOtp.model.js";
+import Notification from "../../models/notification.model.js";
 import { notifyAdmins, notifyPanditById } from "../../utils/notification.service.js";
 import { toTitleCase, normalizeCityList } from "../../utils/cityNormalizer.js";
 
@@ -507,6 +518,44 @@ export const getPanditBookingsByAdmin = async (req, res) => {
   }
 };
 
+export const deletePanditCompleteData = async (panditId) => {
+  const id = mongoose.Types.ObjectId.isValid(panditId) ? new mongoose.Types.ObjectId(panditId) : panditId;
+  const pandit = await Pandit.findById(id);
+  const phone = pandit?.phone;
+
+  await Promise.all([
+    PanditAvailability.deleteMany({ pandit: id }),
+    PanditBooking.deleteMany({ pandit: id }),
+    PanditBookingIntent.deleteMany({ pandit: id }),
+    PanditComplaint.deleteMany({ pandit: id }),
+    PanditPayout.deleteMany({ pandit: id }),
+    PanditReview.deleteMany({ pandit: id }),
+    PanditWallet.deleteMany({ pandit: id }),
+    PanditWalletTransaction.deleteMany({ pandit: id }),
+    Order.deleteMany({ pandit: id }),
+    Ritual.deleteMany({ panditId: id }),
+    phone ? PanditOTP.deleteMany({ phone }) : Promise.resolve(),
+    Notification.deleteMany({
+      $or: [
+        { "audience.type": "pandit", "audience.ids": { $size: 1, $all: [id] } },
+        { "data.panditId": String(id) },
+        { "data.pandit": String(id) },
+      ],
+    }),
+    Notification.updateMany(
+      {},
+      {
+        $pull: {
+          readBy: id,
+          deletedBy: id,
+          "audience.ids": id,
+        },
+      }
+    ),
+    Pandit.findByIdAndDelete(id),
+  ]);
+};
+
 export const deletePanditByAdmin = async (req, res) => {
   try {
     const { id } = req.params;
@@ -534,11 +583,11 @@ export const deletePanditByAdmin = async (req, res) => {
       });
     }
 
-    await Pandit.findByIdAndDelete(id);
+    await deletePanditCompleteData(id);
 
     return res.json({
       success: true,
-      message: "Pandit deleted successfully",
+      message: "Pandit and all associated data permanently deleted",
     });
   } catch (err) {
     return res.status(500).json({

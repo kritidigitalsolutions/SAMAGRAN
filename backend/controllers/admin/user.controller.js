@@ -14,6 +14,7 @@ import PanditReview from "../../models/panditReview.model.js";
 import ProductReview from "../../models/productReview.model.js";
 import Complaint from "../../models/complaint.model.js";
 import Notification from "../../models/notification.model.js";
+import OTP from "../../models/otp.model.js";
 
 
 const escapeRegex = (value = "") => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -148,11 +149,13 @@ export const getAllUsers = async (req, res) => {
 
 export const deleteUserCompleteData = async (userId) => {
   const id = mongoose.Types.ObjectId.isValid(userId) ? new mongoose.Types.ObjectId(userId) : userId;
+  const user = await User.findById(id);
+  const phone = user?.phone;
 
   await Promise.all([
     Cart.deleteMany({ user: id }),
     Order.deleteMany({ user: id }),
-    Wallet.deleteOne({ user: id }),
+    Wallet.deleteMany({ user: id }),
     WalletTransaction.deleteMany({ user: id }),
     Wishlist.deleteMany({ user: id }),
     UserCoupon.deleteMany({ userId: id }),
@@ -161,18 +164,25 @@ export const deleteUserCompleteData = async (userId) => {
     PanditReview.deleteMany({ user: id }),
     ProductReview.deleteMany({ user: id }),
     Complaint.deleteMany({ user: id }),
-    Notification.deleteMany({ "audience.type": "user", "audience.ids": { $size: 1, $all: [id] } }),
+    phone ? OTP.deleteMany({ phone }) : Promise.resolve(),
+    Notification.deleteMany({
+      $or: [
+        { "audience.type": "user", "audience.ids": { $size: 1, $all: [id] } },
+        { "data.userId": String(id) },
+        { "data.user": String(id) },
+      ],
+    }),
     Notification.updateMany(
       {},
       {
         $pull: {
           readBy: id,
           deletedBy: id,
-          "audience.ids": id
-        }
+          "audience.ids": id,
+        },
       }
     ),
-    User.findByIdAndDelete(id)
+    User.findByIdAndDelete(id),
   ]);
 };
 
@@ -180,11 +190,18 @@ export const deleteUser = async (req, res) => {
   try {
     const { id } = req.params;
 
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid user id",
+      });
+    }
+
     await deleteUserCompleteData(id);
 
     res.json({
       success: true,
-      message: "User deleted",
+      message: "User and all associated data permanently deleted",
     });
   } catch (error) {
     res.status(500).json({

@@ -10,47 +10,74 @@ import { sendOtpSms } from "../utils/sms.service.js";
 import { uploadFileToFirebase } from "../utils/firebaseUpload.js";
 import { isFirebaseReady } from "../config/firebase.js";
 
-// 📌 Helper: Phone validation
+export const normalizePhone = (phone = "") => {
+  let cleaned = String(phone || "").replace(/\D/g, "");
+  if (cleaned.length === 12 && cleaned.startsWith("91")) {
+    cleaned = cleaned.slice(2);
+  } else if (cleaned.length === 11 && cleaned.startsWith("0")) {
+    cleaned = cleaned.slice(1);
+  }
+  return cleaned;
+};
+
+// 📌 Helper: Phone validation (expects 10-digit phone starting with 6-9)
 const validatePhone = (phone) => {
-  const phoneRegex = /^[6-9]\d{9}$/;
-  return phoneRegex.test(phone);
+  const cleaned = normalizePhone(phone);
+  return /^[6-9]\d{9}$/.test(cleaned);
 };
 
 const WELCOME_COUPON_PERCENT = 10;
 const WELCOME_COUPON_MAX = 100;
 
-const DEMO_USER_PHONE = process.env.DEMO_USER_PHONE || "9999999999";
-const DEMO_USER_OTP = process.env.DEMO_USER_OTP || "123456";
+export const DEMO_PHONES = new Set([
+  "8888888888",
+  "9999999999",
+  ...(process.env.DEMO_USER_PHONE ? [process.env.DEMO_USER_PHONE] : []),
+  ...(process.env.DEMO_PANDIT_PHONE ? [process.env.DEMO_PANDIT_PHONE] : []),
+  ...(process.env.DEMO_PHONES ? process.env.DEMO_PHONES.split(",").map(p => p.trim()) : [])
+].map(p => normalizePhone(p)).filter(Boolean));
 
+export const DEMO_USER_OTP = process.env.DEMO_OTP || process.env.DEMO_USER_OTP || process.env.DEMO_PANDIT_OTP || "123456";
 
-const ensureDemoUserExists = async (phone) => {
-  const existingUser = await User.findOne({ phone });
+export const isDemoPhone = (phone) => {
+  const normalized = normalizePhone(phone);
+  return DEMO_PHONES.has(normalized);
+};
+
+export const ensureDemoUserExists = async (phone = "8888888888") => {
+  const cleanPhone = normalizePhone(phone);
+  let existingUser = await User.findOne({ phone: cleanPhone });
   if (existingUser) {
+    let changed = false;
     if (existingUser.isDeleted) {
       existingUser.isDeleted = false;
       existingUser.deletedAt = null;
       existingUser.deleteReason = "";
       existingUser.deleteReasonNotes = "";
+      changed = true;
+    }
+    if (existingUser.isBlocked) {
+      existingUser.isBlocked = false;
+      changed = true;
+    }
+    if (!existingUser.isProfileComplete) {
+      existingUser.isProfileComplete = true;
+      changed = true;
+    }
+    if (changed) {
       await existingUser.save();
     }
     return existingUser;
   }
 
-
-
-  // while (await User.findOne({ username })) {
-  //   suffix += 1;
-  //   username = `${baseUsername}${suffix}`;
-  // }
-
   return User.create({
-    phone,
-    // username,
+    phone: cleanPhone,
     name: "Demo User",
-    email: "demo.user@samagran.local",
+    email: `demo.${cleanPhone}@samagran.local`,
     address: "Demo User Address",
     isProfileComplete: true,
-    // userType: "INDIVIDUAL"
+    isBlocked: false,
+    isDeleted: false,
   });
 };
 // 🎁 Super admin ke globally created welcome coupon ko user ko assign karta hai
@@ -144,7 +171,7 @@ export const signup = async (req, res) => {
       });
     }
 
-    phone = phone.replace(/\s+/g, "").trim();
+    phone = normalizePhone(phone);
 
     if (!validatePhone(phone)) {
       return res.status(400).json({
@@ -152,25 +179,29 @@ export const signup = async (req, res) => {
         message: "Phone number must be 10 digits",
       });
     }
-    const existingUser = await User.findOne({ phone });
+    let existingUser = await User.findOne({ phone });
 
     if (existingUser) {
-      if (existingUser.isBlocked) {
+      if (existingUser.isDeleted) {
+        // If an old soft-deleted user existed before, purge it so fresh signup can proceed
+        await deleteUserCompleteData(existingUser._id);
+        existingUser = null;
+      } else if (existingUser.isBlocked) {
         return res.status(403).json({
           success: false,
           isBlocked: true,
           message: "You are blocked. Please use a different number.",
         });
+      } else {
+        return res.status(400).json({
+          success: false,
+          isNewUser: false,
+          message: "User already exists. Please login.",
+        });
       }
-
-      return res.status(400).json({
-        success: false,
-        isNewUser: false,
-        message: "User already exists. Please login.",
-      });
     }
 
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otp = isDemoPhone(phone) ? DEMO_USER_OTP : Math.floor(100000 + Math.random() * 900000).toString();
 
     console.log("💾 SAVING TO OTP:", {
       phone,
@@ -202,7 +233,9 @@ export const signup = async (req, res) => {
     });
 
     // 📱 Send OTP via SMS Gateway
-    const smsSent = await sendOtpSms(phone, otp, "user");
+    const smsSent = isDemoPhone(phone)
+      ? { success: true }
+      : await sendOtpSms(phone, otp, "user");
     
     res.json({
       success: true,
@@ -235,7 +268,7 @@ export const login = async (req, res) => {
       });
     }
 
-    phone = phone.trim();
+    phone = normalizePhone(phone);
 
     if (!validatePhone(phone)) {
       return res.status(400).json({
@@ -243,11 +276,17 @@ export const login = async (req, res) => {
         message: "Invalid phone number",
       });
     }
-    if (phone === DEMO_USER_PHONE) {
+    if (isDemoPhone(phone)) {
       await ensureDemoUserExists(phone);
     }
 
-    const user = await User.findOne({ phone });
+    let user = await User.findOne({ phone });
+
+    // If user was previously soft-deleted, purge old data so they can start fresh
+    if (user && user.isDeleted) {
+      await deleteUserCompleteData(user._id);
+      user = null;
+    }
 
     if (!user) {
       return res.status(400).json({
@@ -265,17 +304,7 @@ export const login = async (req, res) => {
       });
     }
 
-    // If user was previously soft-deleted, but is not blocked (or was unblocked by admin),
-    // reactivate their account so they can login smoothly without signup
-    if (user.isDeleted) {
-      user.isDeleted = false;
-      user.deletedAt = null;
-      user.deleteReason = "";
-      user.deleteReasonNotes = "";
-      await user.save();
-    }
-
-    const otp = phone === DEMO_USER_PHONE ? DEMO_USER_OTP : Math.floor(100000 + Math.random() * 900000).toString();
+    const otp = isDemoPhone(phone) ? DEMO_USER_OTP : Math.floor(100000 + Math.random() * 900000).toString();
 
     await OTP.findOneAndUpdate(
       { phone },
@@ -288,13 +317,13 @@ export const login = async (req, res) => {
       { upsert: true, returnDocument: "after" }
     );
 
-    const smsSent = phone === DEMO_USER_PHONE
+    const smsSent = isDemoPhone(phone)
       ? { success: true }
       : await sendOtpSms(phone, otp, "user");
     
     res.json({
       success: true,
-      isNewUser:false,
+      isNewUser: false,
       message: "OTP sent for login",
       data: { 
         OTP: otp,
@@ -302,7 +331,7 @@ export const login = async (req, res) => {
         smsStatus: smsSent.success ? "delivered" : "failed"
       },
     });
-    console.log(`The Login OTP is :`, otp)
+    console.log(`The Login OTP is :`, otp);
   } catch (err) {
     console.error("LOGIN ERROR:", err);
     res.status(500).json({
@@ -314,19 +343,20 @@ export const login = async (req, res) => {
 
 export const verifyOtp = async (req, res) => {
   try {
-    let { phone, otp, fcmToken, firebaseToken, deviceToken } = req.body || {};
+    let { phone, otp, password, fcmToken, firebaseToken, deviceToken } = req.body || {};
     const incomingFcmToken = String(
       fcmToken || firebaseToken || deviceToken || ""
     ).trim();
+    const tokenOtp = String(otp || password || "").trim();
 
-    if (!phone || !otp) {
+    if (!phone || !tokenOtp) {
       return res.status(400).json({
         success: false,
         message: "phone and otp are required",
       });
     }
 
-    phone = phone.trim();
+    phone = normalizePhone(phone);
 
     if (!validatePhone(phone)) {
       return res.status(400).json({
@@ -335,7 +365,7 @@ export const verifyOtp = async (req, res) => {
       });
     }
 
-    if (phone === DEMO_USER_PHONE && String(otp) === DEMO_USER_OTP) {
+    if (isDemoPhone(phone) && tokenOtp === DEMO_USER_OTP) {
       let user = await ensureDemoUserExists(phone);
       let isFcmTokenUpdated = false;
 
@@ -375,7 +405,7 @@ export const verifyOtp = async (req, res) => {
       });
     }
 
-    if (otpDoc.otp !== otp) {
+    if (otpDoc.otp !== tokenOtp) {
       return res.status(400).json({
         success: false,
         message: "Invalid OTP",
@@ -399,11 +429,8 @@ export const verifyOtp = async (req, res) => {
     }
 
     if (user && user.isDeleted) {
-      user.isDeleted = false;
-      user.deletedAt = null;
-      user.deleteReason = "";
-      user.deleteReasonNotes = "";
-      await user.save();
+      await deleteUserCompleteData(user._id);
+      user = null;
     }
 
     let isNewUser = false;
@@ -589,7 +616,11 @@ export const resendOtp = async (req, res) => {
   try {
     let { phone } = req.body;
 
-    phone = phone.trim();
+    if (!phone) {
+      return res.status(400).json({ success: false, message: "Phone is required" });
+    }
+
+    phone = normalizePhone(phone);
 
     if (!validatePhone(phone)) {
       return res.status(400).json({
@@ -598,11 +629,16 @@ export const resendOtp = async (req, res) => {
       });
     }
 
-    if (phone === DEMO_USER_PHONE) {
+    if (isDemoPhone(phone)) {
       await ensureDemoUserExists(phone);
     }
 
-    const user = await User.findOne({ phone });
+    let user = await User.findOne({ phone });
+
+    if (user && user.isDeleted) {
+      await deleteUserCompleteData(user._id);
+      user = null;
+    }
 
     if (!user) {
       const blockedUser = await User.findOne({ phone, isBlocked: true });
@@ -628,7 +664,7 @@ export const resendOtp = async (req, res) => {
       });
     }
 
-    const otp = phone === DEMO_USER_PHONE ? DEMO_USER_OTP : Math.floor(100000 + Math.random() * 900000).toString();
+    const otp = isDemoPhone(phone) ? DEMO_USER_OTP : Math.floor(100000 + Math.random() * 900000).toString();
 
     // Save to OTP collection with type="login" for resend
     await OTP.findOneAndUpdate(
@@ -641,7 +677,7 @@ export const resendOtp = async (req, res) => {
       { upsert: true, returnDocument: "after" }
     );
 
-    const smsSent = phone === DEMO_USER_PHONE
+    const smsSent = isDemoPhone(phone)
       ? { success: true }
       : await sendOtpSms(phone, otp, "user");
 

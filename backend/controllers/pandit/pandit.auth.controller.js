@@ -6,11 +6,26 @@ import { login } from "../auth.controller.js";
 import { notifyAdmins, updateDeviceToken } from "../../utils/notification.service.js";
 import { uploadFileToFirebase } from "../../utils/firebaseUpload.js";
 import { sendOtpSms } from "../../utils/sms.service.js";
+import { deletePanditCompleteData } from "../admin/pandit.controller.js";
 
-const validatePhone = (phone) => /^[6-9]\d{9}$/.test(phone);
+export const normalizePhone = (phone = "") => {
+  let cleaned = String(phone || "").replace(/\D/g, "");
+  if (cleaned.length === 12 && cleaned.startsWith("91")) {
+    cleaned = cleaned.slice(2);
+  } else if (cleaned.length === 11 && cleaned.startsWith("0")) {
+    cleaned = cleaned.slice(1);
+  }
+  return cleaned;
+};
+
+const validatePhone = (phone) => {
+  const cleaned = normalizePhone(phone);
+  return /^[6-9]\d{9}$/.test(cleaned);
+};
+
 const isPanditBlocked = (p) => {
   if (!p) return false;
-  return p.status === "blocked" || p.isBlocked === true || (p.isDeleted === true && p.status !== "active");
+  return p.status === "blocked" || p.isBlocked === true;
 };
 const normalizeName = (value = "") => String(value || "").trim().toLowerCase();
 
@@ -29,13 +44,39 @@ const generatePanditToken = (panditId) => {
 };
 
 const buildOtp = () => Math.floor(100000 + Math.random() * 900000).toString();
-const DEMO_PANDIT_PHONE = process.env.DEMO_PANDIT_PHONE || "8888888888";
-const DEMO_PANDIT_OTP = process.env.DEMO_PANDIT_OTP || "123456";
 
-const ensureDemoPanditExists = async (phone) => {
-  const existingPandit = await Pandit.findOne({ phone });
+export const DEMO_PHONES = new Set([
+  "8888888888",
+  "9999999999",
+  ...(process.env.DEMO_USER_PHONE ? [process.env.DEMO_USER_PHONE] : []),
+  ...(process.env.DEMO_PANDIT_PHONE ? [process.env.DEMO_PANDIT_PHONE] : []),
+  ...(process.env.DEMO_PHONES ? process.env.DEMO_PHONES.split(",").map(p => p.trim()) : [])
+].map(p => normalizePhone(p)).filter(Boolean));
+
+export const DEMO_PANDIT_OTP = process.env.DEMO_OTP || process.env.DEMO_PANDIT_OTP || process.env.DEMO_USER_OTP || "123456";
+
+export const isDemoPhone = (phone) => {
+  const normalized = normalizePhone(phone);
+  return DEMO_PHONES.has(normalized);
+};
+
+export const ensureDemoPanditExists = async (phone = "8888888888") => {
+  const cleanPhone = normalizePhone(phone);
+  const existingPandit = await Pandit.findOne({ phone: cleanPhone });
   if (existingPandit) {
     let changed = false;
+    if (existingPandit.isBlocked) {
+      existingPandit.isBlocked = false;
+      changed = true;
+    }
+    if (existingPandit.isDeleted) {
+      existingPandit.isDeleted = false;
+      changed = true;
+    }
+    if (existingPandit.status !== "active") {
+      existingPandit.status = "active";
+      changed = true;
+    }
     if (!existingPandit.isPhoneVerified) {
       existingPandit.isPhoneVerified = true;
       changed = true;
@@ -46,10 +87,6 @@ const ensureDemoPanditExists = async (phone) => {
     }
     if (!existingPandit.isProfileComplete) {
       existingPandit.isProfileComplete = true;
-      changed = true;
-    }
-    if (existingPandit.status !== "active") {
-      existingPandit.status = "active";
       changed = true;
     }
     return changed ? existingPandit.save() : existingPandit;
@@ -291,7 +328,7 @@ export const requestPanditOtp = async (req, res) => {
       });
     }
 
-    phone = String(phone).replace(/\s+/g, "").trim();
+    phone = normalizePhone(phone);
 
     if (!validatePhone(phone)) {
       return res.status(400).json({
@@ -300,11 +337,17 @@ export const requestPanditOtp = async (req, res) => {
       });
     }
 
-    if (phone === DEMO_PANDIT_PHONE) {
+    if (isDemoPhone(phone)) {
       await ensureDemoPanditExists(phone);
     }
 
-    const existingPandit = await Pandit.findOne({ phone });
+    let existingPandit = await Pandit.findOne({ phone });
+
+    // If an old soft-deleted pandit exists, purge it completely so signup proceeds fresh
+    if (existingPandit && existingPandit.isDeleted) {
+      await deletePanditCompleteData(existingPandit._id);
+      existingPandit = null;
+    }
 
     if (isPanditBlocked(existingPandit)) {
       return res.status(403).json({
@@ -316,7 +359,7 @@ export const requestPanditOtp = async (req, res) => {
 
     const authType = existingPandit ? "login" : "signup";
 
-    const otp = phone === DEMO_PANDIT_PHONE ? DEMO_PANDIT_OTP : buildOtp();
+    const otp = isDemoPhone(phone) ? DEMO_PANDIT_OTP : buildOtp();
 
     await PanditOTP.findOneAndUpdate(
       { phone, type: authType },
@@ -334,7 +377,7 @@ export const requestPanditOtp = async (req, res) => {
 
     await PanditOTP.deleteMany({ phone, type: authType === "signup" ? "login" : "signup" });
 
-    const smsSent = phone === DEMO_PANDIT_PHONE
+    const smsSent = isDemoPhone(phone)
       ? { success: true }
       : await sendOtpSms(phone, otp, "pandit");
 
@@ -360,16 +403,17 @@ export const requestPanditOtp = async (req, res) => {
 
 export const verifyPanditOtp = async (req, res) => {
   try {
-    let { phone, otp, type } = req.body;
+    let { phone, otp, password, type } = req.body;
+    const tokenOtp = String(otp || password || "").trim();
 
-    if (!phone || !otp) {
+    if (!phone || !tokenOtp) {
       return res.status(400).json({
         success: false,
         message: "phone and otp are required",
       });
     }
 
-    phone = String(phone).replace(/\s+/g, "").trim();
+    phone = normalizePhone(phone);
 
     if (!validatePhone(phone)) {
       return res.status(400).json({
@@ -389,7 +433,7 @@ export const verifyPanditOtp = async (req, res) => {
       });
     }
 
-    if (phone === DEMO_PANDIT_PHONE && String(otp) === DEMO_PANDIT_OTP) {
+    if (isDemoPhone(phone) && tokenOtp === DEMO_PANDIT_OTP) {
       const pandit = await ensureDemoPanditExists(phone);
       await PanditOTP.deleteMany({ phone });
 
@@ -941,16 +985,6 @@ export const completePanditProfile = updatePanditProfile;
 
 export const deletePanditAccount = async (req, res) => {
   try {
-    const { reason = "", notes = "", acknowledge = false } = req.body || {};
-
-    const normalizedReason = String(reason || "").trim();
-    if (!normalizedReason) {
-      return res.status(400).json({
-        success: false,
-        message: "reason is required",
-      });
-    }
-
     const pandit = await Pandit.findById(req.pandit._id);
     if (!pandit) {
       return res.status(404).json({
@@ -959,18 +993,11 @@ export const deletePanditAccount = async (req, res) => {
       });
     }
 
-    pandit.isDeleted = true;
-    pandit.isBlocked = true;
-    pandit.status = "blocked";
-    pandit.deletedAt = new Date();
-    pandit.deleteReason = normalizedReason;
-    pandit.deleteReasonNotes = String(notes || "").trim();
-
-    await pandit.save();
+    await deletePanditCompleteData(pandit._id);
 
     return res.json({
       success: true,
-      message: "Account deleted successfully",
+      message: "Account and all associated data permanently deleted",
     });
   } catch (error) {
     return res.status(500).json({

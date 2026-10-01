@@ -16,7 +16,9 @@ const router = express.Router();
 
 router.get("/verify-token", checkTokenStatus);
 router.post("/send-otp", requestPanditOtp);
+router.post("/login", requestPanditOtp);
 router.post("/verify-otp", verifyPanditOtp);
+router.post("/verify", verifyPanditOtp);
 router.patch("/fcm-token", protectPandit, updatePanditFcmToken);
 
 router.get("/profile", protectPandit, getPanditProfile);
