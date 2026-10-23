@@ -1009,7 +1009,7 @@ export const createPanditBooking = async (req, res) => {
           walletAmount: walletUsed,
           amountDue,
         },
-        bookingStatus: "requested",
+        bookingStatus: "payment_pending",
       });
     }
 
@@ -1090,6 +1090,31 @@ export const createPanditBooking = async (req, res) => {
           userId: String(req.user._id),
         },
       }).catch(console.error);
+
+      // Notify Pandit for wallet booking since payment is already complete
+      try {
+        if (booking.pandit) {
+          const panditId = booking.pandit._id || booking.pandit;
+          await notifyPanditBookingAction(
+            panditId,
+            booking._id,
+            "booking_requested",
+            { _id: req.user._id, name: req.user.name || req.user.phone || "User" },
+            booking.ritual?.name || "Ritual"
+          );
+
+          const panditName = booking.pandit.fullName || booking.pandit.name || "Pandit";
+          await notifyPanditBookingStatusUpdate(
+            booking.user,
+            booking._id,
+            "requested",
+            { _id: panditId, name: panditName },
+            booking.ritual?.name || "Ritual"
+          );
+        }
+      } catch (notifErr) {
+        console.error("Wallet booking pandit notification error:", notifErr.message || notifErr);
+      }
     }
 
     res.status(201).json({
@@ -1751,10 +1776,13 @@ export const getPanditAssignedBookings = async (req, res) => {
 
     const filter = {
       pandit: req.pandit._id,
+      "payment.status": "paid",
     };
 
     if (status !== "all") {
       filter.bookingStatus = status;
+    } else {
+      filter.bookingStatus = { $ne: "payment_pending" };
     }
 
     if (search.trim()) {
@@ -1775,7 +1803,11 @@ export const getPanditAssignedBookings = async (req, res) => {
       .populate("recommendedKit", "name image kitPrice")
       .sort({ createdAt: -1 });
 
-    const allBookingsForStats = await PanditBooking.find({ pandit: req.pandit._id }).select("bookingStatus");
+    const allBookingsForStats = await PanditBooking.find({
+      pandit: req.pandit._id,
+      "payment.status": "paid",
+      bookingStatus: { $ne: "payment_pending" },
+    }).select("bookingStatus");
 
     res.json({
       success: true,
@@ -1815,6 +1847,7 @@ export const approvePanditBooking = async (req, res) => {
     const booking = await PanditBooking.findOne({
       _id: bookingId,
       pandit: req.pandit._id,
+      "payment.status": "paid",
     })
       .populate("user", "name phone email profileImage")
       .populate("ritualRef", "title description image durationHours status")
@@ -1824,7 +1857,7 @@ export const approvePanditBooking = async (req, res) => {
     if (!booking) {
       return res.status(404).json({
         success: false,
-        message: "Booking not found",
+        message: "Booking not found or payment is incomplete",
       });
     }
 
@@ -1897,6 +1930,7 @@ export const completePanditBooking = async (req, res) => {
     const booking = await PanditBooking.findOne({
       _id: bookingId,
       pandit: req.pandit._id,
+      "payment.status": "paid",
     })
       .populate("user", "name phone email profileImage")
       .populate("ritualRef", "title description image durationHours status")
@@ -1906,7 +1940,7 @@ export const completePanditBooking = async (req, res) => {
     if (!booking) {
       return res.status(404).json({
         success: false,
-        message: "Booking not found",
+        message: "Booking not found or payment is incomplete",
       });
     }
 
@@ -1999,6 +2033,7 @@ export const rejectPanditBooking = async (req, res) => {
     const booking = await PanditBooking.findOne({
       _id: bookingId,
       pandit: req.pandit._id,
+      "payment.status": "paid",
     })
       .populate("user", "name phone email profileImage")
       .populate("ritualRef", "title description image durationHours status")
@@ -2008,7 +2043,7 @@ export const rejectPanditBooking = async (req, res) => {
     if (!booking) {
       return res.status(404).json({
         success: false,
-        message: "Booking not found",
+        message: "Booking not found or payment is incomplete",
       });
     }
 
@@ -2233,9 +2268,9 @@ export const cancelPanditBookingByUser = async (req, res) => {
 
     await booking.save();
 
-    // Send notification to pandit
+    // Send notification to pandit only if booking was paid
     try {
-      if (booking.pandit) {
+      if (isPaid && booking.pandit) {
         await notifyPanditBookingAction(
           booking.pandit,
           booking._id,
@@ -2845,11 +2880,31 @@ export const autoCancelExpiredBookings = async () => {
     const cutoffTime = new Date(Date.now() - durationHours * 60 * 60 * 1000);
     const today = getIndianDateString();
     
-    // Find all requested bookings that either:
+    // Auto-cancel stale unpaid bookings (incomplete payments)
+    try {
+      await PanditBooking.updateMany(
+        {
+          bookingStatus: "payment_pending",
+          createdAt: { $lt: cutoffTime },
+        },
+        {
+          $set: {
+            bookingStatus: "cancelled",
+            "payment.status": "failed",
+            notes: "[System Auto-Cancelled] Incomplete payment expired.",
+          },
+        }
+      );
+    } catch (unpaidErr) {
+      console.error("[Auto-Cancel] Error cancelling unpaid bookings:", unpaidErr.message);
+    }
+
+    // Find all requested bookings that are PAID and either:
     // a) bookingDate is strictly in the past, or
     // b) createdAt is older than cutoffTime
     const expiredBookings = await PanditBooking.find({
       bookingStatus: "requested",
+      "payment.status": "paid",
       $or: [
         { bookingDate: { $lt: today, $ne: "" } },
         { createdAt: { $lt: cutoffTime } },

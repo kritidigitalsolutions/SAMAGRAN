@@ -10,7 +10,6 @@ import { notifyPanditBookingStatusUpdate, notifyPanditBookingAction } from "../.
 
 export const getAllPanditBookingsForAdmin = async (req, res) => {
   try {
-    await autoCancelExpiredBookings();
     const { search = "", status = "all", city = "", pincode = "" } = req.query;
 
     const filter = {};
@@ -57,24 +56,32 @@ export const getAllPanditBookingsForAdmin = async (req, res) => {
 
     const cities = normalizeCityList(rawCities);
 
-    await Promise.all(
-      bookings.map(async (booking) => {
-        const payment = booking?.payment || {};
-        const walletAmount = Number(payment.walletAmount || 0);
-        const amountDue = Number(payment.amountDue || 0);
-        const bookingAmount = Number(booking.bookingAmount || booking.dakshinaAmount || 0);
-        const isWalletPaid =
-          String(payment.method || "").toUpperCase() === "WALLET" ||
-          (amountDue <= 0 && walletAmount >= bookingAmount && bookingAmount > 0);
+    // Normalize wallet-paid booking status in response and persist once without triggering loops
+    bookings.forEach((booking) => {
+      const payment = booking?.payment || {};
+      const walletAmount = Number(payment.walletAmount || 0);
+      const amountDue = Number(payment.amountDue || 0);
+      const bookingAmount = Number(booking.bookingAmount || booking.dakshinaAmount || 0);
+      const isWalletPaid =
+        String(payment.method || "").toUpperCase() === "WALLET" ||
+        (amountDue <= 0 && walletAmount >= bookingAmount && bookingAmount > 0);
 
-        if (isWalletPaid && String(payment.status || "").toLowerCase() !== "paid") {
-          booking.payment.status = "paid";
-          booking.payment.gateway = booking.payment.gateway || "wallet";
-          booking.payment.paidAt = booking.payment.paidAt || new Date();
-          await booking.save();
-        }
-      })
-    );
+      if (isWalletPaid && String(payment.status || "").toLowerCase() !== "paid") {
+        booking.payment.status = "paid";
+        booking.payment.gateway = booking.payment.gateway || "wallet";
+        booking.payment.paidAt = booking.payment.paidAt || new Date();
+        PanditBooking.updateOne(
+          { _id: booking._id, "payment.status": { $ne: "paid" } },
+          {
+            $set: {
+              "payment.status": "paid",
+              "payment.gateway": booking.payment.gateway,
+              "payment.paidAt": booking.payment.paidAt,
+            },
+          }
+        ).exec().catch(() => {});
+      }
+    });
 
     res.json({
       success: true,

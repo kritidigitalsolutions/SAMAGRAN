@@ -71,7 +71,6 @@ export default function PanditBookings() {
   const [availableCities, setAvailableCities] = useState([]);
   const [pincodeFilter, setPincodeFilter] = useState("");
   const [availablePincodes, setAvailablePincodes] = useState([]);
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   const fetchBookings = useCallback(
     async (
@@ -79,9 +78,12 @@ export default function PanditBookings() {
       statusValue = "all",
       cityValue = "",
       pincodeValue = "",
+      isBackground = false,
     ) => {
       try {
-        setLoading(true);
+        if (!isBackground) {
+          setLoading(true);
+        }
         setError("");
 
         const res = await API.get("/admin/pandit-bookings", {
@@ -124,11 +126,15 @@ export default function PanditBookings() {
           return next;
         });
       } catch (err) {
-        setError(
-          err.response?.data?.message || "Unable to load pandit bookings.",
-        );
+        if (!isBackground) {
+          setError(
+            err.response?.data?.message || "Unable to load pandit bookings.",
+          );
+        }
       } finally {
-        setLoading(false);
+        if (!isBackground) {
+          setLoading(false);
+        }
       }
     },
     [],
@@ -136,14 +142,14 @@ export default function PanditBookings() {
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      fetchBookings(searchTerm, statusFilter, cityFilter, pincodeFilter);
+      fetchBookings(searchTerm, statusFilter, cityFilter, pincodeFilter, false);
     }, 350);
 
     return () => clearTimeout(timer);
-  }, [fetchBookings, searchTerm, statusFilter, cityFilter, pincodeFilter, refreshTrigger]);
+  }, [fetchBookings, searchTerm, statusFilter, cityFilter, pincodeFilter]);
 
   useAutoRefresh("admin_bookings_update", () => {
-    setRefreshTrigger((prev) => prev + 1);
+    fetchBookings(searchTerm, statusFilter, cityFilter, pincodeFilter, true);
   });
 
   useEffect(() => {

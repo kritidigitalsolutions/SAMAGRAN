@@ -45,9 +45,35 @@ export const attachSseMiddleware = (schema, events) => {
     }
   };
 
-  schema.post("save", notify);
-  schema.post("findOneAndUpdate", notify);
-  schema.post("updateOne", notify);
-  schema.post("updateMany", notify);
-  schema.post("deleteOne", notify);
+  schema.post("save", function(doc) {
+    if (doc) notify();
+  });
+
+  schema.post("findOneAndUpdate", function(doc) {
+    if (doc) notify();
+  });
+
+  schema.post("updateOne", function(res) {
+    if (res && (res.modifiedCount > 0 || res.upsertedCount > 0)) {
+      notify();
+    }
+  });
+
+  schema.post("updateMany", function(res) {
+    if (res && (res.modifiedCount > 0 || res.upsertedCount > 0)) {
+      notify();
+    }
+  });
+
+  schema.post("deleteOne", function(res) {
+    if (res && res.deletedCount > 0) {
+      notify();
+    }
+  });
+
+  schema.post("deleteMany", function(res) {
+    if (res && res.deletedCount > 0) {
+      notify();
+    }
+  });
 };

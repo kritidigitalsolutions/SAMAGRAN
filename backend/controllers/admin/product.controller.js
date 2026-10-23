@@ -368,6 +368,7 @@ export const getProducts = async (req, res) => {
       brandId,
       city,
       pincode,
+      stockStatus,
     } = req.query;
     const searchTerm = search?.trim();
 
@@ -443,6 +444,33 @@ export const getProducts = async (req, res) => {
       .filter((value) => Number.isFinite(value));
     if (gstList.length) {
       query["pricing.gstPercent"] = { $in: gstList };
+    }
+
+    if (stockStatus && stockStatus !== "all") {
+      if (stockStatus === "out_of_stock" || stockStatus === "0") {
+        const outOfStockClause = {
+          $or: [
+            { "stock.quantity": { $lte: 0 } },
+            { "stock.quantity": { $exists: false } },
+            { stock: { $exists: false } },
+          ],
+        };
+        if (query.$or) {
+          query.$and = [{ $or: query.$or }, outOfStockClause];
+          delete query.$or;
+        } else {
+          query.$or = outOfStockClause.$or;
+        }
+      } else if (stockStatus === "in_stock") {
+        query["stock.quantity"] = { $gt: 0 };
+      } else if (String(stockStatus).startsWith("lte_")) {
+        const threshold = Number(String(stockStatus).replace("lte_", ""));
+        if (!isNaN(threshold)) {
+          query["stock.quantity"] = { $lte: threshold };
+        }
+      } else if (!isNaN(Number(stockStatus))) {
+        query["stock.quantity"] = { $lte: Number(stockStatus) };
+      }
     }
 
     const totalProducts = await Item.countDocuments(query);

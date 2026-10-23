@@ -391,6 +391,8 @@ export default function Items() {
   const [subCategoryFilter, setSubCategoryFilter] = useState("all");
   const [cityFilter, setCityFilter] = useState("all");
   const [pincodeFilter, setPincodeFilter] = useState("all");
+  const [stockFilter, setStockFilter] = useState("all");
+  const [customStockQty, setCustomStockQty] = useState("");
   const [actionLoading, setActionLoading] = useState("");
   const [selectedItemIds, setSelectedItemIds] = useState([]);
   const [openMenuId, setOpenMenuId] = useState("");
@@ -435,6 +437,13 @@ export default function Items() {
       setLoading(true);
       setError("");
 
+      const effectiveStockStatus =
+        stockFilter === "custom"
+          ? customStockQty !== "" && !isNaN(Number(customStockQty))
+            ? `lte_${customStockQty}`
+            : "all"
+          : stockFilter;
+
       const res = await API.get("/items", {
         params: {
           limit: 100,
@@ -453,6 +462,7 @@ export default function Items() {
           // City filter — super-admin only
           ...(isSuperAdmin && cityFilter !== "all" ? { city: cityFilter } : {}),
           ...(isSuperAdmin && pincodeFilter !== "all" ? { pincode: pincodeFilter } : {}),
+          ...(effectiveStockStatus !== "all" ? { stockStatus: effectiveStockStatus } : {}),
         },
       });
 
@@ -476,6 +486,8 @@ export default function Items() {
     subCategoryFilter,
     cityFilter,
     pincodeFilter,
+    stockFilter,
+    customStockQty,
     isSuperAdmin,
   ]);
   useEffect(() => {
@@ -545,7 +557,30 @@ export default function Items() {
     ).sort();
   }, [categories]);
 
-  const filteredItems = items;
+  const filteredItems = useMemo(() => {
+    if (!stockFilter || stockFilter === "all") return items;
+    return items.filter((item) => {
+      const qty = Number(item.stock?.quantity ?? 0);
+      if (stockFilter === "out_of_stock" || stockFilter === "0") {
+        return qty <= 0;
+      }
+      if (stockFilter === "in_stock") {
+        return qty > 0;
+      }
+      if (stockFilter.startsWith("lte_")) {
+        const threshold = Number(stockFilter.replace("lte_", ""));
+        return !isNaN(threshold) && qty <= threshold;
+      }
+      if (stockFilter === "custom") {
+        if (customStockQty === "" || isNaN(Number(customStockQty))) return true;
+        return qty <= Number(customStockQty);
+      }
+      if (!isNaN(Number(stockFilter))) {
+        return qty <= Number(stockFilter);
+      }
+      return true;
+    });
+  }, [items, stockFilter, customStockQty]);
   const pagedItems = useMemo(() => {
     const start = (page - 1) * pageSize;
     return filteredItems.slice(start, start + pageSize);
@@ -1479,6 +1514,39 @@ export default function Items() {
               </label>
             )}
 
+            {/* Stock filter */}
+            <label className="items-filter">
+              <span>Stock</span>
+              <select
+                value={stockFilter}
+                onChange={handleSelectChange(setStockFilter)}
+                className="items-filter-input"
+              >
+                <option value="all">All</option>
+                <option value="out_of_stock">Out of Stock (0)</option>
+                <option value="lte_5">Low Stock (≤ 5)</option>
+                <option value="lte_10">Low Stock (≤ 10)</option>
+                <option value="lte_20">Low Stock (≤ 20)</option>
+                <option value="lte_50">Low Stock (≤ 50)</option>
+                <option value="in_stock">In Stock (&gt; 0)</option>
+                <option value="custom">Custom (≤ Number)</option>
+              </select>
+            </label>
+
+            {stockFilter === "custom" && (
+              <label className="items-filter">
+                <span>Max Stock (≤)</span>
+                <input
+                  type="number"
+                  min="0"
+                  value={customStockQty}
+                  onChange={(e) => setCustomStockQty(e.target.value)}
+                  placeholder="e.g. 15"
+                  className="items-filter-input"
+                />
+              </label>
+            )}
+
           </div>
         </div>
       )}
@@ -1685,7 +1753,23 @@ export default function Items() {
                     <td className="px-4 py-3">
                       {item.compliance?.hsnCode || "-"}
                     </td>
-                    <td className="px-4 py-3">{item.stock?.quantity ?? "-"}</td>
+                    <td className="px-4 py-3">
+                      {item.stock?.quantity !== undefined && item.stock?.quantity !== null ? (
+                        Number(item.stock.quantity) <= 0 ? (
+                          <span className="inline-flex items-center rounded-md bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700 dark:bg-red-500/20 dark:text-red-300">
+                            0 (Out)
+                          </span>
+                        ) : Number(item.stock.quantity) <= 5 ? (
+                          <span className="inline-flex items-center rounded-md bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800 dark:bg-amber-500/20 dark:text-amber-300">
+                            {item.stock.quantity} (Low)
+                          </span>
+                        ) : (
+                          item.stock.quantity
+                        )
+                      ) : (
+                        "-"
+                      )}
+                    </td>
                     <td className="px-4 py-3">
                       {item.compliance?.city || "-"}
                     </td>
