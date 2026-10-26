@@ -1,5 +1,6 @@
 import Banner from "../../models/banner.js";
 import { uploadFileToFirebase } from "../../utils/firebaseUpload.js";
+import { cacheDelByPrefix } from "../../utils/cache.js";
 
 export const createBenner = async (req, res) => {
   try {
@@ -55,6 +56,8 @@ export const createBenner = async (req, res) => {
       couponId: resolvedCouponId,
       offerId: resolvedOfferId,
     });
+
+    await cacheDelByPrefix("user-banners");
 
     return res.status(201).json({
       success: true,
@@ -193,6 +196,7 @@ export const updateBanner = async (req, res) => {
     }
 
     await banner.save();
+    await cacheDelByPrefix("user-banners");
 
     return res.json({
       success: true,
@@ -226,6 +230,7 @@ export const deleteBanner = async (req, res) => {
     }
 
     await Banner.findByIdAndDelete(req.params.id);
+    await cacheDelByPrefix("user-banners");
 
     return res.json({
       success: true,

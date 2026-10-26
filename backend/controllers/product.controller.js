@@ -162,16 +162,34 @@ export const getProductsUser = async (req, res) => {
       query["flags.isRitualItems"] = true;
     }
 
-    const totalProducts = await Item.countDocuments(query);
+    const pageNum = req.query.page ? Math.max(1, parseInt(req.query.page, 10)) : null;
+    const limitNum = req.query.limit ? Math.max(1, parseInt(req.query.limit, 10)) : null;
 
-    const items = await Item.find(query)
+    let itemsQuery = Item.find(query)
       .populate("categoryId", "name subCategory")
       .populate("subCategoryId", "name code status")
       .populate("brandId", "name subBrand")
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .lean();
+
+    let items;
+    let totalProducts;
+
+    if (pageNum && limitNum) {
+      const skip = (pageNum - 1) * limitNum;
+      [totalProducts, items] = await Promise.all([
+        Item.countDocuments(query),
+        itemsQuery.skip(skip).limit(limitNum),
+      ]);
+    } else {
+      items = await itemsQuery;
+      totalProducts = items.length;
+    }
 
     const products = items.map((item) => {
-      const { price, mrp } = item.pricing;
+      const pricing = item.pricing || {};
+      const price = pricing.price || 0;
+      const mrp = pricing.mrp || 0;
       const productImages = item.media?.image || item.media?.Images || [];
 
       const discountPercent =
@@ -217,7 +235,7 @@ export const getProductsUser = async (req, res) => {
           name: brandName,
           subBrand: brandSubBrand,
         },
-        inStock: item.stock.quantity > 0,
+        inStock: (item.stock?.quantity || 0) > 0,
         review: item.review || {
           "review": {     
             "comment": "",
@@ -235,11 +253,11 @@ export const getProductsUser = async (req, res) => {
             rating5: 0,
           },
         },
-        isRecommended: item.flags.isRecommended,
-        isMostPoojaEssentials: item.flags.isMostPoojaEssentials,
-        isMostUsed: item.flags.isMostUsed,
-        isEveryDayRitual: item.flags.isEveryDayRitual,
-        isRitualItems: item.flags.isRitualItems,
+        isRecommended: item.flags?.isRecommended || false,
+        isMostPoojaEssentials: item.flags?.isMostPoojaEssentials || false,
+        isMostUsed: item.flags?.isMostUsed || false,
+        isEveryDayRitual: item.flags?.isEveryDayRitual || false,
+        isRitualItems: item.flags?.isRitualItems || false,
       };
     });
 
@@ -250,7 +268,9 @@ export const getProductsUser = async (req, res) => {
         products,
         pagination: {
           totalProducts,
-          totalPages: Math.ceil(totalProducts),
+          totalPages: limitNum ? Math.ceil(totalProducts / limitNum) : 1,
+          currentPage: pageNum || 1,
+          limit: limitNum || totalProducts,
         },
       },
     });
@@ -268,7 +288,8 @@ export const getSingleProductUser = async (req, res) => {
     const item = await Item.findById(req.params.id)
       .populate("categoryId", "name subCategory")
       .populate("subCategoryId", "name code status")
-      .populate("brandId", "name subBrand");
+      .populate("brandId", "name subBrand")
+      .lean();
 
     if (!item || item.status !== "active") {
       return res.status(404).json({
@@ -277,7 +298,7 @@ export const getSingleProductUser = async (req, res) => {
       });
     }
 
-    const { price, mrp, currency } = item.pricing;
+    const { price = 0, mrp = 0, currency = "INR" } = item.pricing || {};
 
     const discountPercent =
       mrp && mrp > price

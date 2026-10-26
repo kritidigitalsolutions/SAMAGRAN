@@ -3,9 +3,11 @@ import { uploadFileToFirebase } from "../utils/firebaseUpload.js";
 
 export const getAllBannersForAdmin = async (req, res) => {
   try {
-    const banner = await Banner.find()
+    const banner = await Banner.find({ status: "active" })
       .populate("couponId")
-      .populate("offerId");
+      .populate("offerId")
+      .sort({ createdAt: -1 })
+      .lean();
 
     return res.json({
       success: true,

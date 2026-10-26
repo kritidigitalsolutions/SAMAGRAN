@@ -120,6 +120,18 @@ const itemSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// Performance indexes for faster catalog fetching and filtering
+itemSchema.index({ status: 1, createdAt: -1 });
+itemSchema.index({ status: 1, categoryId: 1, createdAt: -1 });
+itemSchema.index({ status: 1, subCategoryId: 1 });
+itemSchema.index({ status: 1, vendorId: 1 });
+itemSchema.index({ status: 1, "flags.isRecommended": 1 });
+itemSchema.index({ status: 1, "flags.isMostPoojaEssentials": 1 });
+itemSchema.index({ status: 1, "flags.isMostUsed": 1 });
+itemSchema.index({ status: 1, "flags.isEveryDayRitual": 1 });
+itemSchema.index({ status: 1, "flags.isRitualItems": 1 });
+
+
 itemSchema.pre("save", async function generateItemCode() {
   if (this.itemCode) {
     return;

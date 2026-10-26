@@ -22,11 +22,7 @@ export const getAllCategoriesUser = async (req, res) => {
     const city = resolveCity(req);
     const { search = "" } = req.query;
 
-    if (!city) {
-      return sendCityRequired(res);
-    }
-
-    const vendorFilter = await buildVendorCityFilter(city, req);
+    const vendorFilter = city ? await buildVendorCityFilter(city, req) : {};
 
     const filter = {
       status: "active",
@@ -39,12 +35,13 @@ export const getAllCategoriesUser = async (req, res) => {
     }
 
     const categories = await Category.find(filter)
-      .populate("vendorId", "name businessName email phone address")
-      .sort({ createdAt: -1 });
+      .select("name code image description subCategory status")
+      .sort({ createdAt: -1 })
+      .lean();
 
     return res.json({
       success: true,
-      city,
+      city: city || "all",
       count: categories.length,
       data: categories,
     });

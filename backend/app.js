@@ -1,5 +1,6 @@
 import express from "express";
 import cors from "cors";
+import compression from "compression";
 import bcrypt from "bcryptjs";
 import Admin from "./models/admin.model.js";
 import connectDB from "./config/db.js";
@@ -42,6 +43,7 @@ const isOriginAllowed = (origin) => {
 };
 
 // Middleware
+app.use(compression());
 app.use(
   cors({
     origin: (origin, callback) => {

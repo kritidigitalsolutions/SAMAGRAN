@@ -15,11 +15,7 @@ export const getAllSubCategoriesUser = async (req, res) => {
     const city = resolveCity(req);
     const { categoryId, search = "" } = req.query;
 
-    if (!city) {
-      return sendCityRequired(res);
-    }
-
-    const vendorFilter = await buildVendorCityFilter(city, req);
+    const vendorFilter = city ? await buildVendorCityFilter(city, req) : {};
 
     const filter = {
       status: "active",
@@ -36,17 +32,14 @@ export const getAllSubCategoriesUser = async (req, res) => {
     }
 
     const subCategories = await SubCategory.find(filter)
-      .populate("vendorId", "name businessName email phone address")
-      .populate({
-        path: "categoryId",
-        select: "name code vendorId",
-        populate: { path: "vendorId", select: "name businessName email phone address" },
-      })
-      .sort({ createdAt: -1 });
+      .select("name code image categoryId status")
+      .populate("categoryId", "name code")
+      .sort({ createdAt: -1 })
+      .lean();
 
     return res.json({
       success: true,
-      city,
+      city: city || "all",
       count: subCategories.length,
       data: subCategories,
     });

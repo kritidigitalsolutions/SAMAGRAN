@@ -1,6 +1,7 @@
 import { randomUUID } from "crypto";
 import { unlink } from "fs/promises";
 import path from "path";
+import sharp from "sharp";
 import { firebaseBucket, isFirebaseReady } from "../config/firebase.js";
 
 const DEFAULT_BUCKET_NAME = process.env.FIREBASE_STORAGE_BUCKET || "samagran-80a19.firebasestorage.app";
@@ -26,14 +27,37 @@ export const uploadFileToFirebase = async (file, { folder = "uploads" } = {}) =>
   }
 
   const safeFolder = String(folder || "uploads").replace(/^\/+|\/+$/g, "");
-  const extension = path.extname(file.originalname || file.path || "") || "";
+  let extension = path.extname(file.originalname || file.path || "") || "";
+  let uploadBuffer = file.buffer || null;
+  let uploadContentType = file.mimetype || "application/octet-stream";
+
+  // Auto-optimize image files to WebP with max 1200px and 80% quality
+  const isImage = file.mimetype && file.mimetype.startsWith("image/") && !file.mimetype.includes("svg");
+  if (isImage) {
+    try {
+      const input = file.buffer || file.path;
+      if (input) {
+        uploadBuffer = await sharp(input)
+          .rotate()
+          .resize({ width: 1200, height: 1200, fit: "inside", withoutEnlargement: true })
+          .webp({ quality: 80, effort: 4 })
+          .toBuffer();
+        uploadContentType = "image/webp";
+        extension = ".webp";
+        console.log(`🖼️ Image compressed to WebP: ${(uploadBuffer.length / 1024).toFixed(1)} KB`);
+      }
+    } catch (sharpErr) {
+      console.warn("⚠️ Sharp image compression failed, falling back to original:", sharpErr.message);
+    }
+  }
+
   const destination = `${safeFolder}/${Date.now()}-${randomUUID()}${extension}`;
 
   console.log("📤 Firebase upload starting for:", {
     folder: safeFolder,
     destination,
-    mimetype: file.mimetype,
-    size: file?.buffer?.length || file?.size,
+    mimetype: uploadContentType,
+    size: uploadBuffer?.length || file?.size,
   });
 
   const bucketName = firebaseBucket?.name || DEFAULT_BUCKET_NAME;
@@ -47,20 +71,27 @@ export const uploadFileToFirebase = async (file, { folder = "uploads" } = {}) =>
   const uploadOptions = {
     destination,
     metadata: {
-      contentType: file.mimetype || "application/octet-stream",
+      contentType: uploadContentType,
       cacheControl: "public, max-age=31536000",
     },
   };
 
   try {
-    if (file.buffer) {
+    if (uploadBuffer) {
       console.log("📤 Uploading buffer directly to Firebase Storage bucket...");
       const cloudFile = firebaseBucket.file(destination);
-      await cloudFile.save(file.buffer, uploadOptions);
+      await cloudFile.save(uploadBuffer, uploadOptions);
       try {
         await cloudFile.makePublic();
       } catch (aclErr) {
         console.warn("⚠️ Could not set ACL makePublic:", aclErr.message);
+      }
+      if (file.path) {
+        try {
+          await unlink(file.path);
+        } catch {
+          // ignore cleanup
+        }
       }
       const publicUrl = buildPublicUrl(bucketName, destination);
       console.log("✅ Firebase upload successful:", publicUrl);

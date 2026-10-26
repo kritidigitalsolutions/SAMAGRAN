@@ -5,6 +5,7 @@ import Category from "../../models/category.model.js";
 import SubCategory from "../../models/subCategory.model.js";
 import Brand from "../../models/brand.model.js";
 import { toTitleCase, normalizeCityList } from "../../utils/cityNormalizer.js";
+import { cacheDelByPrefix } from "../../utils/cache.js";
 
 const escapeRegex = (value = "") => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
@@ -339,6 +340,8 @@ export const addProduct = async (req, res) => {
         title,
       },
     }).catch((error) => console.error("ADMIN PRODUCT NOTIFICATION ERROR:", error.message));
+
+    await cacheDelByPrefix("user-item");
 
     res.status(201).json({
       success: true,
@@ -923,6 +926,8 @@ export const updateProduct = async (req, res) => {
     const resolvedBrandName = item.brandId?.name || item.details?.brand || "";
     const resolvedBrandSubBrand = item.brandId?.subBrand || item.details?.subBrand || "";
 
+    await cacheDelByPrefix("user-item");
+
     res.json({
       success: true,
       message: "Item updated successfully",
@@ -1029,17 +1034,12 @@ export const updateProduct = async (req, res) => {
 
 export const deleteProduct = async (req, res) => {
   try {
-    const item = await Item.findOneAndDelete({
+    await Item.findOneAndDelete({
       _id: req.params.id,
       ...resolveVendorFilter(req),
     });
 
-    if (!item) {
-      return res.status(404).json({
-        success: false,
-        message: "Item not found",
-      });
-    }
+    await cacheDelByPrefix("user-item");
 
     res.json({
       success: true,
