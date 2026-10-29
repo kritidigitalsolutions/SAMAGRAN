@@ -163,7 +163,7 @@ export default function Kits() {
     try {
       setLoadingProducts(true);
       // const res = await API.get("/items", { params: { limit: 200, status: "active" } });
-      const res = await API.get("/items", { params: { limit: 200, status: "all" } });
+      const res = await API.get("/items", { params: { limit: 0, status: "all" } });
       setProducts(res.data?.data?.products || []);
     } catch (err) {
       setError(err.response?.data?.message || "Unable to load products.");

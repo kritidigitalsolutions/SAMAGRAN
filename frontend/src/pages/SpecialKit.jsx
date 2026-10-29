@@ -137,7 +137,7 @@ export default function SpecialKit() {
 
       const res = await API.get("/items", {
         params: {
-          limit: 100,
+          limit: 0,
           ...(searchValue.trim() ? { search: searchValue.trim() } : {}),
         },
       });
@@ -237,7 +237,7 @@ export default function SpecialKit() {
 
       const res = await API.get("/items", {
         params: {
-          limit: 100,
+          limit: 0,
           ...(searchValue.trim() ? { search: searchValue.trim() } : {}),
         },
       });

@@ -374,8 +374,10 @@ export const getProducts = async (req, res) => {
       stockStatus,
     } = req.query;
     const searchTerm = search?.trim();
-
-    const skip = (page - 1) * limit;
+    const isUnlimited = limit === "all" || limit === "0" || Number(limit) === 0;
+    const limitNum = isUnlimited ? 0 : Math.max(1, parseInt(limit, 10) || 10);
+    const pageNum = Math.max(1, parseInt(page, 10) || 1);
+    const skip = isUnlimited ? 0 : (pageNum - 1) * limitNum;
 
     let query = {
       ...resolveVendorFilter(req),
@@ -478,14 +480,18 @@ export const getProducts = async (req, res) => {
 
     const totalProducts = await Item.countDocuments(query);
 
-    const items = await Item.find(query)
+    let itemsQuery = Item.find(query)
       .populate("categoryId", "name subCategory")
       .populate("subCategoryId", "name code status")
       .populate("brandId", "name subBrand")
       .populate("vendorId", "name businessName email phone address")
-      .skip(skip)
-      .limit(Number(limit))
       .sort({ createdAt: -1 });
+
+    if (!isUnlimited) {
+      itemsQuery = itemsQuery.skip(skip).limit(limitNum);
+    }
+
+    const items = await itemsQuery;
 
     const products = items.map((item) => {
       const { price, mrp, currency, basePrice, gstPercent: gRate, gstAmount, priceIncludesGst } = item.pricing;
@@ -578,9 +584,9 @@ export const getProducts = async (req, res) => {
         products,
         pagination: {
           totalProducts,
-          currentPage: Number(page),
-          totalPages: Math.ceil(totalProducts / limit),
-          limit: Number(limit),
+          currentPage: pageNum,
+          totalPages: isUnlimited ? 1 : Math.ceil(totalProducts / limitNum),
+          limit: isUnlimited ? totalProducts : limitNum,
         },
       },
     });

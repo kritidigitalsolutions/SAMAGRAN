@@ -446,7 +446,7 @@ export default function Items() {
 
       const res = await API.get("/items", {
         params: {
-          limit: 100,
+          limit: 0,
           status: statusFilter,
           ...(searchTerm.trim() ? { search: searchTerm.trim() } : {}),
           ...(brandFilter !== "all" ? { brandId: brandFilter } : {}),
@@ -922,7 +922,9 @@ export default function Items() {
           <p>Add, search, update and manage puja products from one panel.</p>
         </div>
         <div className="flex items-center gap-2">
-          <span className="items-count ">{items.length} items</span>
+          <span className="items-count ">
+            {filteredItems.length} {filteredItems.length === 1 ? "item" : "items"}
+          </span>
           <button
             type="button"
             onClick={() => setShowCreateForm((current) => !current)}

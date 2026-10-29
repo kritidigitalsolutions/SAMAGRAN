@@ -51,7 +51,7 @@ export default function Dashboard() {
         const [ordersRes, panditsRes, itemsRes] = await Promise.all([
           API.get("/admin/orders", { params: { limit: 120 } }),
           API.get("/admin/pandits", { params: { status: "all" } }),
-          API.get("/items", { params: { limit: 120 } }),
+          API.get("/items", { params: { limit: 0 } }),
         ]);
 
         setOrders(ordersRes.data?.data?.orders || []);
