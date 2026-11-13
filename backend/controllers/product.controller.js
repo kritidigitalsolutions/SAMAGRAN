@@ -162,14 +162,18 @@ export const getProductsUser = async (req, res) => {
       query["flags.isRitualItems"] = true;
     }
 
-    const isUnlimited = req.query.all === "true" || req.query.pagination === "false";
-    const pageNum = Math.max(1, parseInt(req.query.page, 10) || 1);
-    const limitNum = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 20));
+    const hasPagination = (req.query.page !== undefined || req.query.limit !== undefined) &&
+      req.query.all !== "true" &&
+      req.query.pagination !== "false";
 
     let items;
     let totalProducts;
+    let pageNum = 1;
+    let limitNum = 20;
 
-    if (!isUnlimited) {
+    if (hasPagination) {
+      pageNum = Math.max(1, parseInt(req.query.page, 10) || 1);
+      limitNum = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 20));
       const skip = (pageNum - 1) * limitNum;
       [totalProducts, items] = await Promise.all([
         Item.countDocuments(query),
@@ -190,6 +194,7 @@ export const getProductsUser = async (req, res) => {
         .sort({ createdAt: -1 })
         .lean();
       totalProducts = items.length;
+      limitNum = totalProducts;
     }
 
     const products = items.map((item) => {
@@ -274,11 +279,11 @@ export const getProductsUser = async (req, res) => {
         products,
         pagination: {
           totalProducts,
-          totalPages: isUnlimited ? 1 : Math.ceil(totalProducts / limitNum),
-          currentPage: isUnlimited ? 1 : pageNum,
-          limit: isUnlimited ? totalProducts : limitNum,
-          hasNextPage: isUnlimited ? false : pageNum < Math.ceil(totalProducts / limitNum),
-          hasPrevPage: isUnlimited ? false : pageNum > 1,
+          totalPages: hasPagination ? Math.ceil(totalProducts / limitNum) : 1,
+          currentPage: hasPagination ? pageNum : 1,
+          limit: limitNum,
+          hasNextPage: hasPagination ? pageNum < Math.ceil(totalProducts / limitNum) : false,
+          hasPrevPage: hasPagination ? pageNum > 1 : false,
         },
       },
     });

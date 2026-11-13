@@ -618,14 +618,18 @@ export const getRitualsForBooking = async (req, res) => {
       filter.$and = andConditions;
     }
 
-    const isUnlimited = req.query.all === "true" || req.query.pagination === "false";
-    const pageNum = Math.max(1, parseInt(req.query.page, 10) || 1);
-    const limitNum = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 20));
+    const hasPagination = (req.query.page !== undefined || req.query.limit !== undefined) &&
+      req.query.all !== "true" &&
+      req.query.pagination !== "false";
 
     let rituals;
     let totalRituals;
+    let pageNum = 1;
+    let limitNum = 20;
 
-    if (!isUnlimited) {
+    if (hasPagination) {
+      pageNum = Math.max(1, parseInt(req.query.page, 10) || 1);
+      limitNum = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 20));
       const skip = (pageNum - 1) * limitNum;
       [totalRituals, rituals] = await Promise.all([
         Ritual.countDocuments(filter),
@@ -640,9 +644,10 @@ export const getRitualsForBooking = async (req, res) => {
         .sort({ createdAt: -1 })
         .lean();
       totalRituals = rituals.length;
+      limitNum = totalRituals;
     }
 
-    const totalPages = isUnlimited ? 1 : Math.ceil(totalRituals / limitNum);
+    const totalPages = hasPagination ? Math.ceil(totalRituals / limitNum) : 1;
 
     const data = rituals.map((ritual) => ({
       _id: ritual._id,
@@ -662,10 +667,10 @@ export const getRitualsForBooking = async (req, res) => {
       pagination: {
         totalRituals,
         totalPages,
-        currentPage: isUnlimited ? 1 : pageNum,
-        limit: isUnlimited ? totalRituals : limitNum,
-        hasNextPage: isUnlimited ? false : pageNum < totalPages,
-        hasPrevPage: isUnlimited ? false : pageNum > 1,
+        currentPage: hasPagination ? pageNum : 1,
+        limit: limitNum,
+        hasNextPage: hasPagination ? pageNum < totalPages : false,
+        hasPrevPage: hasPagination ? pageNum > 1 : false,
       },
       data,
     });

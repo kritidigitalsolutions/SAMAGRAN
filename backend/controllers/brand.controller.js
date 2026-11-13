@@ -38,14 +38,18 @@ export const getAllBrandsUser = async (req, res) => {
       filter.$or = [{ name: regex }, { code: regex }];
     }
 
-    const isUnlimited = req.query.all === "true" || req.query.pagination === "false";
-    const pageNum = Math.max(1, parseInt(req.query.page, 10) || 1);
-    const limitNum = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 20));
+    const hasPagination = (req.query.page !== undefined || req.query.limit !== undefined) &&
+      req.query.all !== "true" &&
+      req.query.pagination !== "false";
 
     let brands;
     let totalBrands;
+    let pageNum = 1;
+    let limitNum = 20;
 
-    if (!isUnlimited) {
+    if (hasPagination) {
+      pageNum = Math.max(1, parseInt(req.query.page, 10) || 1);
+      limitNum = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 20));
       const skip = (pageNum - 1) * limitNum;
       [totalBrands, brands] = await Promise.all([
         Brand.countDocuments(filter),
@@ -62,9 +66,10 @@ export const getAllBrandsUser = async (req, res) => {
         .sort({ createdAt: -1 })
         .lean();
       totalBrands = brands.length;
+      limitNum = totalBrands;
     }
 
-    const totalPages = isUnlimited ? 1 : Math.ceil(totalBrands / limitNum);
+    const totalPages = hasPagination ? Math.ceil(totalBrands / limitNum) : 1;
 
     return res.json({
       success: true,
@@ -73,10 +78,10 @@ export const getAllBrandsUser = async (req, res) => {
       pagination: {
         totalBrands,
         totalPages,
-        currentPage: isUnlimited ? 1 : pageNum,
-        limit: isUnlimited ? totalBrands : limitNum,
-        hasNextPage: isUnlimited ? false : pageNum < totalPages,
-        hasPrevPage: isUnlimited ? false : pageNum > 1,
+        currentPage: hasPagination ? pageNum : 1,
+        limit: limitNum,
+        hasNextPage: hasPagination ? pageNum < totalPages : false,
+        hasPrevPage: hasPagination ? pageNum > 1 : false,
       },
       data: brands,
     });

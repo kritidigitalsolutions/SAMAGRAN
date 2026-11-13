@@ -598,6 +598,9 @@ export default function SpecialKit() {
 
           <label>
             Upload kit image
+            <span style={{ fontSize: "11px", color: "#8B1E3F", display: "block", marginTop: "2px" }}>
+              (Recommended: 800 × 450 px | 16:9 ratio. Image me title text na daalein taaki app me text na kate)
+            </span>
             <input
               type="file"
               accept="image/*"

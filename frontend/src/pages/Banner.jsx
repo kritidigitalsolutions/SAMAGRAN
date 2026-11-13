@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { FiEdit2, FiEye, FiMoreVertical, FiTrash2, FiX } from "react-icons/fi";
+import { FiEdit2, FiEye, FiMoreVertical, FiTrash2, FiX, FiUploadCloud, FiAlertTriangle, FiCheckCircle } from "react-icons/fi";
 import API from "../api/axios";
 import TablePagination from "../components/TablePagination";
 import TableMenuPopover from "../components/TableMenuPopover";
@@ -12,6 +12,7 @@ const initialForm = {
   status: "active",
   couponId: "",
   offerId: "",
+  existingImage: "",
 };
 
 export default function Banner() {
@@ -25,8 +26,35 @@ export default function Banner() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [imageFile, setImageFile] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState("");
+  const [imageMeta, setImageMeta] = useState(null);
   const [coupons, setCoupons] = useState([]);
   const [offers, setOffers] = useState([]);
+
+  useEffect(() => {
+    if (imageFile) {
+      const url = URL.createObjectURL(imageFile);
+      setPreviewUrl(url);
+      const img = new Image();
+      img.onload = () => {
+        const aspect = (img.width / img.height).toFixed(2);
+        setImageMeta({ width: img.width, height: img.height, aspect: Number(aspect) });
+      };
+      img.src = url;
+      return () => URL.revokeObjectURL(url);
+    } else if (form.existingImage) {
+      setPreviewUrl(form.existingImage);
+      const img = new Image();
+      img.onload = () => {
+        const aspect = (img.width / img.height).toFixed(2);
+        setImageMeta({ width: img.width, height: img.height, aspect: Number(aspect) });
+      };
+      img.src = form.existingImage;
+    } else {
+      setPreviewUrl("");
+      setImageMeta(null);
+    }
+  }, [imageFile, form.existingImage]);
   const [selectedBannerIds, setSelectedBannerIds] = useState([]);
   const [openMenuId, setOpenMenuId] = useState("");
   const [menuAnchorRect, setMenuAnchorRect] = useState(null);
@@ -92,6 +120,8 @@ export default function Banner() {
     setForm(initialForm);
     setEditingId("");
     setImageFile(null);
+    setPreviewUrl("");
+    setImageMeta(null);
   };
 
   const handleChange = (event) => {
@@ -115,9 +145,11 @@ export default function Banner() {
       status: banner?.status || "active",
       couponId: banner?.couponId?._id || banner?.couponId || "",
       offerId: banner?.offerId?._id || banner?.offerId || "",
+      existingImage: banner?.image || "",
     });
     setEditingId(banner?._id || "");
     setImageFile(null);
+    setPreviewUrl(banner?.image || "");
     setError("");
     setSuccess("");
     setShowForm(true);
@@ -362,14 +394,97 @@ export default function Banner() {
               />
             </div>
 
-            <div className="space-y-2 md:col-span-2">
-              <label className="text-sm font-medium">banner Image</label>
+            <div className="space-y-3 md:col-span-2">
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium">Banner Image</label>
+                <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">
+                  Recommended: 1080 × 432 px (~2.5 : 1 Ratio)
+                </span>
+              </div>
+
               <input
                 type="file"
                 accept="image/*"
                 onChange={(event) => setImageFile(event.target.files?.[0] || null)}
                 className="w-full rounded-xl border border-[#d9c3a2] bg-white px-3 py-2 text-sm outline-none focus:border-[#8B1E3F] dark:border-white/20 dark:bg-[#16181d] dark:text-white text-black"
               />
+
+              {/* Safe Area & Mobile Guideline Info */}
+              <div className="rounded-xl border border-amber-200/80 bg-amber-50/70 p-3 text-xs text-[#6e4b40] dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-200/90 space-y-1">
+                <div className="flex items-center gap-1.5 font-semibold text-amber-900 dark:text-amber-100">
+                  <FiAlertTriangle className="h-4 w-4 text-amber-600 flex-shrink-0" />
+                  <span>Image Crop Prevention Guide (App Display):</span>
+                </div>
+                <p>
+                  1. <strong>Aspect Ratio:</strong> Banners ko <strong>2.5 : 1</strong> ratio (jaise 1080 × 432 ya 1200 × 480 px) me banayein.
+                </p>
+                <p>
+                  2. <strong>Safe Zone:</strong> Text, logo aur key graphics ko center ke 80% area me rakhein. Edges (top, bottom, sides) par 10% margin chhodkar design karein taaki kisi bhi phone par text cut na ho.
+                </p>
+              </div>
+
+              {/* Live Preview Card */}
+              {previewUrl && (
+                <div className="space-y-2 rounded-2xl border border-[#d9c3a2] bg-[#fffbf2] p-4 dark:border-white/10 dark:bg-[#1d1f26]">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-semibold text-[#7b3a4b] dark:text-amber-300">
+                      📱 Mobile App Banner Preview:
+                    </span>
+                    {imageMeta && (
+                      <span className="text-gray-500 dark:text-gray-400">
+                        {imageMeta.width} × {imageMeta.height} px (Ratio: {imageMeta.aspect}:1)
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Aspect Ratio Validation Badge */}
+                  {imageMeta && (
+                    <div>
+                      {imageMeta.aspect >= 2.1 && imageMeta.aspect <= 2.9 ? (
+                        <div className="flex items-center gap-1.5 text-xs text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 px-2.5 py-1 rounded-lg">
+                          <FiCheckCircle className="h-3.5 w-3.5" />
+                          <span>Perfect! Is image ka aspect ratio mobile app banner slider ke anuroop hai.</span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1.5 text-xs text-amber-800 dark:text-amber-200 bg-amber-100/70 dark:bg-amber-950/40 px-2.5 py-1 rounded-lg">
+                          <FiAlertTriangle className="h-3.5 w-3.5 flex-shrink-0" />
+                          <span>
+                            Dhyan dein: Is image ka ratio ({imageMeta.aspect}:1) standard banner (2.5:1) se alag hai. App me upar/niche se thoda cut ho sakta hai.
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Mobile Preview Frame */}
+                  <div className="relative w-full max-w-lg mx-auto rounded-2xl overflow-hidden border-2 border-amber-300/60 shadow-md bg-white">
+                    <img
+                      src={previewUrl}
+                      alt="Banner Preview"
+                      className="w-full h-auto object-cover block"
+                      style={{ maxHeight: "200px" }}
+                    />
+                    <div className="absolute top-2 right-2 bg-black/60 text-white text-[10px] px-2 py-0.5 rounded-full backdrop-blur-sm">
+                      App Slider View
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setImageFile(null);
+                        setPreviewUrl("");
+                        setImageMeta(null);
+                        setForm((prev) => ({ ...prev, existingImage: "" }));
+                      }}
+                      className="text-xs text-red-600 hover:text-red-700 dark:text-red-400 font-medium underline"
+                    >
+                      Remove / Change Image
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="space-y-2 md:col-span-2 lg:col-span-1">

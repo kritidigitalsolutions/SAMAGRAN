@@ -1,7 +1,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import API from "../api/axios";
-import { FiEdit2, FiEye, FiMoreVertical, FiPlus, FiRefreshCw, FiSearch, FiTrash2, FiX } from "react-icons/fi";
+import { FiEdit2, FiEye, FiMoreVertical, FiPlus, FiRefreshCw, FiSearch, FiTrash2, FiX, FiAlertTriangle, FiCheckCircle } from "react-icons/fi";
 import TablePagination from "../components/TablePagination";
 import TableMenuPopover from "../components/TableMenuPopover";
 import { getStoredAdmin } from "../utils/auth";
@@ -53,6 +53,34 @@ export default function Kits() {
   const [editingKit, setEditingKit] = useState(null);
   const [viewKit, setViewKit] = useState(null);
   const [imageFile, setImageFile] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState("");
+  const [imageMeta, setImageMeta] = useState(null);
+
+  useEffect(() => {
+    if (imageFile) {
+      const url = URL.createObjectURL(imageFile);
+      setPreviewUrl(url);
+      const img = new Image();
+      img.onload = () => {
+        const aspect = (img.width / img.height).toFixed(2);
+        setImageMeta({ width: img.width, height: img.height, aspect: Number(aspect) });
+      };
+      img.src = url;
+      return () => URL.revokeObjectURL(url);
+    } else if (editingKit?.image) {
+      const url = formatImageUrl(editingKit.image);
+      setPreviewUrl(url);
+      const img = new Image();
+      img.onload = () => {
+        const aspect = (img.width / img.height).toFixed(2);
+        setImageMeta({ width: img.width, height: img.height, aspect: Number(aspect) });
+      };
+      img.src = url;
+    } else {
+      setPreviewUrl("");
+      setImageMeta(null);
+    }
+  }, [imageFile, editingKit?.image]);
   const [loading, setLoading] = useState(true);
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -215,6 +243,8 @@ export default function Kits() {
     setSelectedItems({});
     setImageFile(null);
     setEditingKit(null);
+    setPreviewUrl("");
+    setImageMeta(null);
   };
 
   const closeForm = () => {
@@ -577,9 +607,77 @@ export default function Kits() {
               </div>
             </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Image (optional)</label>
-              <input type="file" accept="image/*" onChange={(event) => setImageFile(event.target.files?.[0] || null)} className="w-full rounded-xl border border-dashed border-[#d9c3a2] bg-white px-3 py-2 text-sm dark:border-white/20 dark:bg-[#16181d] dark:text-white text-black" />
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium">Kit Image (optional)</label>
+                <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">
+                  Recommended: 800 × 450 px (16 : 9 Ratio)
+                </span>
+              </div>
+
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(event) => setImageFile(event.target.files?.[0] || null)}
+                className="w-full rounded-xl border border-dashed border-[#d9c3a2] bg-white px-3 py-2 text-sm dark:border-white/20 dark:bg-[#16181d] dark:text-white text-black"
+              />
+
+              {/* Kit Image Safe Area Guidelines */}
+              <div className="rounded-xl border border-amber-200/80 bg-amber-50/70 p-3 text-xs text-[#6e4b40] dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-200/90 space-y-1">
+                <div className="flex items-center gap-1.5 font-semibold text-amber-900 dark:text-amber-100">
+                  <FiAlertTriangle className="h-4 w-4 text-amber-600 flex-shrink-0" />
+                  <span>Kit Card Image Advice (App Display):</span>
+                </div>
+                <p>
+                  1. <strong>No Text in Image:</strong> Kit image ke andar title/price text na daalein (jaise "Satnarayan Katha Kit"), kyunki app card me title alag se likha hota hai aur image edges se cut sakti hai.
+                </p>
+                <p>
+                  2. <strong>Center Focus:</strong> Bhagwan ki photo ya samagri ko image ke theek center me rakhein (charo taraf thoda space chhodkar).
+                </p>
+              </div>
+
+              {/* Live Kit Image Preview */}
+              {previewUrl && (
+                <div className="space-y-2 rounded-2xl border border-[#d9c3a2] bg-[#fffbf2] p-3 dark:border-white/10 dark:bg-[#1d1f26]">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-semibold text-[#7b3a4b] dark:text-amber-300">
+                      📱 App Kit Card View Preview:
+                    </span>
+                    {imageMeta && (
+                      <span className="text-gray-500 dark:text-gray-400">
+                        {imageMeta.width} × {imageMeta.height} px (Ratio: {imageMeta.aspect}:1)
+                      </span>
+                    )}
+                  </div>
+
+                  {/* App Card Preview Frame */}
+                  <div className="relative w-full max-w-[280px] mx-auto rounded-xl overflow-hidden border border-amber-300/80 shadow-sm bg-white">
+                    <img
+                      src={previewUrl}
+                      alt="Kit Preview"
+                      className="w-full h-36 object-contain bg-amber-50/40 p-1"
+                    />
+                    <div className="p-2.5 bg-white border-t border-amber-100 text-left">
+                      <p className="text-xs font-bold text-gray-800 truncate">{form.name || "Sample Kit Name"}</p>
+                      <p className="text-[11px] text-emerald-600 font-semibold mt-0.5">{formatCurrency(form.kitPrice || 499)}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setImageFile(null);
+                        setPreviewUrl("");
+                        setImageMeta(null);
+                      }}
+                      className="text-xs text-red-600 hover:text-red-700 dark:text-red-400 font-medium underline"
+                    >
+                      Remove / Change Image
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="rounded-2xl border border-[#d9c3a2]/60 bg-[#fff8eb] p-4 text-sm dark:border-white/10 dark:bg-white/5">
