@@ -15,10 +15,11 @@ import {
   getRitualsForBooking,
   addPanditBookingReview,
 } from "../../controllers/panditBooking.controller.js";
+import { cacheMiddleware } from "../../utils/cache.js";
 
 const router = express.Router();
 
-router.get("/rituals", getRitualsForBooking);
+router.get("/rituals", cacheMiddleware({ ttl: 120, prefix: "user-rituals" }), getRitualsForBooking);
 router.get("/temples", gettemplesForBooking);
 router.get("/pandits", getPanditsForBooking);
 router.get("/pandits/:panditId", getPanditBookingProfile);

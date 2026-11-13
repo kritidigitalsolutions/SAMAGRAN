@@ -34,15 +34,46 @@ export const getAllCategoriesUser = async (req, res) => {
       filter.$or = [{ name: regex }, { code: regex }];
     }
 
-    const categories = await Category.find(filter)
-      .select("name code image description subCategory status")
-      .sort({ createdAt: -1 })
-      .lean();
+    const isUnlimited = req.query.all === "true" || req.query.pagination === "false";
+    const pageNum = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limitNum = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 20));
+
+    let categories;
+    let totalCategories;
+
+    if (!isUnlimited) {
+      const skip = (pageNum - 1) * limitNum;
+      [totalCategories, categories] = await Promise.all([
+        Category.countDocuments(filter),
+        Category.find(filter)
+          .select("name code image description subCategory status")
+          .sort({ createdAt: -1 })
+          .skip(skip)
+          .limit(limitNum)
+          .lean(),
+      ]);
+    } else {
+      categories = await Category.find(filter)
+        .select("name code image description subCategory status")
+        .sort({ createdAt: -1 })
+        .lean();
+      totalCategories = categories.length;
+    }
+
+    const totalPages = isUnlimited ? 1 : Math.ceil(totalCategories / limitNum);
 
     return res.json({
       success: true,
       city: city || "all",
       count: categories.length,
+      pagination: {
+        totalCategories,
+        totalPages,
+        currentPage: isUnlimited ? 1 : pageNum,
+        limit: isUnlimited ? totalCategories : limitNum,
+        hasNextPage: isUnlimited ? false : pageNum < totalPages,
+        hasPrevPage: isUnlimited ? false : pageNum > 1,
+      },
       data: categories,
     });
   } catch (err) {

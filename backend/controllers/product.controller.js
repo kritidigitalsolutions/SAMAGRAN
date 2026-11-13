@@ -162,27 +162,33 @@ export const getProductsUser = async (req, res) => {
       query["flags.isRitualItems"] = true;
     }
 
-    const pageNum = req.query.page ? Math.max(1, parseInt(req.query.page, 10)) : null;
-    const limitNum = req.query.limit ? Math.max(1, parseInt(req.query.limit, 10)) : null;
-
-    let itemsQuery = Item.find(query)
-      .populate("categoryId", "name subCategory")
-      .populate("subCategoryId", "name code status")
-      .populate("brandId", "name subBrand")
-      .sort({ createdAt: -1 })
-      .lean();
+    const isUnlimited = req.query.all === "true" || req.query.pagination === "false";
+    const pageNum = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limitNum = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 20));
 
     let items;
     let totalProducts;
 
-    if (pageNum && limitNum) {
+    if (!isUnlimited) {
       const skip = (pageNum - 1) * limitNum;
       [totalProducts, items] = await Promise.all([
         Item.countDocuments(query),
-        itemsQuery.skip(skip).limit(limitNum),
+        Item.find(query)
+          .populate("categoryId", "name subCategory")
+          .populate("subCategoryId", "name code status")
+          .populate("brandId", "name subBrand")
+          .sort({ createdAt: -1 })
+          .skip(skip)
+          .limit(limitNum)
+          .lean(),
       ]);
     } else {
-      items = await itemsQuery;
+      items = await Item.find(query)
+        .populate("categoryId", "name subCategory")
+        .populate("subCategoryId", "name code status")
+        .populate("brandId", "name subBrand")
+        .sort({ createdAt: -1 })
+        .lean();
       totalProducts = items.length;
     }
 
@@ -268,9 +274,11 @@ export const getProductsUser = async (req, res) => {
         products,
         pagination: {
           totalProducts,
-          totalPages: limitNum ? Math.ceil(totalProducts / limitNum) : 1,
-          currentPage: pageNum || 1,
-          limit: limitNum || totalProducts,
+          totalPages: isUnlimited ? 1 : Math.ceil(totalProducts / limitNum),
+          currentPage: isUnlimited ? 1 : pageNum,
+          limit: isUnlimited ? totalProducts : limitNum,
+          hasNextPage: isUnlimited ? false : pageNum < Math.ceil(totalProducts / limitNum),
+          hasPrevPage: isUnlimited ? false : pageNum > 1,
         },
       },
     });

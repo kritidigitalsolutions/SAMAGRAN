@@ -581,9 +581,68 @@ const mapPanditCard = (pandit) => ({
   state: pandit.address?.state || pandit.serviceTypes?.detectedLocation?.state || "",
 });
 
+const escapeRegex = (value = "") =>
+  String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
 export const getRitualsForBooking = async (req, res) => {
   try {
-    const rituals = await Ritual.find({ status: "active" }).sort({ createdAt: -1 });
+    const { search = "", city = "" } = req.query;
+    const filter = { status: "active" };
+
+    const andConditions = [];
+
+    if (search && search.trim()) {
+      const searchRegex = new RegExp(escapeRegex(search.trim()), "i");
+      andConditions.push({
+        $or: [
+          { title: searchRegex },
+          { description: searchRegex },
+        ],
+      });
+    }
+
+    const requestedCity = String(city || req.query.city || "").trim();
+    if (requestedCity) {
+      const cityRegex = new RegExp(`^${escapeRegex(requestedCity)}$`, "i");
+      andConditions.push({
+        $or: [
+          { city: cityRegex },
+          { city: "" },
+          { city: { $exists: false } },
+          { city: null },
+        ],
+      });
+    }
+
+    if (andConditions.length > 0) {
+      filter.$and = andConditions;
+    }
+
+    const isUnlimited = req.query.all === "true" || req.query.pagination === "false";
+    const pageNum = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limitNum = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 20));
+
+    let rituals;
+    let totalRituals;
+
+    if (!isUnlimited) {
+      const skip = (pageNum - 1) * limitNum;
+      [totalRituals, rituals] = await Promise.all([
+        Ritual.countDocuments(filter),
+        Ritual.find(filter)
+          .sort({ createdAt: -1 })
+          .skip(skip)
+          .limit(limitNum)
+          .lean(),
+      ]);
+    } else {
+      rituals = await Ritual.find(filter)
+        .sort({ createdAt: -1 })
+        .lean();
+      totalRituals = rituals.length;
+    }
+
+    const totalPages = isUnlimited ? 1 : Math.ceil(totalRituals / limitNum);
 
     const data = rituals.map((ritual) => ({
       _id: ritual._id,
@@ -600,6 +659,14 @@ export const getRitualsForBooking = async (req, res) => {
     res.json({
       success: true,
       count: data.length,
+      pagination: {
+        totalRituals,
+        totalPages,
+        currentPage: isUnlimited ? 1 : pageNum,
+        limit: isUnlimited ? totalRituals : limitNum,
+        hasNextPage: isUnlimited ? false : pageNum < totalPages,
+        hasPrevPage: isUnlimited ? false : pageNum > 1,
+      },
       data,
     });
   } catch (err) {

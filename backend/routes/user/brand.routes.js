@@ -4,12 +4,12 @@ import {
   getAllBrandsUser,
   getBrandById,
 } from "../../controllers/brand.controller.js";
+import { cacheMiddleware } from "../../utils/cache.js";
 
 const router = express.Router();
 
 // optionalProtect: allows guests (?city=) and authenticated users (selectedCity)
-router.get("/", optionalProtect, getAllBrandsUser);
-router.get("/:id", getBrandById);
-
+router.get("/", optionalProtect, cacheMiddleware({ ttl: 300, prefix: "user-brands" }), getAllBrandsUser);
+router.get("/:id", cacheMiddleware({ ttl: 300, prefix: "user-brand" }), getBrandById);
 
 export default router;
